@@ -29,9 +29,11 @@ function nowYM() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 }
 
+const MM_MONTHS = ['ဇန်နဝါရီ','ဖေဖော်ဝါရီ','မတ်','ဧပြီ','မေ','ဇွန်','ဇူလိုင်','သြဂုတ်','စက်တင်ဘာ','အောက်တိုဘာ','နိုဝင်ဘာ','ဒီဇင်ဘာ'];
+
 function displayMonth(ym: string) {
   const [y, m] = ym.split('-').map(Number);
-  return new Date(y, m - 1, 1).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+  return `${MM_MONTHS[m - 1]} ${y}`;
 }
 
 const ROLE_COLOR: Record<string, { bg: string; text: string }> = {
@@ -45,6 +47,17 @@ const ROLE_COLOR: Record<string, { bg: string; text: string }> = {
   Admin:      { bg: C.warningBg,    text: C.warning  },
 };
 const DEFAULT_ROLE_COLOR = { bg: C.border, text: C.textMuted };
+
+const ROLE_MM: Record<string, string> = {
+  TECHNICIAN: 'နည်းပညာဆရာ',
+  Technician: 'နည်းပညာဆရာ',
+  CASHIER:    'ငွေကောက်',
+  Cashier:    'ငွေကောက်',
+  MANAGER:    'မန်နေဂျာ',
+  Manager:    'မန်နေဂျာ',
+  ADMIN:      'Admin',
+  Admin:      'Admin',
+};
 
 export default function StaffReportScreen() {
   const [month,     setMonth]     = useState(nowYM());
@@ -85,11 +98,11 @@ export default function StaffReportScreen() {
       {/* Summary totals */}
       <View style={st.summaryRow}>
         <View style={[st.summaryCard, { borderColor: C.primary }]}>
-          <Text style={st.summaryLabel}>Total Sales</Text>
+          <Text style={st.summaryLabel}>စုစုပေါင်း ရောင်းချမှု</Text>
           <Text style={[st.summaryValue, { color: C.primary }]}>{fmt(totalSalesAmt)} Ks</Text>
         </View>
         <View style={[st.summaryCard, { borderColor: C.violet }]}>
-          <Text style={st.summaryLabel}>Total Service</Text>
+          <Text style={st.summaryLabel}>ဝန်ဆောင်မှု ဝင်ငွေ</Text>
           <Text style={[st.summaryValue, { color: C.violet }]}>{fmt(totalServiceAmt)} Ks</Text>
         </View>
       </View>
@@ -102,7 +115,7 @@ export default function StaffReportScreen() {
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(month, true); }} />}
           >
             {reports.length === 0
-              ? <Text style={st.empty}>No data for this month.</Text>
+              ? <Text style={st.empty}>ဤလအတွက် ဒေတာမရှိပါ</Text>
               : reports.map(r => <StaffCard key={r.staffId} report={r} />)
             }
           </ScrollView>
@@ -115,6 +128,7 @@ export default function StaffReportScreen() {
 function StaffCard({ report: r }: { report: StaffReportDTO }) {
   const roleKey  = r.staffRole ?? '';
   const roleCol  = ROLE_COLOR[roleKey] ?? DEFAULT_ROLE_COLOR;
+  const roleMM   = ROLE_MM[roleKey] ?? (roleKey || 'ဝန်ထမ်း');
   const hasSales = r.salesCount > 0;
   const hasJobs  = r.serviceJobsCount > 0;
 
@@ -128,47 +142,47 @@ function StaffCard({ report: r }: { report: StaffReportDTO }) {
         <View style={{ flex: 1 }}>
           <Text style={st.staffName}>{r.staffName}</Text>
           <View style={[st.roleBadge, { backgroundColor: roleCol.bg }]}>
-            <Text style={[st.roleText, { color: roleCol.text }]}>{roleKey || 'Staff'}</Text>
+            <Text style={[st.roleText, { color: roleCol.text }]}>{roleMM}</Text>
           </View>
         </View>
       </View>
 
       <View style={st.divider} />
 
-      {/* Sales section — show for Cashier / any with sales */}
+      {/* Sales section */}
       {hasSales && (
         <View style={st.section}>
           <View style={st.sectionHeader}>
             <Ionicons name="receipt-outline" size={14} color={C.primary} />
-            <Text style={[st.sectionTitle, { color: C.primary }]}>Sales</Text>
+            <Text style={[st.sectionTitle, { color: C.primary }]}>ရောင်းချမှု</Text>
           </View>
           <View style={st.statsRow}>
-            <Stat label="Count"  value={String(r.salesCount)} />
-            <Stat label="Amount" value={`${fmt(r.salesAmount)} Ks`} bold />
+            <Stat label="အရေအတွက်" value={String(r.salesCount)} />
+            <Stat label="ရောင်းရငွေ" value={`${fmt(r.salesAmount)} Ks`} bold />
           </View>
         </View>
       )}
 
-      {/* Service section — show for Technician / any with service jobs */}
+      {/* Service section */}
       {hasJobs && (
         <View style={[st.section, hasSales && { marginTop: 10 }]}>
           <View style={st.sectionHeader}>
             <Ionicons name="construct-outline" size={14} color={C.violet} />
-            <Text style={[st.sectionTitle, { color: C.violet }]}>Service Jobs</Text>
+            <Text style={[st.sectionTitle, { color: C.violet }]}>ဝန်ဆောင်မှု Jobs</Text>
           </View>
           <View style={st.statsRow}>
-            <Stat label="Total"      value={String(r.serviceJobsCount)} />
-            <Stat label="Completed"  value={String(r.completedJobsCount)} color={C.success} />
-            <Stat label="In Progress" value={String(r.inProgressJobsCount ?? 0)} color={C.violet} />
+            <Stat label="စုစုပေါင်း"    value={String(r.serviceJobsCount)} />
+            <Stat label="ပြီးဆုံး"       value={String(r.completedJobsCount)} color={C.success} />
+            <Stat label="လုပ်ဆဲ"         value={String(r.inProgressJobsCount ?? 0)} color={C.violet} />
           </View>
           <View style={[st.statsRow, { marginTop: 6 }]}>
-            <Stat label="Cancelled"  value={String(r.cancelledJobsCount ?? 0)} color={C.danger} />
-            <Stat label="Reworks"    value={String(r.reworkJobsCount ?? 0)} color={C.warning} />
-            <Stat label="Revenue"    value={`${fmt(r.serviceJobsAmount)} Ks`} bold />
+            <Stat label="ပယ်ဖျက်"       value={String(r.cancelledJobsCount ?? 0)} color={C.danger} />
+            <Stat label="ပြန်ပြင်"       value={String(r.reworkJobsCount ?? 0)} color={C.warning} />
+            <Stat label="ဝင်ငွေ"         value={`${fmt(r.serviceJobsAmount)} Ks`} bold />
           </View>
           {/* Completion rate bar */}
           <View style={st.rateRow}>
-            <Text style={st.rateLabel}>Completion</Text>
+            <Text style={st.rateLabel}>ပြီးနှုန်း</Text>
             <View style={st.rateBarBg}>
               <View style={[st.rateBarFill, { width: `${Math.min(r.completionRate ?? 0, 100)}%` as any }]} />
             </View>
@@ -178,7 +192,7 @@ function StaffCard({ report: r }: { report: StaffReportDTO }) {
       )}
 
       {!hasSales && !hasJobs && (
-        <Text style={st.noActivity}>No activity this month</Text>
+        <Text style={st.noActivity}>ဤလတွင် လုပ်ဆောင်မှုမရှိပါ</Text>
       )}
     </View>
   );
@@ -227,7 +241,7 @@ const st = StyleSheet.create({
   noActivity:  { fontSize: 12, color: C.textMuted, textAlign: 'center', paddingVertical: 6 },
 
   rateRow:     { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8 },
-  rateLabel:   { fontSize: 10, color: C.textMuted, fontWeight: '700', width: 60 },
+  rateLabel:   { fontSize: 10, color: C.textMuted, fontWeight: '700', width: 50 },
   rateBarBg:   { flex: 1, height: 6, backgroundColor: C.border, borderRadius: 3, overflow: 'hidden' },
   rateBarFill: { height: '100%', backgroundColor: C.success, borderRadius: 3 },
   ratePct:     { fontSize: 11, fontWeight: '800', color: C.success, width: 40, textAlign: 'right' },

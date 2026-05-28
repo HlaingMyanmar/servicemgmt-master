@@ -21,13 +21,13 @@ interface Props {
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
 const MENU_ITEMS: { icon: IoniconName; label: string; screen: string }[] = [
-  { icon: 'wallet-outline',             label: 'Expenses',         screen: 'Expense'        },
-  { icon: 'chatbubbles-outline',        label: 'Team Chat',        screen: 'Chat'           },
-  { icon: 'bar-chart-outline',          label: 'Staff Report',     screen: 'StaffReport'    },
-  { icon: 'trophy-outline',             label: 'Sales Ranking',    screen: 'SalesRanking'   },
-  { icon: 'shield-checkmark-outline',   label: 'Audit Logs',       screen: 'AuditLog'       },
-  { icon: 'person-circle-outline',      label: 'Account Settings', screen: 'AccountSettings'},
-  { icon: 'information-circle-outline', label: 'About',            screen: 'About'          },
+  { icon: 'wallet-outline',             label: 'ကုန်ကျစရိတ်များ',          screen: 'Expense'        },
+  { icon: 'chatbubbles-outline',        label: 'အဖွဲ့ Chat',               screen: 'Chat'           },
+  { icon: 'bar-chart-outline',          label: 'ဝန်ထမ်းစွမ်းဆောင်ရည်',   screen: 'StaffReport'    },
+  { icon: 'trophy-outline',             label: 'ရောင်းအကောင်းဆုံးစာရင်း', screen: 'SalesRanking'   },
+  { icon: 'shield-checkmark-outline',   label: 'Audit မှတ်တမ်းများ',       screen: 'AuditLog'       },
+  { icon: 'person-circle-outline',      label: 'အကောင့်သတ်မှတ်ချက်',      screen: 'AccountSettings'},
+  { icon: 'information-circle-outline', label: 'အကြောင်းအရာ',              screen: 'About'          },
 ];
 
 export default function DrawerMenu({ visible, onClose, onNavigate }: Props) {
@@ -105,7 +105,7 @@ export default function DrawerMenu({ visible, onClose, onNavigate }: Props) {
               <View style={[st.itemIconBox, { backgroundColor: '#FFF1F2' }]}>
                 <Ionicons name="log-out-outline" size={20} color={C.danger} />
               </View>
-              <Text style={[st.itemLabel, { color: C.danger }]}>Logout</Text>
+              <Text style={[st.itemLabel, { color: C.danger }]}>ထွက်ရန်</Text>
             </TouchableOpacity>
             <Text style={st.footerNote}>SSPD Management System</Text>
           </View>

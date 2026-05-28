@@ -191,7 +191,7 @@ const ProductManagement: React.FC = () => {
     if (!assignSerialsProduct) return;
     const serials = assignSerialsInputs.map((s) => s.trim());
     if (serials.some((s) => !s)) {
-      Swal.fire('Validation', 'All serial numbers must be filled in.', 'warning');
+      Swal.fire('စစ်ဆေးမှု', 'စီရီရယ်နံပါတ်အားလုံးကို ဖြည့်ရန်လိုသည်။', 'warning');
       return;
     }
     setAssignSerialsSaving(true);
@@ -203,7 +203,7 @@ const ProductManagement: React.FC = () => {
       setIsAssignSerialsOpen(false);
       setAssignSerialsProduct(null);
       await fetchData();
-      Swal.fire({ icon: 'success', title: 'Serials Assigned', text: `${serials.length} serial(s) created. Product is now serial-tracked.`, timer: 2500, showConfirmButton: false });
+      Swal.fire({ icon: 'success', title: 'စီရီရယ် သတ်မှတ်ပြီး', text: `${serials.length} ခု စီရီရယ်ဖန်တီးပြီး။ ကုန်ပစ္စည်းကို ယခုစီရီရယ်ဖြင့် ခြေရာခံမည်။`, timer: 2500, showConfirmButton: false });
     } catch (err: any) {
       Swal.fire('Error', err?.response?.data?.message || err.message || 'Failed to assign serials', 'error');
     } finally {
@@ -440,7 +440,7 @@ const ProductManagement: React.FC = () => {
 
   const handleOpenSerialModal = (product: ProductDTO) => {
     if (product.hasSerial === false) {
-      Swal.fire('Qty Only Product', 'This product uses quantity-only stock and does not require serial numbers.', 'info');
+      Swal.fire('အရေအတွက်သာ ကုန်ပစ္စည်း', 'ဤကုန်ပစ္စည်းသည် အရေအတွက်သာ ကုန်သိုလှောင်မှုကို အသုံးပြုသဖြင့် စီရီရယ်နံပါတ်မလိုအပ်ပါ။', 'info');
       return;
     }
     setSelectedProductForSerial(product);
@@ -459,9 +459,9 @@ const ProductManagement: React.FC = () => {
       });
       setNewSerialInput('');
       fetchSerials();
-      Swal.fire({ icon: 'success', title: 'Serial Registered', toast: true, position: 'top-end', showConfirmButton: false, timer: 1500 });
+      Swal.fire({ icon: 'success', title: 'စီရီရယ် မှတ်ပုံတင်ပြီး', toast: true, position: 'top-end', showConfirmButton: false, timer: 1500 });
     } catch (err: any) {
-      Swal.fire('Conflict', 'This Serial Number is already in use.', 'error');
+      Swal.fire('ပဋိပက္ခ', 'ဤစီရီရယ်နံပါတ်ကို အသုံးပြုပြီးဖြစ်သည်။', 'error');
     } finally {
       setSaving(false);
     }
@@ -469,9 +469,9 @@ const ProductManagement: React.FC = () => {
 
   const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.categoryId) { Swal.fire('Validation', 'Please select a Parent Category.', 'warning'); return; }
-    if (!formData.brandId) { Swal.fire('Validation', 'Please select a Manufacturer Brand.', 'warning'); return; }
-    if (!formData.unitId) { Swal.fire('Validation', 'Please select a Base Measurement Unit.', 'warning'); return; }
+    if (!formData.categoryId) { Swal.fire('စစ်ဆေးမှု', 'အမျိုးအစားတစ်ခု ရွေးပါ။', 'warning'); return; }
+    if (!formData.brandId) { Swal.fire('စစ်ဆေးမှု', 'ဘရန်းတစ်ခု ရွေးပါ။', 'warning'); return; }
+    if (!formData.unitId) { Swal.fire('စစ်ဆေးမှု', 'တိုင်းတာမှုယူနစ်တစ်ခု ရွေးပါ။', 'warning'); return; }
     setSaving(true);
     try {
       const payload: any = {
@@ -494,7 +494,7 @@ const ProductManagement: React.FC = () => {
       }
       setShowForm(false);
       fetchData();
-      Swal.fire({ icon: 'success', title: 'Registry Saved', toast: true, position: 'top-end', showConfirmButton: false, timer: 1500 });
+      Swal.fire({ icon: 'success', title: 'မှတ်တမ်းသိမ်းပြီး', toast: true, position: 'top-end', showConfirmButton: false, timer: 1500 });
     } catch (error: any) {
       Swal.fire('Error', error.message, 'error');
     } finally {
@@ -504,18 +504,19 @@ const ProductManagement: React.FC = () => {
 
   const handleDeleteSerial = async (id: number) => {
     const result = await Swal.fire({
-      title: 'Delete Unit?',
-      text: "Permanent action.",
+      title: 'ဖျက်မည်လား?',
+      text: "ပြန်မရနိုင်သောလုပ်ဆောင်ချက်",
       icon: 'warning',
       showCancelButton: true,
+      cancelButtonText: 'မလုပ်တော့',
       confirmButtonColor: '#ef4444',
-      confirmButtonText: 'Delete'
+      confirmButtonText: 'ဖျက်ရန်'
     });
     if (result.isConfirmed) {
       try {
         await productSerialService.delete(id);
         fetchSerials();
-        Swal.fire({ icon: 'success', title: 'Deleted', toast: true, position: 'top-end', showConfirmButton: false, timer: 1500 });
+        Swal.fire({ icon: 'success', title: 'ဖျက်ပြီး', toast: true, position: 'top-end', showConfirmButton: false, timer: 1500 });
       } catch (error: any) {
         Swal.fire('Error', error.message, 'error');
       }
@@ -544,9 +545,9 @@ const ProductManagement: React.FC = () => {
         </div>
         <div>
           <h2 className="text-lg font-black text-slate-800 uppercase tracking-tight">
-            {editingProduct ? 'Modify Registry Spec' : 'New Master Registration'}
+            {editingProduct ? 'မှတ်တမ်းသတ်မှတ်ချက် ပြင်ဆင်ရန်' : 'မာစတာ မှတ်ပုံတင်ချက် အသစ်'}
           </h2>
-          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Product Identity Definition</p>
+          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">ကုန်ပစ္စည်း သတ်မှတ်ချက်</p>
         </div>
       </div>
 
@@ -560,13 +561,13 @@ const ProductManagement: React.FC = () => {
             <div className="bg-white border border-slate-200 rounded-2xl">
               <div className="px-5 py-3 bg-slate-50 border-b border-slate-100 flex items-center gap-2 rounded-t-2xl">
                 <Package size={13} className="text-indigo-500" />
-                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Product Identity</span>
+                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">ကုန်ပစ္စည်း သတ်မှတ်ချက်</span>
               </div>
               <div className="p-5 space-y-4">
 
                 {/* Name */}
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Product Name <span className="text-rose-400">*</span></label>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">ကုန်ပစ္စည်းနာမည် <span className="text-rose-400">*</span></label>
                   <div className="relative group">
                     <Package className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-500 transition-colors" size={15} />
                     <input
@@ -580,30 +581,30 @@ const ProductManagement: React.FC = () => {
 
                 {/* Stock Tracking */}
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Stock Tracking Mode <span className="text-rose-400">*</span></label>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">ကုန်သိုလှောင်မှု နည်းလမ်း <span className="text-rose-400">*</span></label>
                   <div className="flex gap-2 p-1 bg-slate-100 rounded-xl border border-slate-200">
                     <button type="button"
                       onClick={() => setFormData({ ...formData, hasSerial: true, stockQty: 0 })}
                       className={`flex-1 py-2.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${formData.hasSerial !== false ? 'bg-white text-indigo-600 shadow border border-slate-200' : 'text-slate-400 hover:text-slate-600'}`}>
-                      Serial Required
+                      စီရီရယ်လိုအပ်သည်
                     </button>
                     <button type="button"
                       onClick={() => setFormData({ ...formData, hasSerial: false, stockQty: Number(formData.stockQty || 0) })}
                       className={`flex-1 py-2.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${formData.hasSerial === false ? 'bg-white text-indigo-600 shadow border border-slate-200' : 'text-slate-400 hover:text-slate-600'}`}>
-                      Qty Only
+                      အရေအတွက်သာ
                     </button>
                   </div>
                   <p className="text-[10px] text-slate-400 ml-1">
                     {formData.hasSerial !== false
-                      ? 'Each unit tracked individually by serial number.'
-                      : 'Stock tracked by total quantity — no per-unit serial.'}
+                      ? 'စီရီရယ်နံပါတ်ဖြင့် တစ်ခုချင်းစီ ခြေရာခံသည်။'
+                      : 'ကုန်သိုလှောင်မှုကို စုစုပေါင်းအရေအတွက်ဖြင့် ခြေရာခံသည် — စီရီရယ်မလိုအပ်ပါ။'}
                   </p>
                 </div>
 
                 {/* Opening Qty */}
                 {formData.hasSerial === false && (
                   <div className="space-y-1.5">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Opening Stock Quantity</label>
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">ကနဦး ကုန်သိုလှောင်မှု အရေအတွက်</label>
                     <div className="relative group">
                       <Box className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-500 transition-colors" size={15} />
                       <input type="number" min="0"
@@ -623,11 +624,11 @@ const ProductManagement: React.FC = () => {
             <div className="bg-white border border-slate-200 rounded-2xl">
               <div className="px-5 py-3 bg-slate-50 border-b border-slate-100 flex items-center gap-2 rounded-t-2xl">
                 <DollarSign size={13} className="text-emerald-500" />
-                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Pricing & Thresholds</span>
+                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">ဈေးနှုန်းနှင့် အနည်းဆုံးပမာဏ</span>
                 {editingProduct && (
                   <button type="button" onClick={handleOpenPricePicker}
                     className="ml-auto flex items-center gap-1.5 px-3 py-1 bg-indigo-50 text-indigo-700 border border-indigo-100 hover:bg-indigo-600 hover:text-white rounded-lg text-[10px] font-black uppercase transition-all">
-                    <ClipboardList size={11} /> Pick from Purchase
+                    <ClipboardList size={11} /> ဝယ်ယူမှုမှ ရွေးချယ်ရန်
                   </button>
                 )}
               </div>
@@ -635,7 +636,7 @@ const ProductManagement: React.FC = () => {
 
                 {/* Selling Price */}
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Selling Price <span className="text-rose-400">*</span></label>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">ရောင်းဈေး <span className="text-rose-400">*</span></label>
                   <div className="relative group">
                     <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-emerald-500 transition-colors" size={14} />
                     <input type="number" required min="0"
@@ -650,7 +651,7 @@ const ProductManagement: React.FC = () => {
 
                 {/* Cost Price */}
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Cost Price</label>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">ကုန်ကျစရိတ်</label>
                   <div className="relative group">
                     <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-500 transition-colors" size={14} />
                     <input type="number" min="0"
@@ -665,7 +666,7 @@ const ProductManagement: React.FC = () => {
 
                 {/* Reorder Level */}
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Reorder Level</label>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">ပြန်မှာယူမည့် အဆင့်</label>
                   <div className="relative group">
                     <AlertCircle className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-amber-500 transition-colors" size={14} />
                     <input type="number" min="0"
@@ -675,12 +676,12 @@ const ProductManagement: React.FC = () => {
                       placeholder="0"
                     />
                   </div>
-                  <p className="text-[9px] text-slate-400 ml-1">Low stock alert threshold</p>
+                  <p className="text-[9px] text-slate-400 ml-1">ကုန်သိုလှောင်မှု နည်းပါးသတိပေး သတ်မှတ်ချက်</p>
                 </div>
 
                 {/* Warranty Months */}
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Base Warranty</label>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">အခြေခံ အာမခံ</label>
                   <div className="relative group">
                     <Send className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-500 transition-colors" size={14} />
                     <input type="number" min="0"
@@ -690,20 +691,20 @@ const ProductManagement: React.FC = () => {
                       placeholder="0"
                     />
                   </div>
-                  <p className="text-[9px] text-slate-400 ml-1">Months only. Use 0 if you want custom terms only.</p>
+                  <p className="text-[9px] text-slate-400 ml-1">လ သာသတ်မှတ်ပါ။ စိတ်ကြိုက်စည်းကမ်းသာဆိုလျှင် ၀ ထည့်ပါ။</p>
                 </div>
 
                 {/* Warranty Terms */}
                 <div className="col-span-2 space-y-1.5">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Warranty Terms</label>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">အာမခံ စည်းကမ်း</label>
                   <input
                     type="text"
                     value={formData.warrantyTerms ?? ''}
                     onChange={(e) => setFormData({ ...formData, warrantyTerms: e.target.value })}
                     className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:border-indigo-500 focus:bg-white transition-all"
-                    placeholder="Eg. 7 days service warranty / 1 month checking warranty / No warranty"
+                    placeholder="ဥပမာ: ၇ ရက် ဝန်ဆောင်မှုအာမခံ / ၁ လ စစ်ဆေးမှုအာမခံ / အာမခံမပါ"
                   />
-                  <p className="text-[9px] text-slate-400 ml-1">Flexible text for second items and mixed warranty policies.</p>
+                  <p className="text-[9px] text-slate-400 ml-1">ဒုတိယမြောက်ပစ္စည်းနှင့် ကွဲပြားသောအာမခံမူဝါဒများအတွက် ပြောင်းလွယ်သောစာသား။</p>
                 </div>
 
               </div>
@@ -718,32 +719,32 @@ const ProductManagement: React.FC = () => {
             <div className="bg-white border border-slate-200 rounded-2xl">
               <div className="px-5 py-3 bg-slate-50 border-b border-slate-100 flex items-center gap-2 rounded-t-2xl">
                 <Layers size={13} className="text-indigo-500" />
-                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Classification & Catalog</span>
+                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">အမျိုးအစား သတ်မှတ်ချက်</span>
               </div>
               <div className="p-5 space-y-4">
 
                 {/* Condition */}
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Item Condition <span className="text-rose-400">*</span></label>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">ပစ္စည်း အခြေအနေ <span className="text-rose-400">*</span></label>
                   <div className="flex gap-2 p-1 bg-slate-100 rounded-xl border border-slate-200">
                     <button type="button" onClick={() => setFormData({...formData, productType: ProductType.NEW})}
                       className={`flex-1 py-2.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${formData.productType === ProductType.NEW ? 'bg-white text-indigo-600 shadow border border-slate-200' : 'text-slate-400 hover:text-slate-600'}`}>
-                      New
+                      အသစ်
                     </button>
                     <button type="button" onClick={() => setFormData({...formData, productType: ProductType.SECOND})}
                       className={`flex-1 py-2.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${formData.productType === ProductType.SECOND ? 'bg-white text-amber-600 shadow border border-slate-200' : 'text-slate-400 hover:text-slate-600'}`}>
-                      Second
+                      အသုံးပြုပြီး
                     </button>
                     <button type="button" onClick={() => setFormData({...formData, productType: ProductType.SECOND_NEW})}
                       className={`flex-1 py-2.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${formData.productType === ProductType.SECOND_NEW ? 'bg-white text-violet-600 shadow border border-slate-200' : 'text-slate-400 hover:text-slate-600'}`}>
-                      Second New
+                      အသစ်နှင့်တူသော
                     </button>
                   </div>
                 </div>
 
                 {/* Category */}
                 <div className="space-y-1.5 relative">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Category <span className="text-rose-400">*</span></label>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">အမျိုးအစား <span className="text-rose-400">*</span></label>
                   <div className="relative group">
                     <Layers className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-500 transition-colors z-10" size={15} />
                     <input type="text"
@@ -751,7 +752,7 @@ const ProductManagement: React.FC = () => {
                       onFocus={() => { setCategoryOpen(true); setCategorySearch(''); }}
                       onChange={(e) => { setCategorySearch(e.target.value); setCategoryOpen(true); }}
                       onBlur={() => setTimeout(() => setCategoryOpen(false), 150)}
-                      placeholder="Search category..."
+                      placeholder="အမျိုးအစား ရှာပါ..."
                       className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-indigo-500 focus:bg-white transition-all"
                     />
                   </div>
@@ -764,7 +765,7 @@ const ProductManagement: React.FC = () => {
                         </div>
                       ))}
                       {flatCategoryOptions.filter(c => c.displayName.toLowerCase().includes((categorySearch || '').toLowerCase())).length === 0 && (
-                        <div className="px-4 py-3 text-xs text-slate-400 font-bold">No results found</div>
+                        <div className="px-4 py-3 text-xs text-slate-400 font-bold">ရလဒ်မတွေ့ပါ</div>
                       )}
                     </div>
                   )}
@@ -772,7 +773,7 @@ const ProductManagement: React.FC = () => {
 
                 {/* Brand */}
                 <div className="space-y-1.5 relative">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Brand <span className="text-rose-400">*</span></label>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">ဘရန်း <span className="text-rose-400">*</span></label>
                   <div className="relative group">
                     <Tag className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-500 transition-colors z-10" size={15} />
                     <input type="text"
@@ -780,7 +781,7 @@ const ProductManagement: React.FC = () => {
                       onFocus={() => { setBrandOpen(true); setBrandSearch(''); }}
                       onChange={(e) => { setBrandSearch(e.target.value); setBrandOpen(true); }}
                       onBlur={() => setTimeout(() => setBrandOpen(false), 150)}
-                      placeholder="Search brand..."
+                      placeholder="ဘရန်း ရှာပါ..."
                       className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-indigo-500 focus:bg-white transition-all"
                     />
                   </div>
@@ -793,7 +794,7 @@ const ProductManagement: React.FC = () => {
                         </div>
                       ))}
                       {brands.filter(b => b.name.toLowerCase().includes((brandSearch || '').toLowerCase())).length === 0 && (
-                        <div className="px-4 py-3 text-xs text-slate-400 font-bold">No results found</div>
+                        <div className="px-4 py-3 text-xs text-slate-400 font-bold">ရလဒ်မတွေ့ပါ</div>
                       )}
                     </div>
                   )}
@@ -801,7 +802,7 @@ const ProductManagement: React.FC = () => {
 
                 {/* Unit */}
                 <div className="space-y-1.5 relative">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Unit of Measure <span className="text-rose-400">*</span></label>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">တိုင်းတာမှု ယူနစ် <span className="text-rose-400">*</span></label>
                   <div className="relative group">
                     <Ruler className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-500 transition-colors z-10" size={15} />
                     <input type="text"
@@ -809,7 +810,7 @@ const ProductManagement: React.FC = () => {
                       onFocus={() => { setUnitOpen(true); setUnitSearch(''); }}
                       onChange={(e) => { setUnitSearch(e.target.value); setUnitOpen(true); }}
                       onBlur={() => setTimeout(() => setUnitOpen(false), 150)}
-                      placeholder="e.g. Piece, Box, Kg..."
+                      placeholder="ဥပမာ: ခု၊ ဘောက်စ်၊ ကီလို..."
                       className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-indigo-500 focus:bg-white transition-all"
                     />
                   </div>
@@ -822,7 +823,7 @@ const ProductManagement: React.FC = () => {
                         </div>
                       ))}
                       {units.filter(u => u.unitName.toLowerCase().includes((unitSearch || '').toLowerCase())).length === 0 && (
-                        <div className="px-4 py-3 text-xs text-slate-400 font-bold">No results found</div>
+                        <div className="px-4 py-3 text-xs text-slate-400 font-bold">ရလဒ်မတွေ့ပါ</div>
                       )}
                     </div>
                   )}
@@ -835,15 +836,15 @@ const ProductManagement: React.FC = () => {
             <div className="bg-white border border-slate-200 rounded-2xl">
               <div className="px-5 py-3 bg-slate-50 border-b border-slate-100 flex items-center gap-2 rounded-t-2xl">
                 <Info size={13} className="text-slate-400" />
-                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Remarks</span>
-                <span className="text-[10px] text-slate-400">(optional)</span>
+                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">မှတ်ချက်</span>
+                <span className="text-[10px] text-slate-400">(ရွေးချယ်နိုင်)</span>
               </div>
               <div className="p-5">
                 <textarea rows={4}
                   value={formData.remark}
                   onChange={(e) => setFormData({...formData, remark: e.target.value})}
                   className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:border-indigo-500 focus:bg-white transition-all resize-none"
-                  placeholder="Technical notes, observations, descriptions..."
+                  placeholder="နည်းပညာ မှတ်ချက်များ၊ တွေ့ရှိချက်များ၊ ဖော်ပြချက်များ..."
                 />
               </div>
             </div>
@@ -852,8 +853,8 @@ const ProductManagement: React.FC = () => {
             <div className="bg-white border border-slate-200 rounded-2xl">
               <div className="px-5 py-3 bg-slate-50 border-b border-slate-100 flex items-center gap-2 rounded-t-2xl">
                 <Camera size={13} className="text-indigo-500" />
-                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Product Photo</span>
-                <span className="ml-auto text-[9px] text-slate-400 font-bold">auto-compressed · max 320×320</span>
+                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">ကုန်ပစ္စည်း ဓာတ်ပုံ</span>
+                <span className="ml-auto text-[9px] text-slate-400 font-bold">အလိုအလျောက်ချုံ့ · အများဆုံး ၃၂၀×၃၂၀</span>
               </div>
               <div className="p-5">
                 {formPhoto ? (
@@ -861,16 +862,16 @@ const ProductManagement: React.FC = () => {
                     <img src={formPhoto} alt="product" className="w-28 h-28 object-contain rounded-xl border border-slate-200 bg-slate-50" />
                     <div className="flex flex-col gap-2 pt-1">
                       <label className="inline-flex items-center gap-2 px-3 py-1.5 border border-indigo-200 bg-indigo-50 text-indigo-700 text-xs font-bold rounded-lg cursor-pointer hover:bg-indigo-100 transition-all">
-                        <Camera size={13} /> Change Photo
+                        <Camera size={13} /> ဓာတ်ပုံ ပြောင်းရန်
                         <input type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
                       </label>
                       <button type="button" onClick={() => setViewFormPhoto(formPhoto)}
                         className="inline-flex items-center gap-2 px-3 py-1.5 border border-indigo-200 bg-indigo-50 text-indigo-700 text-xs font-bold rounded-lg hover:bg-indigo-100 transition-all">
-                        <Eye size={13} /> View Photo
+                        <Eye size={13} /> ဓာတ်ပုံ ကြည့်ရန်
                       </button>
                       <button type="button" onClick={() => { setFormPhoto(undefined); setPhotoChanged(true); }}
                         className="inline-flex items-center gap-2 px-3 py-1.5 border border-rose-200 bg-rose-50 text-rose-700 text-xs font-bold rounded-lg hover:bg-rose-100 transition-all">
-                        <X size={13} /> Remove
+                        <X size={13} /> ဖယ်ရှားရန်
                       </button>
                     </div>
                   </div>
@@ -880,8 +881,8 @@ const ProductManagement: React.FC = () => {
                       <Camera size={22} className="text-indigo-400" />
                     </div>
                     <div className="text-center">
-                      <p className="text-sm font-bold text-slate-600">Click to upload photo</p>
-                      <p className="text-xs text-slate-400 mt-1">JPG, PNG, WEBP — auto-compressed to ~30KB</p>
+                      <p className="text-sm font-bold text-slate-600">ဓာတ်ပုံတင်ရန် နှိပ်ပါ</p>
+                      <p className="text-xs text-slate-400 mt-1">JPG, PNG, WEBP — ~30KB အထိ အလိုအလျောက်ချုံ့</p>
                     </div>
                     <input type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
                   </label>
@@ -893,12 +894,12 @@ const ProductManagement: React.FC = () => {
             <div className="flex gap-3">
               <button type="button" onClick={() => setShowForm(false)}
                 className="flex items-center gap-2 px-5 py-3 border border-slate-200 rounded-xl text-xs font-black uppercase tracking-widest bg-white text-slate-500 hover:bg-slate-50 transition-all shadow-sm">
-                <ArrowLeft size={14} /> Back
+                <ArrowLeft size={14} /> နောက်သို့
               </button>
               <button type="submit" disabled={saving}
                 className="flex-1 py-3 bg-indigo-600 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-lg shadow-indigo-600/25 active:scale-[0.98] transition-all flex items-center justify-center gap-2 hover:bg-indigo-700">
                 {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-                {editingProduct ? 'Save Changes' : 'Register Product'}
+                {editingProduct ? 'ပြောင်းလဲချက် သိမ်းရန်' : 'ကုန်ပစ္စည်း မှတ်ပုံတင်ရန်'}
               </button>
             </div>
 
@@ -924,7 +925,7 @@ const ProductManagement: React.FC = () => {
               onClick={() => setViewFormPhoto(null)}
               className="px-5 py-2 bg-white/10 hover:bg-white/20 text-white text-xs font-bold rounded-full border border-white/20 transition-all"
             >
-              Close
+              ပိတ်ရန်
             </button>
           </div>
         </div>
@@ -937,7 +938,7 @@ const ProductManagement: React.FC = () => {
             <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/60 shrink-0">
               <div>
                 <h3 className="text-[13px] font-black text-slate-800 uppercase tracking-tight flex items-center gap-2">
-                  <ClipboardList size={15} className="text-indigo-600" /> Purchase History — {editingProduct?.name}
+                  <ClipboardList size={15} className="text-indigo-600" /> ဝယ်ယူမှု မှတ်တမ်း — {editingProduct?.name}
                 </h3>
                 <p className="text-[10px] text-slate-400 font-bold uppercase mt-0.5 tracking-widest">
                   ဝယ်ထားသော purchase တစ်ခုကို ရွေးပြီး price သတ်မှတ်ပါ
@@ -951,24 +952,24 @@ const ProductManagement: React.FC = () => {
               {pricePickerLoading ? (
                 <div className="flex items-center justify-center py-16 gap-2 text-slate-400">
                   <Loader2 size={20} className="animate-spin" />
-                  <span className="text-[12px] font-bold">Loading...</span>
+                  <span className="text-[12px] font-bold">ဒေတာ ယူနေသည်...</span>
                 </div>
               ) : pricePickerRows.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16 text-slate-300 gap-2">
                   <ClipboardList size={32} />
-                  <p className="text-[11px] font-black uppercase tracking-widest">No purchase history found</p>
-                  <p className="text-[10px] text-slate-400">ဤ product ပါဝင်သော purchase မရှိသေးပါ</p>
+                  <p className="text-[11px] font-black uppercase tracking-widest">ဝယ်ယူမှု မှတ်တမ်း မတွေ့ပါ</p>
+                  <p className="text-[10px] text-slate-400">ဤကုန်ပစ္စည်း ပါဝင်သောဝယ်ယူမှုမရှိသေးပါ</p>
                 </div>
               ) : (
                 <table className="w-full text-xs">
                   <thead className="sticky top-0 bg-slate-50 border-b border-slate-200">
                     <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                      <th className="px-4 py-3 text-left">Purchase Code</th>
-                      <th className="px-4 py-3 text-left">Supplier</th>
-                      <th className="px-4 py-3 text-left">Date</th>
-                      <th className="px-4 py-3 text-right">Qty</th>
-                      <th className="px-4 py-3 text-right">Unit Cost</th>
-                      <th className="px-4 py-3 text-center">Select</th>
+                      <th className="px-4 py-3 text-left">ဝယ်ယူမှု ကုဒ်</th>
+                      <th className="px-4 py-3 text-left">ပေးသွင်းသူ</th>
+                      <th className="px-4 py-3 text-left">နေ့ရက်</th>
+                      <th className="px-4 py-3 text-right">အရေအတွက်</th>
+                      <th className="px-4 py-3 text-right">ယူနစ် ကုန်ကျစရိတ်</th>
+                      <th className="px-4 py-3 text-center">ရွေးချယ်ရန်</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -987,7 +988,7 @@ const ProductManagement: React.FC = () => {
                           <button type="button"
                             onClick={(e) => { e.stopPropagation(); setPickedCost(row.unitCost); setPickedSelling(String(row.unitCost)); }}
                             className={`px-3 py-1 rounded-lg text-[10px] font-black transition-all ${pickedCost === row.unitCost ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-indigo-100 hover:text-indigo-700'}`}>
-                            {pickedCost === row.unitCost ? '✓ Selected' : 'Select'}
+                            {pickedCost === row.unitCost ? '✓ ရွေးထားပြီ' : 'ရွေးရန်'}
                           </button>
                         </td>
                       </tr>
@@ -1000,12 +1001,12 @@ const ProductManagement: React.FC = () => {
               <div className="px-6 py-4 border-t border-slate-100 bg-slate-50/60 shrink-0 space-y-3">
                 <div className="flex items-center gap-3 flex-wrap">
                   <div className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 rounded-xl">
-                    <span className="text-[10px] font-black text-slate-400 uppercase">Cost Price</span>
+                    <span className="text-[10px] font-black text-slate-400 uppercase">ကုန်ကျစရိတ်</span>
                     <span className="text-[14px] font-black text-slate-800">{pickedCost.toLocaleString()}</span>
                     <span className="text-[10px] text-slate-400">MMK</span>
                   </div>
                   <div className="flex items-center gap-2 flex-1 min-w-[200px]">
-                    <label className="text-[10px] font-black text-slate-500 uppercase whitespace-nowrap">Selling Price</label>
+                    <label className="text-[10px] font-black text-slate-500 uppercase whitespace-nowrap">ရောင်းဈေး</label>
                     <div className="relative flex-1">
                       <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
                       <input
@@ -1013,7 +1014,7 @@ const ProductManagement: React.FC = () => {
                         value={pickedSelling}
                         onChange={e => setPickedSelling(e.target.value)}
                         className="w-full pl-8 pr-3 py-2.5 bg-white border border-indigo-300 rounded-xl text-[12px] font-bold outline-none focus:border-indigo-500 shadow-sm"
-                        placeholder="Selling price ထည့်ပါ"
+                        placeholder="ရောင်းဈေး ထည့်ပါ"
                         autoFocus
                       />
                     </div>
@@ -1022,7 +1023,7 @@ const ProductManagement: React.FC = () => {
                 <div className="flex gap-2">
                   <button type="button" onClick={() => setIsPricePickerOpen(false)}
                     className="flex-1 py-2.5 rounded-xl bg-slate-100 text-slate-500 text-[11px] font-black uppercase hover:bg-slate-200 transition-all">
-                    Cancel
+                    မလုပ်တော့
                   </button>
                   <button type="button"
                     onClick={() => {
@@ -1031,7 +1032,7 @@ const ProductManagement: React.FC = () => {
                       setIsPricePickerOpen(false);
                     }}
                     className="flex-[2] py-2.5 rounded-xl bg-indigo-600 text-white text-[11px] font-black uppercase hover:bg-indigo-700 flex items-center justify-center gap-1.5 transition-all">
-                    <Save size={13} /> Apply Price
+                    <Save size={13} /> ဈေးနှုန်း သတ်မှတ်ရန်
                   </button>
                 </div>
               </div>
@@ -1051,9 +1052,9 @@ const ProductManagement: React.FC = () => {
             <LayoutList size={24} />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-slate-800">Product Master Ledger</h2>
+            <h2 className="text-lg font-bold text-slate-800">ကုန်ပစ္စည်း မာစတာ စာရင်း</h2>
             <p className="text-slate-500 text-xs font-semibold mt-0.5 flex items-center gap-1.5">
-              <ClipboardList size={12} className="text-indigo-500" /> {productGroups.length} groups, {products.length} product entries
+              <ClipboardList size={12} className="text-indigo-500" /> {productGroups.length} အုပ်စု, {products.length} ကုန်ပစ္စည်း
             </p>
           </div>
         </div>
@@ -1065,7 +1066,7 @@ const ProductManagement: React.FC = () => {
               <Wallet size={16} />
             </div>
             <div>
-              <p className="text-[9px] font-bold text-emerald-700 uppercase tracking-wider leading-none mb-1">Available Value</p>
+              <p className="text-[9px] font-bold text-emerald-700 uppercase tracking-wider leading-none mb-1">ရရှိနိုင်သောတန်ဖိုး</p>
               <p className="text-sm font-bold text-slate-800 leading-none tabular-nums">
                 {totalAvailableStockValue.toLocaleString()} <span className="text-[10px] text-slate-500 font-bold">Ks</span>
               </p>
@@ -1076,9 +1077,9 @@ const ProductManagement: React.FC = () => {
               <TrendingDown size={16} />
             </div>
             <div>
-              <p className={`text-[9px] font-bold uppercase tracking-wider leading-none mb-1 ${lowStockProducts.length > 0 ? 'text-amber-700' : 'text-slate-400'}`}>Low Stock</p>
+              <p className={`text-[9px] font-bold uppercase tracking-wider leading-none mb-1 ${lowStockProducts.length > 0 ? 'text-amber-700' : 'text-slate-400'}`}>သိုလှောင်မှု နည်းပါး</p>
               <p className={`text-sm font-bold leading-none ${lowStockProducts.length > 0 ? 'text-amber-800' : 'text-slate-400'}`}>
-                {lowStockProducts.length} <span className="text-[10px] font-bold">{lowStockProducts.length === 1 ? 'item' : 'items'}</span>
+                {lowStockProducts.length} <span className="text-[10px] font-bold">ခု</span>
               </p>
             </div>
           </div>
@@ -1089,13 +1090,13 @@ const ProductManagement: React.FC = () => {
             onClick={() => navigate(AppRoute.LABEL_DESIGNER)}
             className="bg-violet-600 text-white px-4 py-2 rounded-lg text-xs font-bold uppercase flex items-center gap-2 hover:bg-violet-700"
           >
-            <Barcode size={16} /> Label Designer
+            <Barcode size={16} /> တံဆိပ် ဒီဇိုင်
           </button>
           <button
             onClick={() => handleOpenModal()}
             className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-xs font-bold uppercase flex items-center gap-2 hover:bg-indigo-700"
           >
-            <Plus size={16} /> Add Product
+            <Plus size={16} /> ကုန်ပစ္စည်း ထည့်ရန်
           </button>
         </div>
       </div>
@@ -1108,7 +1109,7 @@ const ProductManagement: React.FC = () => {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={16} />
               <input
                 type="text"
-                placeholder="Search by name, code, brand or serial..."
+                placeholder="နာမည်၊ ကုဒ်၊ ဘရန်း သို့မဟုတ် စီရီရယ်ဖြင့် ရှာပါ..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none text-sm font-medium focus:bg-white focus:border-indigo-500"
@@ -1119,18 +1120,18 @@ const ProductManagement: React.FC = () => {
               title="Scan barcode / QR to search"
               className="flex-shrink-0 flex items-center gap-2 px-3 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold uppercase transition-colors"
             >
-              <Camera size={15} /> Scan
+              <Camera size={15} /> စကမ်ဖတ်ရန်
             </button>
           </div>
           
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-1 p-1 bg-slate-100 border border-slate-200 rounded-lg">
-              <span className="text-[10px] font-bold text-slate-500 uppercase px-2">Condition</span>
+              <span className="text-[10px] font-bold text-slate-500 uppercase px-2">အခြေအနေ</span>
               {[
-                { value: 'All',        label: 'All' },
-                { value: 'New',        label: 'New' },
-                { value: 'Second',     label: 'Second' },
-                { value: 'Second_New', label: 'Second New' },
+                { value: 'All',        label: 'အားလုံး' },
+                { value: 'New',        label: 'အသစ်' },
+                { value: 'Second',     label: 'အသုံးပြုပြီး' },
+                { value: 'Second_New', label: 'အသစ်နှင့်တူ' },
               ].map(({ value, label }) => (
                 <button
                   key={value}
@@ -1145,8 +1146,12 @@ const ProductManagement: React.FC = () => {
             </div>
 
             <div className="flex items-center gap-1 p-1 bg-slate-100 border border-slate-200 rounded-lg">
-              <span className="text-[10px] font-bold text-slate-500 uppercase px-2">Status</span>
-              {['All', 'In Stock', 'Out of Stock'].map((status) => (
+              <span className="text-[10px] font-bold text-slate-500 uppercase px-2">အဆင့်</span>
+              {[
+                { value: 'All', label: 'အားလုံး' },
+                { value: 'In Stock', label: 'ပစ္စည်းရှိ' },
+                { value: 'Out of Stock', label: 'ပစ္စည်းကုန်' },
+              ].map(({ value: status, label }) => (
                 <button
                   key={status}
                   onClick={() => setFilterStatus(status as any)}
@@ -1154,13 +1159,13 @@ const ProductManagement: React.FC = () => {
                     filterStatus === status ? 'bg-white text-indigo-700 border border-slate-200' : 'text-slate-500 hover:text-indigo-700'
                   }`}
                 >
-                  {status}
+                  {label}
                 </button>
               ))}
             </div>
 
             <button onClick={() => {setSearchTerm(''); setFilterCondition('All'); setFilterStatus('All');}} className="px-3 py-2 text-slate-600 hover:text-rose-700 hover:bg-rose-50 rounded-lg border border-slate-200 bg-white inline-flex items-center gap-2 text-xs font-bold uppercase">
-              <RotateCcw size={14} /> Reset
+              <RotateCcw size={14} /> ပြန်လည်သတ်မှတ်ရန်
             </button>
           </div>
         </div>
@@ -1173,13 +1178,13 @@ const ProductManagement: React.FC = () => {
             <thead className="sticky top-0 z-30 bg-slate-50 border-b border-slate-200">
               <tr>
                 <th className="w-14 px-3"></th>
-                <th className="px-4 py-3 text-xs font-bold text-slate-600 uppercase">Product Group</th>
-                <th className="px-4 py-3 text-xs font-bold text-slate-600 uppercase">Condition</th>
-                <th className="px-4 py-3 text-xs font-bold text-slate-600 uppercase">Brand / Category</th>
-                <th className="px-4 py-3 text-xs font-bold text-slate-600 uppercase text-center">Available</th>
+                <th className="px-4 py-3 text-xs font-bold text-slate-600 uppercase">ကုန်ပစ္စည်းအုပ်စု</th>
+                <th className="px-4 py-3 text-xs font-bold text-slate-600 uppercase">အခြေအနေ</th>
+                <th className="px-4 py-3 text-xs font-bold text-slate-600 uppercase">ဘရန်း / အမျိုးအစား</th>
+                <th className="px-4 py-3 text-xs font-bold text-slate-600 uppercase text-center">ရရှိနိုင်သော</th>
                 <th className="px-4 py-3 text-xs font-bold text-slate-600 uppercase text-right">ပစ္စည်းတန်ဖိုး</th>
-                <th className="px-4 py-3 text-xs font-bold text-slate-600 uppercase text-right">Selling Price</th>
-                <th className="px-4 py-3 text-xs font-bold text-slate-600 uppercase text-right">Action</th>
+                <th className="px-4 py-3 text-xs font-bold text-slate-600 uppercase text-right">ရောင်းဈေး</th>
+                <th className="px-4 py-3 text-xs font-bold text-slate-600 uppercase text-right">လုပ်ဆောင်ချက်</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -1210,12 +1215,12 @@ const ProductManagement: React.FC = () => {
                               <p className="text-sm font-bold text-slate-800">{group.displayName}</p>
                               {hasLowStock && (
                                 <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-black bg-amber-100 text-amber-700 border border-amber-200 uppercase tracking-wide">
-                                  <AlertTriangle size={9} /> Low Stock
+                                  <AlertTriangle size={9} /> ပစ္စည်းနည်းပါး
                                 </span>
                               )}
                             </div>
                             <p className="text-xs text-slate-500 font-medium mt-0.5">
-                              {group.products.length} entry(s)
+                              {group.products.length} ဖြစ်ရပ်
                             </p>
                           </div>
                         </div>
@@ -1252,11 +1257,11 @@ const ProductManagement: React.FC = () => {
                         <div className="flex justify-center">
                           {group.totalAvailable > 0 ? (
                             <span className="px-3 py-1 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-100 text-xs font-bold flex items-center gap-2">
-                              <CheckCircle2 size={14} /> {group.totalAvailable} Units
+                              <CheckCircle2 size={14} /> {group.totalAvailable} ခု
                             </span>
                           ) : (
                             <span className="px-3 py-1 rounded-md bg-rose-50 text-rose-700 border border-rose-100 text-xs font-bold flex items-center gap-2">
-                              <AlertCircle size={14} /> Out of Stock
+                              <AlertCircle size={14} /> ပစ္စည်းကုန်ဆုံး
                             </span>
                           )}
                         </div>
@@ -1288,7 +1293,7 @@ const ProductManagement: React.FC = () => {
                               onClick={() => toggleGroup(group.groupId)}
                               className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-indigo-600 hover:text-white text-slate-700 text-xs font-bold uppercase rounded-md flex items-center gap-2"
                             >
-                              <Eye size={14} /> {isExpanded ? 'Hide Details' : 'View Details'}
+                              <Eye size={14} /> {isExpanded ? 'အသေးစိတ် ဝှက်ရန်' : 'အသေးစိတ် ကြည့်ရန်'}
                             </button>
                           </div>
                       </td>
@@ -1302,37 +1307,37 @@ const ProductManagement: React.FC = () => {
                             <div className="px-4 py-3 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
                                <div className="flex items-center gap-2">
                                   <Info size={14} className="text-indigo-500" />
-                                  <span className="text-xs font-bold text-slate-700 uppercase">Entry Details</span>
+                                  <span className="text-xs font-bold text-slate-700 uppercase">ပစ္စည်း အသေးစိတ်</span>
                                 </div>
                                 <div className="flex items-center gap-2 px-3 py-1 bg-white border border-slate-200 rounded-md">
-                                   <span className="text-[10px] font-bold text-slate-500 uppercase">Condition:</span>
-                                   <select 
-                                     value={getNestedFilter(group.groupId)} 
+                                   <span className="text-[10px] font-bold text-slate-500 uppercase">အခြေအနေ:</span>
+                                   <select
+                                     value={getNestedFilter(group.groupId)}
                                      onChange={(e) => setNestedFilterForGroup(group.groupId, e.target.value as 'All' | 'New' | 'Second')}
                                      className="bg-transparent text-xs font-bold text-indigo-700 outline-none uppercase cursor-pointer"
                                    >
-                                    <option value="All">All Conditions</option>
-                                    <option value="New">New Only</option>
-                                    <option value="Second">Second Only</option>
-                                    <option value="Second_New">Second New Only</option>
+                                    <option value="All">အခြေအနေ အားလုံး</option>
+                                    <option value="New">အသစ်သာ</option>
+                                    <option value="Second">အသုံးပြုပြီးသာ</option>
+                                    <option value="Second_New">အသစ်နှင့်တူသောသာ</option>
                                   </select>
                                </div>
                             </div>
                             <table className="w-full text-left">
                               <thead className="bg-slate-100">
                                 <tr>
-                                  <th className="px-4 py-3 text-xs font-bold text-slate-600 uppercase">Code</th>
+                                  <th className="px-4 py-3 text-xs font-bold text-slate-600 uppercase">ကုဒ်</th>
                                   <th className="px-4 py-3 text-xs font-bold text-slate-600 uppercase text-center">
                                     <div className="flex items-center justify-center gap-2">
-                                      Condition <Filter size={10} className="text-indigo-400" />
+                                      အခြေအနေ <Filter size={10} className="text-indigo-400" />
                                     </div>
                                   </th>
-                                  <th className="px-4 py-3 text-xs font-bold text-slate-600 uppercase">Remark</th>
-                                  <th className="px-4 py-3 text-xs font-bold text-slate-600 uppercase">Serial / Qty</th>
-                                  <th className="px-4 py-3 text-xs font-bold text-slate-600 uppercase text-center">Warranty</th>
-                                  <th className="px-4 py-3 text-xs font-bold text-slate-600 uppercase text-center">Status</th>
-                                  <th className="px-4 py-3 text-xs font-bold text-slate-600 uppercase text-right">Price</th>
-                                  <th className="px-4 py-3 text-xs font-bold text-slate-600 uppercase text-right">Actions</th>
+                                  <th className="px-4 py-3 text-xs font-bold text-slate-600 uppercase">မှတ်ချက်</th>
+                                  <th className="px-4 py-3 text-xs font-bold text-slate-600 uppercase">စီရီရယ် / အရေအတွက်</th>
+                                  <th className="px-4 py-3 text-xs font-bold text-slate-600 uppercase text-center">အာမခံ</th>
+                                  <th className="px-4 py-3 text-xs font-bold text-slate-600 uppercase text-center">အဆင့်</th>
+                                  <th className="px-4 py-3 text-xs font-bold text-slate-600 uppercase text-right">ဈေးနှုန်း</th>
+                                  <th className="px-4 py-3 text-xs font-bold text-slate-600 uppercase text-right">လုပ်ဆောင်ချက်</th>
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-slate-100">
@@ -1373,7 +1378,7 @@ const ProductManagement: React.FC = () => {
                                           <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase border ${
                                             qtyStock > 0 ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-rose-50 text-rose-600 border-rose-100'
                                           }`}>
-                                            {qtyStock > 0 ? 'In Stock' : 'Out of Stock'}
+                                            {qtyStock > 0 ? 'ပစ္စည်းရှိ' : 'ပစ္စည်းကုန်ဆုံး'}
                                           </span>
                                         </td>
                                         <td className="px-4 py-3 text-right font-bold text-slate-800 text-xs">{p.sellingPrice.toLocaleString()}</td>
@@ -1412,7 +1417,7 @@ const ProductManagement: React.FC = () => {
                                           </span>
                                         </td>
                                         <td className="px-4 py-3"><p className="text-xs text-slate-500 truncate max-w-[180px]">{p.remark || '-'}</p></td>
-                                        <td className="px-4 py-3 text-xs text-rose-600 font-semibold">No serials linked</td>
+                                        <td className="px-4 py-3 text-xs text-rose-600 font-semibold">စီရီရယ် မချိတ်ဆက်ရသေး</td>
                                         <td className="px-4 py-3 text-center text-xs font-semibold text-slate-600">
                                           {formatWarranty(p)}
                                         </td>
@@ -1478,7 +1483,7 @@ const ProductManagement: React.FC = () => {
                                 {group.products.filter(p => getNestedFilter(group.groupId) === 'All' || p.productType === getNestedFilter(group.groupId)).length === 0 && (
                                   <tr>
                                     <td colSpan={8} className="px-6 py-10 text-center text-[10px] font-black text-slate-300 uppercase tracking-widest italic">
-                                      No entries match the condition: {getNestedFilter(group.groupId)}
+                                      ဤအခြေအနေနှင့် ကိုက်ညီသောဖြစ်ရပ်မရှိပါ: {getNestedFilter(group.groupId)}
                                     </td>
                                   </tr>
                                 )}
@@ -1497,7 +1502,7 @@ const ProductManagement: React.FC = () => {
                       <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center border border-dashed border-slate-200">
                         <Filter className="text-slate-200" size={40} />
                       </div>
-                      <p className="text-sm font-black uppercase tracking-widest text-slate-400 italic">No Matching Product Data</p>
+                      <p className="text-sm font-black uppercase tracking-widest text-slate-400 italic">ကိုက်ညီသောကုန်ပစ္စည်းဒေတာ မရှိပါ</p>
                     </div>
                   </td>
                 </tr>
@@ -1511,9 +1516,9 @@ const ProductManagement: React.FC = () => {
           <div className="sticky bottom-0 z-30 px-10 py-6 bg-white border-t border-slate-100 flex flex-col md:flex-row items-center justify-between gap-8 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
             <div className="w-full md:w-auto text-center md:text-left order-2 md:order-1">
               <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                Inventory Index <span className="w-6 h-[1px] bg-slate-200"></span> 
-                Showing <span className="text-indigo-600">{startIndex + 1}-{Math.min(startIndex + itemsPerPage, productGroups.length)}</span> 
-                of <span className="text-slate-800">{productGroups.length}</span> Master Groups
+                ကုန်ပစ္စည်း ညွှန်းကိန်း <span className="w-6 h-[1px] bg-slate-200"></span>
+                ပြသနေသည် <span className="text-indigo-600">{startIndex + 1}-{Math.min(startIndex + itemsPerPage, productGroups.length)}</span>
+                / <span className="text-slate-800">{productGroups.length}</span> အဓိကအုပ်စု
               </span>
             </div>
 
@@ -1522,9 +1527,9 @@ const ProductManagement: React.FC = () => {
                 value={itemsPerPage} onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
                 className="appearance-none bg-slate-50 border border-slate-200 rounded-xl px-5 py-2.5 pr-12 text-[11px] font-black text-slate-600 outline-none focus:bg-white focus:border-indigo-500 cursor-pointer transition-all shadow-sm"
               >
-                <option value={10}>Show 10</option>
-                <option value={25}>Show 25</option>
-                <option value={50}>Show 50</option>
+                <option value={10}>၁၀ ခုပြ</option>
+                <option value={25}>၂၅ ခုပြ</option>
+                <option value={50}>၅၀ ခုပြ</option>
               </select>
 
               <div className="flex items-center gap-2">
@@ -1558,9 +1563,9 @@ const ProductManagement: React.FC = () => {
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
               <div>
-                <h3 className="font-bold text-slate-800 text-sm">Assign Serial Numbers</h3>
+                <h3 className="font-bold text-slate-800 text-sm">စီရီရယ်နံပါတ် သတ်မှတ်ရန်</h3>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  {assignSerialsProduct.name} · {assignSerialsProduct.productCode} · {assignSerialsProduct.stockQty ?? 0} unit(s) in stock
+                  {assignSerialsProduct.name} · {assignSerialsProduct.productCode} · ပစ္စည်းတွင် {assignSerialsProduct.stockQty ?? 0} ခုရှိသည်
                 </p>
               </div>
               <button onClick={() => setIsAssignSerialsOpen(false)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400">
@@ -1572,14 +1577,14 @@ const ProductManagement: React.FC = () => {
             <div className="mx-6 mt-4 px-3 py-2.5 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-800 flex items-start gap-2">
               <Hash size={13} className="mt-0.5 shrink-0 text-amber-600" />
               <span>
-                After saving, <strong>{assignSerialsProduct.name}</strong> will become <strong>serial-tracked</strong>.
-                Stock qty will be managed per serial number going forward.
+                သိမ်းပြီးနောက် <strong>{assignSerialsProduct.name}</strong> သည် <strong>စီရီရယ်ဖြင့် ခြေရာခံမည်</strong>ဖြစ်သည်။
+                ကုန်သိုလှောင်မှုကို စီရီရယ်နံပါတ်တစ်ခုချင်းစီဖြင့် စီမံခန့်ခွဲမည်။
               </span>
             </div>
 
             {/* Warranty input */}
             <div className="px-6 pt-4 flex items-center gap-3">
-              <label className="text-xs font-bold text-slate-500 uppercase tracking-wide whitespace-nowrap">Warranty (months)</label>
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-wide whitespace-nowrap">အာမခံ (လ)</label>
               <input
                 type="number"
                 min={0}
@@ -1587,19 +1592,19 @@ const ProductManagement: React.FC = () => {
                 onChange={(e) => setAssignSerialsWarranty(Math.max(0, Number(e.target.value) || 0))}
                 className="w-24 px-2 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-sm text-center focus:outline-none focus:border-indigo-400"
               />
-              <span className="text-xs text-slate-400">Applied to all serials. Use 0 if unknown.</span>
+              <span className="text-xs text-slate-400">စီရီရယ်အားလုံးသို့ ပြုသည်။ မသိလျှင် ၀ ထည့်ပါ။</span>
               <button
                 onClick={() => setAssignSerialsInputs(genSerials(assignSerialsProduct.productCode || String(assignSerialsProduct.id), assignSerialsProduct.stockQty ?? 0))}
                 className="ml-auto text-xs font-semibold text-indigo-600 hover:underline"
               >
-                Re-generate
+                ပြန်ထုတ်ရန်
               </button>
             </div>
 
             {/* Serial inputs */}
             <div className="px-6 py-4 overflow-y-auto flex-1">
               <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-3">
-                Serial Numbers — {assignSerialsInputs.length} item(s)
+                စီရီရယ်နံပါတ်များ — {assignSerialsInputs.length} ခု
               </p>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {assignSerialsInputs.map((sn, i) => (
@@ -1624,7 +1629,7 @@ const ProductManagement: React.FC = () => {
             {/* Footer */}
             <div className="px-6 py-4 border-t border-slate-200 flex justify-end gap-2">
               <button onClick={() => setIsAssignSerialsOpen(false)} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg font-medium">
-                Cancel
+                မလုပ်တော့
               </button>
               <button
                 onClick={handleSaveAssignSerials}
@@ -1632,7 +1637,7 @@ const ProductManagement: React.FC = () => {
                 className="flex items-center gap-2 px-5 py-2 bg-indigo-600 text-white rounded-lg text-sm font-bold hover:bg-indigo-700 disabled:opacity-50"
               >
                 <Save size={15} />
-                {assignSerialsSaving ? 'Saving…' : `Assign ${assignSerialsInputs.length} Serial(s)`}
+                {assignSerialsSaving ? 'သိမ်းနေသည်...' : `${assignSerialsInputs.length} ခု စီရီရယ်သတ်မှတ်ရန်`}
               </button>
             </div>
           </div>
@@ -1647,7 +1652,7 @@ const ProductManagement: React.FC = () => {
               <div>
                 <div className="flex items-center gap-2 mb-1">
                   <div className="p-1.5 bg-indigo-600 text-white rounded-lg"><Hash size={14} /></div>
-                  <h3 className="text-[14px] font-black text-slate-800 uppercase tracking-tight">Register Serial Units</h3>
+                  <h3 className="text-[14px] font-black text-slate-800 uppercase tracking-tight">စီရီရယ်ယူနစ် မှတ်ပုံတင်ရန်</h3>
                 </div>
                 <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest truncate max-w-[200px]">{selectedProductForSerial.name} ({selectedProductForSerial.productCode})</p>
               </div>
@@ -1655,7 +1660,7 @@ const ProductManagement: React.FC = () => {
             </div>
             
             <div className="p-8 border-b border-slate-50 bg-white shrink-0">
-              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1 mb-3 block">Unit Identification (Barcode/SN)</label>
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1 mb-3 block">ယူနစ်မှတ်ပုံ (ဘားကုဒ်/စီရီရယ်)</label>
               <div className="flex gap-3">
                 <div className="relative flex-1 group">
                   <Barcode className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-500 transition-colors" size={16} />
@@ -1672,7 +1677,7 @@ const ProductManagement: React.FC = () => {
 
             <div className="flex-1 overflow-y-auto p-6 custom-scrollbar bg-slate-50/20">
               <div className="space-y-3">
-                <div className="px-2 mb-2 text-[9px] font-black text-slate-400 uppercase tracking-widest">Active Units ({allSerials.filter(s => s.productId === selectedProductForSerial.id).length})</div>
+                <div className="px-2 mb-2 text-[9px] font-black text-slate-400 uppercase tracking-widest">လက်ရှိ ယူနစ်များ ({allSerials.filter(s => s.productId === selectedProductForSerial.id).length})</div>
                 {allSerials.filter(s => s.productId === selectedProductForSerial.id).map((s) => (
                   <div key={s.id} className="flex items-center justify-between p-4 bg-white border border-slate-100 rounded-2xl hover:border-indigo-200 transition-all group shadow-sm">
                     <div className="flex items-center gap-4">
@@ -1694,7 +1699,7 @@ const ProductManagement: React.FC = () => {
               </div>
             </div>
             <div className="p-6 border-t border-slate-100 bg-white flex justify-center shrink-0">
-               <button onClick={() => setIsSerialModalOpen(false)} className="px-10 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest text-slate-500 hover:text-slate-800 transition-all">Close Session</button>
+               <button onClick={() => setIsSerialModalOpen(false)} className="px-10 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest text-slate-500 hover:text-slate-800 transition-all">ပိတ်ရန်</button>
             </div>
           </div>
         </div>
@@ -1715,7 +1720,7 @@ const ProductManagement: React.FC = () => {
             <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/60 shrink-0">
               <div>
                 <h3 className="text-[13px] font-black text-slate-800 uppercase tracking-tight flex items-center gap-2">
-                  <ClipboardList size={15} className="text-indigo-600" /> Purchase History — {editingProduct?.name}
+                  <ClipboardList size={15} className="text-indigo-600" /> ဝယ်ယူမှု မှတ်တမ်း — {editingProduct?.name}
                 </h3>
                 <p className="text-[10px] text-slate-400 font-bold uppercase mt-0.5 tracking-widest">
                   ဝယ်ထားသော purchase တစ်ခုကို ရွေးပြီး price သတ်မှတ်ပါ
@@ -1731,24 +1736,24 @@ const ProductManagement: React.FC = () => {
               {pricePickerLoading ? (
                 <div className="flex items-center justify-center py-16 gap-2 text-slate-400">
                   <Loader2 size={20} className="animate-spin" />
-                  <span className="text-[12px] font-bold">Loading...</span>
+                  <span className="text-[12px] font-bold">ဒေတာ ယူနေသည်...</span>
                 </div>
               ) : pricePickerRows.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16 text-slate-300 gap-2">
                   <ClipboardList size={32} />
-                  <p className="text-[11px] font-black uppercase tracking-widest">No purchase history found</p>
-                  <p className="text-[10px] text-slate-400">ဤ product ပါဝင်သော purchase မရှိသေးပါ</p>
+                  <p className="text-[11px] font-black uppercase tracking-widest">ဝယ်ယူမှု မှတ်တမ်း မတွေ့ပါ</p>
+                  <p className="text-[10px] text-slate-400">ဤကုန်ပစ္စည်း ပါဝင်သောဝယ်ယူမှုမရှိသေးပါ</p>
                 </div>
               ) : (
                 <table className="w-full text-xs">
                   <thead className="sticky top-0 bg-slate-50 border-b border-slate-200">
                     <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                      <th className="px-4 py-3 text-left">Purchase Code</th>
-                      <th className="px-4 py-3 text-left">Supplier</th>
-                      <th className="px-4 py-3 text-left">Date</th>
-                      <th className="px-4 py-3 text-right">Qty</th>
-                      <th className="px-4 py-3 text-right">Unit Cost</th>
-                      <th className="px-4 py-3 text-center">Select</th>
+                      <th className="px-4 py-3 text-left">ဝယ်ယူမှု ကုဒ်</th>
+                      <th className="px-4 py-3 text-left">ပေးသွင်းသူ</th>
+                      <th className="px-4 py-3 text-left">နေ့ရက်</th>
+                      <th className="px-4 py-3 text-right">အရေအတွက်</th>
+                      <th className="px-4 py-3 text-right">ယူနစ် ကုန်ကျစရိတ်</th>
+                      <th className="px-4 py-3 text-center">ရွေးချယ်ရန်</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -1767,7 +1772,7 @@ const ProductManagement: React.FC = () => {
                           <button type="button"
                             onClick={(e) => { e.stopPropagation(); setPickedCost(row.unitCost); setPickedSelling(String(row.unitCost)); }}
                             className={`px-3 py-1 rounded-lg text-[10px] font-black transition-all ${pickedCost === row.unitCost ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-indigo-100 hover:text-indigo-700'}`}>
-                            {pickedCost === row.unitCost ? '✓ Selected' : 'Select'}
+                            {pickedCost === row.unitCost ? '✓ ရွေးထားပြီ' : 'ရွေးရန်'}
                           </button>
                         </td>
                       </tr>
@@ -1782,12 +1787,12 @@ const ProductManagement: React.FC = () => {
               <div className="px-6 py-4 border-t border-slate-100 bg-slate-50/60 shrink-0 space-y-3">
                 <div className="flex items-center gap-3 flex-wrap">
                   <div className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 rounded-xl">
-                    <span className="text-[10px] font-black text-slate-400 uppercase">Cost Price</span>
+                    <span className="text-[10px] font-black text-slate-400 uppercase">ကုန်ကျစရိတ်</span>
                     <span className="text-[14px] font-black text-slate-800">{pickedCost.toLocaleString()}</span>
                     <span className="text-[10px] text-slate-400">MMK</span>
                   </div>
                   <div className="flex items-center gap-2 flex-1 min-w-[200px]">
-                    <label className="text-[10px] font-black text-slate-500 uppercase whitespace-nowrap">Selling Price</label>
+                    <label className="text-[10px] font-black text-slate-500 uppercase whitespace-nowrap">ရောင်းဈေး</label>
                     <div className="relative flex-1">
                       <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
                       <input
@@ -1795,7 +1800,7 @@ const ProductManagement: React.FC = () => {
                         value={pickedSelling}
                         onChange={e => setPickedSelling(e.target.value)}
                         className="w-full pl-8 pr-3 py-2.5 bg-white border border-indigo-300 rounded-xl text-[12px] font-bold outline-none focus:border-indigo-500 shadow-sm"
-                        placeholder="Selling price ထည့်ပါ"
+                        placeholder="ရောင်းဈေး ထည့်ပါ"
                         autoFocus
                       />
                     </div>
@@ -1804,7 +1809,7 @@ const ProductManagement: React.FC = () => {
                 <div className="flex gap-2">
                   <button type="button" onClick={() => setIsPricePickerOpen(false)}
                     className="flex-1 py-2.5 rounded-xl bg-slate-100 text-slate-500 text-[11px] font-black uppercase hover:bg-slate-200 transition-all">
-                    Cancel
+                    မလုပ်တော့
                   </button>
                   <button type="button"
                     onClick={() => {
@@ -1813,7 +1818,7 @@ const ProductManagement: React.FC = () => {
                       setIsPricePickerOpen(false);
                     }}
                     className="flex-[2] py-2.5 rounded-xl bg-indigo-600 text-white text-[11px] font-black uppercase hover:bg-indigo-700 flex items-center justify-center gap-1.5 transition-all">
-                    <Save size={13} /> Apply Price
+                    <Save size={13} /> ဈေးနှုန်း သတ်မှတ်ရန်
                   </button>
                 </div>
               </div>
@@ -1832,10 +1837,10 @@ const ProductManagement: React.FC = () => {
               <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 shrink-0">
                 <div>
                   <h3 className="text-[13px] font-black text-slate-800 uppercase tracking-tight flex items-center gap-2">
-                    <Barcode size={16} className="text-violet-600" /> Barcode Print — {barcodeProduct.name}
+                    <Barcode size={16} className="text-violet-600" /> ဘားကုဒ် ပုံနှိပ်ရန် — {barcodeProduct.name}
                   </h3>
                   <p className="text-[10px] text-slate-400 font-bold uppercase mt-0.5 tracking-widest">
-                    {isSerial ? `${productSerials.length} Serial Unit(s)` : `Non-Serial · Product Code`}
+                    {isSerial ? `စီရီရယ်ယူနစ် ${productSerials.length} ခု` : `စီရီရယ်မပါ · ကုန်ပစ္စည်းကုဒ်`}
                   </p>
                 </div>
                 <div className="flex gap-2">
@@ -1843,7 +1848,7 @@ const ProductManagement: React.FC = () => {
                     onClick={() => window.print()}
                     className="px-4 py-2 bg-violet-600 text-white rounded-xl text-[11px] font-black uppercase tracking-widest hover:bg-violet-700 flex items-center gap-1.5"
                   >
-                    <Barcode size={13} /> Print
+                    <Barcode size={13} /> ပုံနှိပ်ရန်
                   </button>
                   <button onClick={() => setIsBarcodeModalOpen(false)} className="p-2 hover:bg-slate-100 rounded-xl transition-all">
                     <X size={18} className="text-slate-400" />
@@ -1854,7 +1859,7 @@ const ProductManagement: React.FC = () => {
               <div id="barcode-print-area" className="p-6 overflow-y-auto">
                 {isSerial ? (
                   productSerials.length === 0 ? (
-                    <p className="text-center text-slate-400 text-sm py-10">No serial numbers linked to this product yet.</p>
+                    <p className="text-center text-slate-400 text-sm py-10">ဤကုန်ပစ္စည်းနှင့် ချိတ်ဆက်ထားသောစီရီရယ်နံပါတ် မရှိသေးပါ။</p>
                   ) : (
                     <div className="grid grid-cols-3 gap-4">
                       {productSerials.map(s => (

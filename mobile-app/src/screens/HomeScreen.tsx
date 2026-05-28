@@ -23,15 +23,17 @@ const HERO_TOP = Platform.OS === 'android' ? (RNStatusBar.currentHeight ?? 24) +
 
 const getGreeting = () => {
   const h = new Date().getHours();
-  if (h < 12) return 'Good Morning';
-  if (h < 17) return 'Good Afternoon';
-  return 'Good Evening';
+  if (h < 12) return 'မင်္ဂလာနံနက်ခင်းပါ';
+  if (h < 17) return 'မင်္ဂလာနေ့လည်ပိုင်းခင်းပါ';
+  return 'မင်္ဂလာညနေခင်းပါ';
 };
 
-const fmtDate = () =>
-  new Date().toLocaleDateString('en-GB', {
-    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
-  });
+const fmtDate = () => {
+  const d = new Date();
+  const days   = ['တနင်္ဂနွေ','တနင်္လာ','အင်္ဂါ','ဗုဒ္ဓဟူး','ကြာသပတေး','သောကြာ','စနေ'];
+  const months = ['ဇန်နဝါရီ','ဖေဖော်ဝါရီ','မတ်','ဧပြီ','မေ','ဇွန်','ဇူလိုင်','သြဂုတ်','စက်တင်ဘာ','အောက်တိုဘာ','နိုဝင်ဘာ','ဒီဇင်ဘာ'];
+  return `${days[d.getDay()]}၊ ${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+};
 
 export default function HomeScreen({ navigation }: any) {
   const { username, logout, hasPermission } = useAuth() as any;
@@ -53,7 +55,6 @@ export default function HomeScreen({ navigation }: any) {
 
   useEffect(() => { loadStats(); }, []);
 
-  // Auto-refresh dashboard stats when sales or service jobs change
   useWsTopic('/topic/sales',        () => loadStats());
   useWsTopic('/topic/service-jobs', () => loadStats());
 
@@ -62,10 +63,10 @@ export default function HomeScreen({ navigation }: any) {
     icon: React.ComponentProps<typeof Ionicons>['name'];
     color: string; bg: string; tab?: string;
   }[] = [
-    { label: "Today's Sales",  value: (stats.todaySalesAmount ?? 0).toLocaleString() + ' Ks', icon: 'cash-outline',     color: C.primary, bg: C.primaryLight, tab: 'Sales'     },
-    { label: 'Sales Count',    value: (stats.todaySalesCount  ?? 0) + ' pcs',                 icon: 'receipt-outline',  color: C.success, bg: C.successBg,    tab: 'Sales'     },
-    { label: 'Low Stock',      value: (stats.lowStockCount    ?? 0) + ' items',               icon: 'warning-outline',  color: C.warning, bg: C.warningBg,    tab: 'Inventory' },
-    { label: 'Pending Jobs',   value: String(stats.pendingServiceJobs ?? 0),                  icon: 'construct-outline',color: C.violet,  bg: C.violetBg,     tab: 'Service'   },
+    { label: 'ယနေ့ ရောင်းရငွေ',       value: (stats.todaySalesAmount ?? 0).toLocaleString() + ' Ks', icon: 'cash-outline',      color: C.primary, bg: C.primaryLight, tab: 'Sales'     },
+    { label: 'ရောင်းချမှုအရေအတွက်',   value: (stats.todaySalesCount  ?? 0) + ' ခု',                 icon: 'receipt-outline',   color: C.success, bg: C.successBg,    tab: 'Sales'     },
+    { label: 'ကုန်သိုလှောင် နည်းပါး', value: (stats.lowStockCount    ?? 0) + ' မျိုး',              icon: 'warning-outline',   color: C.warning, bg: C.warningBg,    tab: 'Inventory' },
+    { label: 'ဆိုင်ခင်းအလုပ်',        value: String(stats.pendingServiceJobs ?? 0),                  icon: 'construct-outline', color: C.violet,  bg: C.violetBg,     tab: 'Service'   },
   ];
 
   type ActionItem = {
@@ -77,10 +78,11 @@ export default function HomeScreen({ navigation }: any) {
   };
 
   const actions: ActionItem[] = ([
-    { label: 'New Sale',    icon: 'add-circle', color: '#fff', bg: C.primary,   onPress: () => navigation.navigate('NewSale'),   perm: 'CAN_ACCESS_SALE_CREATE'        },
-    { label: 'Products',    icon: 'cube',       color: '#fff', bg: '#0891B2',   onPress: () => navigation.navigate('Inventory'), perm: 'CAN_ACCESS_PRODUCT_READ'       },
-    { label: 'New Booking', icon: 'calendar',   color: '#fff', bg: C.violet,    onPress: () => navigation.navigate('Bookings'),  perm: 'CAN_ACCESS_BOOKING_CREATE'     },
-    { label: 'New Job',     icon: 'construct',  color: '#fff', bg: '#059669',   onPress: () => navigation.navigate('Service'),   perm: 'CAN_ACCESS_SERVICE_JOB_CREATE' },
+    { label: 'ရောင်းချမှုအသစ်',        icon: 'add-circle',  color: '#fff', bg: C.primary, onPress: () => navigation.navigate('NewSale'),     perm: 'CAN_ACCESS_SALE_CREATE'        },
+    { label: 'ကုန်ပစ္စည်းများ',         icon: 'cube',        color: '#fff', bg: '#0891B2', onPress: () => navigation.navigate('Inventory'),   perm: 'CAN_ACCESS_PRODUCT_READ'       },
+    { label: 'Booking အသစ်',            icon: 'calendar',    color: '#fff', bg: C.violet,  onPress: () => navigation.navigate('Bookings'),    perm: 'CAN_ACCESS_BOOKING_CREATE'     },
+    { label: 'Job အသစ်',               icon: 'construct',   color: '#fff', bg: '#059669', onPress: () => navigation.navigate('Service'),     perm: 'CAN_ACCESS_SERVICE_JOB_CREATE' },
+    { label: 'ဝန်ထမ်းစွမ်းဆောင်ရည်',  icon: 'bar-chart',   color: '#fff', bg: '#7C3AED', onPress: () => navigation.navigate('StaffReport')                                       },
   ] as unknown as ActionItem[]).filter(a => !a.perm || !hasPermission || hasPermission(a.perm));
 
   const initial = (username?.[0] ?? 'U').toUpperCase();
@@ -100,7 +102,6 @@ export default function HomeScreen({ navigation }: any) {
           <View style={st.deco2} />
           <View style={st.deco3} />
 
-          {/* Top row: menu + refresh */}
           <View style={st.heroTop}>
             <TouchableOpacity onPress={() => setDrawerOpen(true)} style={st.iconBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
               <Ionicons name="menu" size={26} color="#fff" />
@@ -110,7 +111,6 @@ export default function HomeScreen({ navigation }: any) {
             </TouchableOpacity>
           </View>
 
-          {/* Greeting */}
           <View style={st.heroContent}>
             <View style={st.avatar}>
               <Text style={st.avatarText}>{initial}</Text>
@@ -125,9 +125,9 @@ export default function HomeScreen({ navigation }: any) {
 
         <View style={st.body}>
 
-          {/* ── Stats ── */}
+          {/* Stats */}
           <View style={st.sectionRow}>
-            <Text style={st.sectionTitle}>Today's Overview</Text>
+            <Text style={st.sectionTitle}>ယနေ့ ခြုံငုံသုံးသပ်ချက်</Text>
             {loading && <ActivityIndicator color={C.primary} size="small" />}
           </View>
 
@@ -148,8 +148,8 @@ export default function HomeScreen({ navigation }: any) {
             ))}
           </View>
 
-          {/* ── Quick Actions ── */}
-          <Text style={[st.sectionTitle, { marginTop: 8 }]}>Quick Actions</Text>
+          {/* Quick Actions */}
+          <Text style={[st.sectionTitle, { marginTop: 8 }]}>အမြန် လုပ်ဆောင်ချက်များ</Text>
           <View style={st.actionsGrid}>
             {actions.map(a => (
               <TouchableOpacity
@@ -182,7 +182,6 @@ export default function HomeScreen({ navigation }: any) {
 const st = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.bg },
 
-  // Hero
   hero: {
     backgroundColor: C.primary,
     paddingHorizontal: 20,
@@ -208,7 +207,6 @@ const st = StyleSheet.create({
   sectionRow:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   sectionTitle:{ fontSize: 12, fontWeight: '800', color: C.textMuted, textTransform: 'uppercase', letterSpacing: 0.9 },
 
-  // Stats
   statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 22 },
   statCard: {
     width: '48%',
@@ -227,7 +225,6 @@ const st = StyleSheet.create({
   statValue:   { fontSize: 16, fontWeight: '800', marginBottom: 4, letterSpacing: -0.3 },
   statLabel:   { fontSize: 11, fontWeight: '600', color: C.textMuted },
 
-  // Actions
   actionsGrid: { gap: 8 },
   actionCard: {
     backgroundColor: C.card,
