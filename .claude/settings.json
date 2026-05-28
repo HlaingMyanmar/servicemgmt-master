@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm create *)"
+    ],
+    "additionalDirectories": [
+      "e:\\Projects\\typing\\src"
+    ]
+  }
+}

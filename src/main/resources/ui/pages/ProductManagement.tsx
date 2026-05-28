@@ -1,0 +1,1942 @@
+
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { productService } from '../services/productapiservice';
+import { brandService } from '../services/brandapiservice';
+import { categoryService } from '../services/categoryapiservice';
+import { unitService } from '../services/unitapiservice';
+import { productSerialService } from '../services/productserialapiservice';
+import { purchaseApiService } from '../services/purchaseapiservice';
+import { AppRoute, ProductDTO, BrandDTO, CategoryDTO, UnitDTO, ProductType, ProductSerialDTO, SerialStatus } from '../types';
+import {
+  Loader2, Plus, Search, Trash2, Edit2, X,
+  Box, ChevronLeft, ChevronRight, ChevronDown, ChevronUp,
+  Tag, Package, Ruler, Layers, DollarSign,
+  Save, Hash, Send, Barcode, Camera,
+  CheckCircle2, AlertCircle, Filter, RotateCcw,
+  ClipboardList, Eye, Info, LayoutList, Wallet,
+  Settings2, AlertTriangle, ArrowLeft, TrendingDown
+} from 'lucide-react';
+import { useWebsocket } from '../hooks/useWebsocket';
+import Swal from 'sweetalert2';
+import BarcodeLabel from '../components/BarcodeLabel';
+import BarcodeScannerCamera from '../components/BarcodeScannerCamera';
+
+interface CategoryOption {
+  id: number;
+  displayName: string;
+}
+
+interface ProductGroup {
+  groupId: string;
+  displayName: string;
+  brandName: string;
+  categoryName: string;
+  brandId?: number;
+  categoryId?: number;
+  unitName: string;
+  products: ProductDTO[]; 
+  totalAvailable: number;
+  totalUnits: number;
+  groupStockValue: number;
+}
+
+const productTypeBadgeClass = (type: string) => {
+  if (type === ProductType.NEW)        return 'bg-indigo-50 text-indigo-600 border-indigo-100';
+  if (type === ProductType.SECOND_NEW) return 'bg-violet-50 text-violet-600 border-violet-100';
+  return 'bg-amber-50 text-amber-600 border-amber-100'; // Second
+};
+
+const formatProductType = (type: string) => type.replace('_', ' ');
+
+const formatWarranty = (product?: Partial<ProductDTO> | null) => {
+  if (!product) return '-';
+  const terms = String(product.warrantyTerms || '').trim();
+  if (terms) return terms;
+  const months = Number(product.warrantyMonths || 0);
+  return months > 0 ? `${months} mo` : '-';
+};
+
+const ProductManagement: React.FC = () => {
+  const navigate = useNavigate();
+  const [products, setProducts] = useState<ProductDTO[]>([]);
+  const [lowStockProducts, setLowStockProducts] = useState<ProductDTO[]>([]);
+  const [brands, setBrands] = useState<BrandDTO[]>([]);
+  const [categories, setCategories] = useState<CategoryDTO[]>([]);
+  const [units, setUnits] = useState<UnitDTO[]>([]);
+  const [allSerials, setAllSerials] = useState<ProductSerialDTO[]>([]);
+  
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showScanSearch, setShowScanSearch] = useState(false);
+  const [filterCondition, setFilterCondition] = useState<'All' | 'New' | 'Second' | 'Second_New'>('All');
+  const [filterStatus, setFilterStatus] = useState<'All' | 'In Stock' | 'Out of Stock'>('All');
+  
+  // Per-group filter for nested rows
+  const [nestedFilters, setNestedFilters] = useState<Record<string, 'All' | 'New' | 'Second' | 'Second_New'>>({});
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+  const [isSerialModalOpen, setIsSerialModalOpen] = useState(false);
+  const [selectedProductForSerial, setSelectedProductForSerial] = useState<ProductDTO | null>(null);
+  const [editingProduct, setEditingProduct] = useState<ProductDTO | null>(null);
+  const [newSerialInput, setNewSerialInput] = useState('');
+  const [isBarcodeModalOpen, setIsBarcodeModalOpen] = useState(false);
+  const [barcodeProduct, setBarcodeProduct] = useState<ProductDTO | null>(null);
+
+  // Assign-Serials modal (for qty-only products with existing stock)
+  const [isAssignSerialsOpen, setIsAssignSerialsOpen] = useState(false);
+  const [assignSerialsProduct, setAssignSerialsProduct] = useState<ProductDTO | null>(null);
+  const [assignSerialsInputs, setAssignSerialsInputs] = useState<string[]>([]);
+  const [assignSerialsWarranty, setAssignSerialsWarranty] = useState<number>(0);
+  const [assignSerialsSaving, setAssignSerialsSaving] = useState(false);
+  
+  const [formData, setFormData] = useState<Partial<ProductDTO>>({
+    name: '',
+    hasSerial: true,
+    stockQty: 0,
+    productType: ProductType.NEW,
+    sellingPrice: 0,
+    costPrice: 0,
+    reorderLevel: 0,
+    warrantyMonths: 0,
+    warrantyTerms: '',
+    remark: '',
+    categoryId: undefined,
+    brandId: undefined,
+    unitId: undefined
+  });
+  const [saving, setSaving] = useState(false);
+  const [formPhoto, setFormPhoto] = useState<string | undefined>(undefined);
+  const [photoChanged, setPhotoChanged] = useState(false);
+  const [viewFormPhoto, setViewFormPhoto] = useState<string | null>(null);
+
+  const compressImage = (file: File, maxDim = 320, quality = 0.75): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let w = img.width, h = img.height;
+          if (w > maxDim || h > maxDim) {
+            if (w > h) { h = Math.round(h * maxDim / w); w = maxDim; }
+            else { w = Math.round(w * maxDim / h); h = maxDim; }
+          }
+          canvas.width = w; canvas.height = h;
+          canvas.getContext('2d')!.drawImage(img, 0, 0, w, h);
+          resolve(canvas.toDataURL('image/jpeg', quality));
+        };
+        img.onerror = reject;
+        img.src = e.target!.result as string;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const compressed = await compressImage(file);
+      setFormPhoto(compressed);
+      setPhotoChanged(true);
+    } catch {
+      Swal.fire('Error', 'Failed to process image', 'error');
+    }
+    e.target.value = '';
+  };
+
+  const [brandSearch, setBrandSearch] = useState('');
+  const [categorySearch, setCategorySearch] = useState('');
+  const [unitSearch, setUnitSearch] = useState('');
+  const [brandOpen, setBrandOpen] = useState(false);
+  const [categoryOpen, setCategoryOpen] = useState(false);
+  const [unitOpen, setUnitOpen] = useState(false);
+
+  const [isPricePickerOpen, setIsPricePickerOpen] = useState(false);
+  const [pricePickerRows, setPricePickerRows] = useState<{ purchaseCode: string; supplierName: string; purchaseDate: string; unitCost: number; qty: number }[]>([]);
+  const [pricePickerLoading, setPricePickerLoading] = useState(false);
+  const [pickedCost, setPickedCost] = useState<number | null>(null);
+  const [pickedSelling, setPickedSelling] = useState<string>('');
+
+  const fetchSerials = useCallback(async () => {
+    try {
+      const sData = await productSerialService.getAll();
+      setAllSerials(sData);
+    } catch (error) {
+      console.error("Failed to load serial data", error);
+    }
+  }, []);
+
+  const genSerials = (productCode: string, qty: number): string[] => {
+    const d = new Date();
+    const ds = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
+    return Array.from({ length: qty }, (_, i) => `${productCode}-${ds}-${String(i + 1).padStart(3, '0')}`);
+  };
+
+  const handleOpenAssignSerials = (product: ProductDTO) => {
+    const qty = product.stockQty ?? 0;
+    setAssignSerialsProduct(product);
+    setAssignSerialsInputs(genSerials(product.productCode || String(product.id), qty));
+    setAssignSerialsWarranty(product.warrantyMonths ?? 0);
+    setIsAssignSerialsOpen(true);
+  };
+
+  const handleSaveAssignSerials = async () => {
+    if (!assignSerialsProduct) return;
+    const serials = assignSerialsInputs.map((s) => s.trim());
+    if (serials.some((s) => !s)) {
+      Swal.fire('Validation', 'All serial numbers must be filled in.', 'warning');
+      return;
+    }
+    setAssignSerialsSaving(true);
+    try {
+      await productService.assignSerials(assignSerialsProduct.id, {
+        serialNumbers: serials,
+        warrantyMonths: assignSerialsWarranty,
+      });
+      setIsAssignSerialsOpen(false);
+      setAssignSerialsProduct(null);
+      await fetchData();
+      Swal.fire({ icon: 'success', title: 'Serials Assigned', text: `${serials.length} serial(s) created. Product is now serial-tracked.`, timer: 2500, showConfirmButton: false });
+    } catch (err: any) {
+      Swal.fire('Error', err?.response?.data?.message || err.message || 'Failed to assign serials', 'error');
+    } finally {
+      setAssignSerialsSaving(false);
+    }
+  };
+
+  const fetchData = useCallback(async () => {
+    try {
+      const [pData, bData, cTreeData, uData, sData, lowStockData] = await Promise.all([
+        productService.getAll(),
+        brandService.getAll(),
+        categoryService.getTree(),
+        unitService.getAll(),
+        productSerialService.getAll(),
+        productService.getLowStock()
+      ]);
+      setProducts(pData);
+      setBrands(bData.filter(b => b.isActive));
+      setCategories(cTreeData);
+      setUnits(uData);
+      setAllSerials(sData);
+      setLowStockProducts(lowStockData);
+    } catch (error) {
+      console.error("Failed to load inventory data", error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  useWebsocket('/topic/product', fetchData);
+  useWebsocket('/topic/productSerial', fetchSerials);
+
+  const getCategoryOptions = useCallback((nodes: CategoryDTO[], level = 0): CategoryOption[] => {
+    return nodes.reduce((acc: CategoryOption[], node) => {
+      const indentation = "\u00A0\u00A0".repeat(level * 2);
+      const prefix = level > 0 ? "↳ " : "";
+      acc.push({ id: node.id, displayName: `${indentation}${prefix}${node.name}` });
+      if (node.children && node.children.length > 0) {
+        acc.push(...getCategoryOptions(node.children, level + 1));
+      }
+      return acc;
+    }, []);
+  }, []);
+
+  const flatCategoryOptions = useMemo(() => getCategoryOptions(categories), [categories, getCategoryOptions]);
+
+  const getAvailableCount = useCallback((product: ProductDTO) => (
+    product.hasSerial !== false
+      ? allSerials.filter((s) => s.productId === product.id && s.status === SerialStatus.AVAILABLE).length
+      : (product.stockQty ?? product.currentStock ?? 0)
+  ), [allSerials]);
+
+  const lowStockIds = useMemo(() => new Set(lowStockProducts.map(p => p.id)), [lowStockProducts]);
+
+  // Calculate total value of currently available stock (serial-tracked + qty-only)
+  const totalAvailableStockValue = useMemo(() => {
+    return products.reduce((sum, product) => (
+      sum + (getAvailableCount(product) * (product.sellingPrice || 0))
+    ), 0);
+  }, [products, getAvailableCount]);
+
+  const productGroups = useMemo(() => {
+    const s = searchTerm.toLowerCase().trim();
+    const groupsMap = new Map<string, ProductGroup>();
+    
+    products.forEach(p => {
+      const normalizedName = p.name.toLowerCase().replace(/\s+/g, '');
+      const brandId = p.brandId || 0;
+      const categoryId = p.categoryId || 0;
+      const groupId = `${normalizedName}-${brandId}-${categoryId}`;
+
+      const serials = allSerials.filter(sr => sr.productId === p.id);
+      const availableCount = getAvailableCount(p);
+      const totalUnits = p.hasSerial !== false ? serials.length : (p.stockQty ?? p.currentStock ?? 0);
+
+      if (!groupsMap.has(groupId)) {
+        groupsMap.set(groupId, {
+          groupId,
+          displayName: p.name,
+          brandName: p.brandName || 'Unknown',
+          categoryName: p.categoryName || 'General',
+          brandId: p.brandId,
+          categoryId: p.categoryId,
+          unitName: p.unitName || '',
+          products: [p],
+          totalAvailable: availableCount,
+          totalUnits,
+          groupStockValue: availableCount * p.sellingPrice
+        });
+      } else {
+        const group = groupsMap.get(groupId)!;
+        group.products.push(p);
+        group.totalAvailable += availableCount;
+        group.totalUnits += totalUnits;
+        group.groupStockValue += availableCount * p.sellingPrice;
+      }
+    });
+
+    return Array.from(groupsMap.values()).filter(group => {
+      const matchesSearch = !s || 
+        group.displayName.toLowerCase().includes(s) || 
+        group.brandName.toLowerCase().includes(s) ||
+        group.categoryName.toLowerCase().includes(s) ||
+        group.products.some(p => (p.productCode || '').toLowerCase().includes(s)) ||
+        allSerials.filter(sr => group.products.some(p => p.id === sr.productId))
+          .some(sn => sn.serialNumber.toLowerCase().includes(s));
+
+      const matchesCondition = filterCondition === 'All' || 
+        group.products.some(p => p.productType === filterCondition);
+
+      const matchesStatus = filterStatus === 'All' || 
+        (filterStatus === 'In Stock' && group.totalAvailable > 0) || 
+        (filterStatus === 'Out of Stock' && group.totalAvailable === 0);
+
+      return matchesSearch && matchesCondition && matchesStatus;
+    });
+  }, [products, allSerials, searchTerm, filterCondition, filterStatus, getAvailableCount]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+    setExpandedGroups(new Set());
+    setNestedFilters({});
+  }, [searchTerm, filterCondition, filterStatus]);
+
+  const toggleGroup = (groupId: string) => {
+    const newExpanded = new Set(expandedGroups);
+    if (newExpanded.has(groupId)) newExpanded.delete(groupId);
+    else newExpanded.add(groupId);
+    setExpandedGroups(newExpanded);
+  };
+
+  const getNestedFilter = (groupId: string): 'All' | 'New' | 'Second' | 'Second_New' => nestedFilters[groupId] || 'All';
+
+  const setNestedFilterForGroup = (groupId: string, value: 'All' | 'New' | 'Second' | 'Second_New') => {
+    setNestedFilters(prev => ({ ...prev, [groupId]: value }));
+  };
+
+  const totalPages = Math.ceil(productGroups.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedGroups = productGroups.slice(startIndex, startIndex + itemsPerPage);
+
+  const pageNumbers = useMemo<(number | '...')[]>(() => {
+    if (totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i + 1);
+    if (currentPage <= 4) return [1, 2, 3, 4, 5, '...', totalPages];
+    if (currentPage >= totalPages - 3) return [1, '...', totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+    return [1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages];
+  }, [currentPage, totalPages]);
+
+  const handleOpenModal = (product?: ProductDTO) => {
+    if (product) {
+      setEditingProduct(product);
+      setFormData({
+        name: product.name,
+        hasSerial: product.hasSerial !== false,
+        stockQty: product.stockQty ?? product.currentStock ?? 0,
+        productType: product.productType,
+        sellingPrice: product.sellingPrice,
+        costPrice: product.costPrice ?? 0,
+        reorderLevel: product.reorderLevel ?? 0,
+        warrantyMonths: product.warrantyMonths ?? 0,
+        warrantyTerms: product.warrantyTerms || '',
+        remark: product.remark || '',
+        categoryId: product.categoryId,
+        brandId: product.brandId,
+        unitId: product.unitId
+      });
+      setFormPhoto(product.photoBase64 || undefined);
+    } else {
+      setEditingProduct(null);
+      setFormData({
+        name: '',
+        hasSerial: true,
+        stockQty: 0,
+        productType: ProductType.NEW,
+        sellingPrice: 0,
+        costPrice: 0,
+        reorderLevel: 0,
+        warrantyMonths: 0,
+        warrantyTerms: '',
+        remark: '',
+        categoryId: undefined,
+        brandId: undefined,
+        unitId: undefined
+      });
+      setFormPhoto(undefined);
+    }
+    setPhotoChanged(false);
+    setBrandSearch('');
+    setCategorySearch('');
+    setUnitSearch('');
+    setBrandOpen(false);
+    setCategoryOpen(false);
+    setUnitOpen(false);
+    setShowForm(true);
+  };
+
+  const handleOpenPricePicker = async () => {
+    if (!formData.name && !editingProduct) return;
+    const productId = editingProduct?.id;
+    if (!productId) return;
+    setIsPricePickerOpen(true);
+    setPricePickerLoading(true);
+    setPickedCost(null);
+    setPickedSelling(String(formData.sellingPrice ?? 0));
+    try {
+      const all = await purchaseApiService.getAll();
+      const rows: typeof pricePickerRows = [];
+      all.forEach(p => {
+        (p.details || []).forEach(d => {
+          if (d.productId === productId) {
+            rows.push({
+              purchaseCode: p.purchaseCode || '-',
+              supplierName: p.supplierName || '-',
+              purchaseDate: p.purchaseDate ? String(p.purchaseDate).slice(0, 10) : '-',
+              unitCost: Number(d.unitCost),
+              qty: Number(d.qty),
+            });
+          }
+        });
+      });
+      rows.sort((a, b) => b.purchaseDate.localeCompare(a.purchaseDate));
+      setPricePickerRows(rows);
+    } catch {
+      Swal.fire('Error', 'Purchase history ဖတ်မရပါ။', 'error');
+    } finally {
+      setPricePickerLoading(false);
+    }
+  };
+
+  const handleOpenSerialModal = (product: ProductDTO) => {
+    if (product.hasSerial === false) {
+      Swal.fire('Qty Only Product', 'This product uses quantity-only stock and does not require serial numbers.', 'info');
+      return;
+    }
+    setSelectedProductForSerial(product);
+    setNewSerialInput('');
+    setIsSerialModalOpen(true);
+  };
+
+  const handleAddSerial = async () => {
+    if (!newSerialInput.trim() || !selectedProductForSerial) return;
+    setSaving(true);
+    try {
+      await productSerialService.create({
+        serialNumber: newSerialInput.trim().toUpperCase(),
+        status: SerialStatus.AVAILABLE,
+        productId: selectedProductForSerial.id
+      });
+      setNewSerialInput('');
+      fetchSerials();
+      Swal.fire({ icon: 'success', title: 'Serial Registered', toast: true, position: 'top-end', showConfirmButton: false, timer: 1500 });
+    } catch (err: any) {
+      Swal.fire('Conflict', 'This Serial Number is already in use.', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSaveProduct = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.categoryId) { Swal.fire('Validation', 'Please select a Parent Category.', 'warning'); return; }
+    if (!formData.brandId) { Swal.fire('Validation', 'Please select a Manufacturer Brand.', 'warning'); return; }
+    if (!formData.unitId) { Swal.fire('Validation', 'Please select a Base Measurement Unit.', 'warning'); return; }
+    setSaving(true);
+    try {
+      const payload: any = {
+        ...formData,
+        hasSerial: formData.hasSerial !== false,
+        stockQty: formData.hasSerial === false ? Number(formData.stockQty || 0) : 0,
+        reorderLevel: Math.max(0, Number(formData.reorderLevel || 0))
+      };
+      let savedId: number | undefined;
+      if (editingProduct) {
+        await productService.update(editingProduct.id, payload);
+        savedId = editingProduct.id;
+      } else {
+        const created = await productService.create(payload);
+        savedId = created?.id;
+      }
+      // Upload photo if changed
+      if (photoChanged && savedId) {
+        await productService.updatePhoto(savedId, formPhoto ?? null);
+      }
+      setShowForm(false);
+      fetchData();
+      Swal.fire({ icon: 'success', title: 'Registry Saved', toast: true, position: 'top-end', showConfirmButton: false, timer: 1500 });
+    } catch (error: any) {
+      Swal.fire('Error', error.message, 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteSerial = async (id: number) => {
+    const result = await Swal.fire({
+      title: 'Delete Unit?',
+      text: "Permanent action.",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      confirmButtonText: 'Delete'
+    });
+    if (result.isConfirmed) {
+      try {
+        await productSerialService.delete(id);
+        fetchSerials();
+        Swal.fire({ icon: 'success', title: 'Deleted', toast: true, position: 'top-end', showConfirmButton: false, timer: 1500 });
+      } catch (error: any) {
+        Swal.fire('Error', error.message, 'error');
+      }
+    }
+  };
+
+  if (loading) return (
+    <div className="h-full flex items-center justify-center">
+      <Loader2 className="animate-spin text-indigo-600" size={32} />
+    </div>
+  );
+
+  if (showForm) return (
+    <div className="w-full max-w-none animate-in fade-in duration-200 text-left">
+      {/* Full-page form header */}
+      <div className="flex items-center gap-3 mb-6">
+        <button
+          type="button"
+          onClick={() => setShowForm(false)}
+          className="p-2 hover:bg-slate-100 rounded-lg transition-all text-slate-500 hover:text-slate-800"
+        >
+          <ArrowLeft size={20} />
+        </button>
+        <div className="w-9 h-9 bg-indigo-600 rounded-lg flex items-center justify-center text-white shrink-0">
+          <Package size={18} />
+        </div>
+        <div>
+          <h2 className="text-lg font-black text-slate-800 uppercase tracking-tight">
+            {editingProduct ? 'Modify Registry Spec' : 'New Master Registration'}
+          </h2>
+          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Product Identity Definition</p>
+        </div>
+      </div>
+
+      <form onSubmit={handleSaveProduct} className="w-full pb-10">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
+
+          {/* ══ LEFT COLUMN ══ */}
+          <div className="space-y-5">
+
+            {/* Section: Identity */}
+            <div className="bg-white border border-slate-200 rounded-2xl">
+              <div className="px-5 py-3 bg-slate-50 border-b border-slate-100 flex items-center gap-2 rounded-t-2xl">
+                <Package size={13} className="text-indigo-500" />
+                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Product Identity</span>
+              </div>
+              <div className="p-5 space-y-4">
+
+                {/* Name */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Product Name <span className="text-rose-400">*</span></label>
+                  <div className="relative group">
+                    <Package className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-500 transition-colors" size={15} />
+                    <input
+                      type="text" required value={formData.name}
+                      onChange={(e) => setFormData({...formData, name: e.target.value})}
+                      className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-indigo-500 focus:bg-white transition-all"
+                      placeholder="E.g. NVIDIA GeForce GTX 1050Ti"
+                    />
+                  </div>
+                </div>
+
+                {/* Stock Tracking */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Stock Tracking Mode <span className="text-rose-400">*</span></label>
+                  <div className="flex gap-2 p-1 bg-slate-100 rounded-xl border border-slate-200">
+                    <button type="button"
+                      onClick={() => setFormData({ ...formData, hasSerial: true, stockQty: 0 })}
+                      className={`flex-1 py-2.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${formData.hasSerial !== false ? 'bg-white text-indigo-600 shadow border border-slate-200' : 'text-slate-400 hover:text-slate-600'}`}>
+                      Serial Required
+                    </button>
+                    <button type="button"
+                      onClick={() => setFormData({ ...formData, hasSerial: false, stockQty: Number(formData.stockQty || 0) })}
+                      className={`flex-1 py-2.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${formData.hasSerial === false ? 'bg-white text-indigo-600 shadow border border-slate-200' : 'text-slate-400 hover:text-slate-600'}`}>
+                      Qty Only
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-slate-400 ml-1">
+                    {formData.hasSerial !== false
+                      ? 'Each unit tracked individually by serial number.'
+                      : 'Stock tracked by total quantity — no per-unit serial.'}
+                  </p>
+                </div>
+
+                {/* Opening Qty */}
+                {formData.hasSerial === false && (
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Opening Stock Quantity</label>
+                    <div className="relative group">
+                      <Box className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-500 transition-colors" size={15} />
+                      <input type="number" min="0"
+                        value={formData.stockQty ?? 0}
+                        onChange={(e) => setFormData({ ...formData, stockQty: Math.max(0, Number(e.target.value) || 0) })}
+                        className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-indigo-500 focus:bg-white transition-all"
+                        placeholder="0"
+                      />
+                    </div>
+                  </div>
+                )}
+
+              </div>
+            </div>
+
+            {/* Section: Pricing */}
+            <div className="bg-white border border-slate-200 rounded-2xl">
+              <div className="px-5 py-3 bg-slate-50 border-b border-slate-100 flex items-center gap-2 rounded-t-2xl">
+                <DollarSign size={13} className="text-emerald-500" />
+                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Pricing & Thresholds</span>
+                {editingProduct && (
+                  <button type="button" onClick={handleOpenPricePicker}
+                    className="ml-auto flex items-center gap-1.5 px-3 py-1 bg-indigo-50 text-indigo-700 border border-indigo-100 hover:bg-indigo-600 hover:text-white rounded-lg text-[10px] font-black uppercase transition-all">
+                    <ClipboardList size={11} /> Pick from Purchase
+                  </button>
+                )}
+              </div>
+              <div className="p-5 grid grid-cols-2 gap-4">
+
+                {/* Selling Price */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Selling Price <span className="text-rose-400">*</span></label>
+                  <div className="relative group">
+                    <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-emerald-500 transition-colors" size={14} />
+                    <input type="number" required min="0"
+                      value={formData.sellingPrice ?? 0}
+                      readOnly={!!editingProduct}
+                      onChange={(e) => !editingProduct && setFormData({...formData, sellingPrice: Number(e.target.value)})}
+                      className={`w-full pl-9 pr-3 py-3 border rounded-xl text-sm font-semibold outline-none transition-all ${editingProduct ? 'bg-slate-100 border-slate-200 text-slate-500 cursor-default' : 'bg-slate-50 border-slate-200 focus:border-emerald-400 focus:bg-white'}`}
+                    />
+                  </div>
+                  <p className="text-[9px] text-slate-400 ml-1">MMK</p>
+                </div>
+
+                {/* Cost Price */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Cost Price</label>
+                  <div className="relative group">
+                    <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-500 transition-colors" size={14} />
+                    <input type="number" min="0"
+                      value={formData.costPrice ?? 0}
+                      readOnly={!!editingProduct}
+                      onChange={(e) => !editingProduct && setFormData({...formData, costPrice: Number(e.target.value)})}
+                      className={`w-full pl-9 pr-3 py-3 border rounded-xl text-sm font-semibold outline-none transition-all ${editingProduct ? 'bg-slate-100 border-slate-200 text-slate-500 cursor-default' : 'bg-slate-50 border-slate-200 focus:border-indigo-400 focus:bg-white'}`}
+                    />
+                  </div>
+                  <p className="text-[9px] text-slate-400 ml-1">MMK</p>
+                </div>
+
+                {/* Reorder Level */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Reorder Level</label>
+                  <div className="relative group">
+                    <AlertCircle className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-amber-500 transition-colors" size={14} />
+                    <input type="number" min="0"
+                      value={formData.reorderLevel ?? 0}
+                      onChange={(e) => setFormData({...formData, reorderLevel: Math.max(0, Number(e.target.value) || 0)})}
+                      className="w-full pl-9 pr-3 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-amber-400 focus:bg-white transition-all"
+                      placeholder="0"
+                    />
+                  </div>
+                  <p className="text-[9px] text-slate-400 ml-1">Low stock alert threshold</p>
+                </div>
+
+                {/* Warranty Months */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Base Warranty</label>
+                  <div className="relative group">
+                    <Send className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-500 transition-colors" size={14} />
+                    <input type="number" min="0"
+                      value={formData.warrantyMonths ?? 0}
+                      onChange={(e) => setFormData({...formData, warrantyMonths: Math.max(0, Number(e.target.value) || 0)})}
+                      className="w-full pl-9 pr-3 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-indigo-500 focus:bg-white transition-all"
+                      placeholder="0"
+                    />
+                  </div>
+                  <p className="text-[9px] text-slate-400 ml-1">Months only. Use 0 if you want custom terms only.</p>
+                </div>
+
+                {/* Warranty Terms */}
+                <div className="col-span-2 space-y-1.5">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Warranty Terms</label>
+                  <input
+                    type="text"
+                    value={formData.warrantyTerms ?? ''}
+                    onChange={(e) => setFormData({ ...formData, warrantyTerms: e.target.value })}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:border-indigo-500 focus:bg-white transition-all"
+                    placeholder="Eg. 7 days service warranty / 1 month checking warranty / No warranty"
+                  />
+                  <p className="text-[9px] text-slate-400 ml-1">Flexible text for second items and mixed warranty policies.</p>
+                </div>
+
+              </div>
+            </div>
+
+          </div>{/* end LEFT */}
+
+          {/* ══ RIGHT COLUMN ══ */}
+          <div className="space-y-5">
+
+            {/* Section: Classification */}
+            <div className="bg-white border border-slate-200 rounded-2xl">
+              <div className="px-5 py-3 bg-slate-50 border-b border-slate-100 flex items-center gap-2 rounded-t-2xl">
+                <Layers size={13} className="text-indigo-500" />
+                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Classification & Catalog</span>
+              </div>
+              <div className="p-5 space-y-4">
+
+                {/* Condition */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Item Condition <span className="text-rose-400">*</span></label>
+                  <div className="flex gap-2 p-1 bg-slate-100 rounded-xl border border-slate-200">
+                    <button type="button" onClick={() => setFormData({...formData, productType: ProductType.NEW})}
+                      className={`flex-1 py-2.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${formData.productType === ProductType.NEW ? 'bg-white text-indigo-600 shadow border border-slate-200' : 'text-slate-400 hover:text-slate-600'}`}>
+                      New
+                    </button>
+                    <button type="button" onClick={() => setFormData({...formData, productType: ProductType.SECOND})}
+                      className={`flex-1 py-2.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${formData.productType === ProductType.SECOND ? 'bg-white text-amber-600 shadow border border-slate-200' : 'text-slate-400 hover:text-slate-600'}`}>
+                      Second
+                    </button>
+                    <button type="button" onClick={() => setFormData({...formData, productType: ProductType.SECOND_NEW})}
+                      className={`flex-1 py-2.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${formData.productType === ProductType.SECOND_NEW ? 'bg-white text-violet-600 shadow border border-slate-200' : 'text-slate-400 hover:text-slate-600'}`}>
+                      Second New
+                    </button>
+                  </div>
+                </div>
+
+                {/* Category */}
+                <div className="space-y-1.5 relative">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Category <span className="text-rose-400">*</span></label>
+                  <div className="relative group">
+                    <Layers className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-500 transition-colors z-10" size={15} />
+                    <input type="text"
+                      value={categorySearch || (formData.categoryId ? flatCategoryOptions.find(c => c.id === formData.categoryId)?.displayName || '' : '')}
+                      onFocus={() => { setCategoryOpen(true); setCategorySearch(''); }}
+                      onChange={(e) => { setCategorySearch(e.target.value); setCategoryOpen(true); }}
+                      onBlur={() => setTimeout(() => setCategoryOpen(false), 150)}
+                      placeholder="Search category..."
+                      className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-indigo-500 focus:bg-white transition-all"
+                    />
+                  </div>
+                  {categoryOpen && (
+                    <div className="absolute z-50 top-full mt-1 left-0 right-0 bg-white border border-slate-200 rounded-xl shadow-xl max-h-48 overflow-y-auto">
+                      {flatCategoryOptions.filter(c => c.displayName.toLowerCase().includes((categorySearch || '').toLowerCase())).map(c => (
+                        <div key={c.id} onMouseDown={() => { setFormData({...formData, categoryId: c.id}); setCategorySearch(''); setCategoryOpen(false); }}
+                          className={`px-4 py-2.5 text-xs font-bold cursor-pointer hover:bg-indigo-50 hover:text-indigo-700 transition-colors ${formData.categoryId === c.id ? 'bg-indigo-50 text-indigo-700' : 'text-slate-700'}`}>
+                          {c.displayName}
+                        </div>
+                      ))}
+                      {flatCategoryOptions.filter(c => c.displayName.toLowerCase().includes((categorySearch || '').toLowerCase())).length === 0 && (
+                        <div className="px-4 py-3 text-xs text-slate-400 font-bold">No results found</div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Brand */}
+                <div className="space-y-1.5 relative">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Brand <span className="text-rose-400">*</span></label>
+                  <div className="relative group">
+                    <Tag className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-500 transition-colors z-10" size={15} />
+                    <input type="text"
+                      value={brandSearch || (formData.brandId ? brands.find(b => b.id === formData.brandId)?.name || '' : '')}
+                      onFocus={() => { setBrandOpen(true); setBrandSearch(''); }}
+                      onChange={(e) => { setBrandSearch(e.target.value); setBrandOpen(true); }}
+                      onBlur={() => setTimeout(() => setBrandOpen(false), 150)}
+                      placeholder="Search brand..."
+                      className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-indigo-500 focus:bg-white transition-all"
+                    />
+                  </div>
+                  {brandOpen && (
+                    <div className="absolute z-50 top-full mt-1 left-0 right-0 bg-white border border-slate-200 rounded-xl shadow-xl max-h-48 overflow-y-auto">
+                      {brands.filter(b => b.name.toLowerCase().includes((brandSearch || '').toLowerCase())).map(b => (
+                        <div key={b.id} onMouseDown={() => { setFormData({...formData, brandId: b.id}); setBrandSearch(''); setBrandOpen(false); }}
+                          className={`px-4 py-2.5 text-xs font-bold cursor-pointer hover:bg-indigo-50 hover:text-indigo-700 transition-colors ${formData.brandId === b.id ? 'bg-indigo-50 text-indigo-700' : 'text-slate-700'}`}>
+                          {b.name}
+                        </div>
+                      ))}
+                      {brands.filter(b => b.name.toLowerCase().includes((brandSearch || '').toLowerCase())).length === 0 && (
+                        <div className="px-4 py-3 text-xs text-slate-400 font-bold">No results found</div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Unit */}
+                <div className="space-y-1.5 relative">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Unit of Measure <span className="text-rose-400">*</span></label>
+                  <div className="relative group">
+                    <Ruler className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-500 transition-colors z-10" size={15} />
+                    <input type="text"
+                      value={unitSearch || (formData.unitId ? units.find(u => u.id === formData.unitId)?.unitName || '' : '')}
+                      onFocus={() => { setUnitOpen(true); setUnitSearch(''); }}
+                      onChange={(e) => { setUnitSearch(e.target.value); setUnitOpen(true); }}
+                      onBlur={() => setTimeout(() => setUnitOpen(false), 150)}
+                      placeholder="e.g. Piece, Box, Kg..."
+                      className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-indigo-500 focus:bg-white transition-all"
+                    />
+                  </div>
+                  {unitOpen && (
+                    <div className="absolute z-50 top-full mt-1 left-0 right-0 bg-white border border-slate-200 rounded-xl shadow-xl max-h-48 overflow-y-auto">
+                      {units.filter(u => u.unitName.toLowerCase().includes((unitSearch || '').toLowerCase())).map(u => (
+                        <div key={u.id} onMouseDown={() => { setFormData({...formData, unitId: u.id}); setUnitSearch(''); setUnitOpen(false); }}
+                          className={`px-4 py-2.5 text-xs font-bold cursor-pointer hover:bg-indigo-50 hover:text-indigo-700 transition-colors ${formData.unitId === u.id ? 'bg-indigo-50 text-indigo-700' : 'text-slate-700'}`}>
+                          {u.unitName}
+                        </div>
+                      ))}
+                      {units.filter(u => u.unitName.toLowerCase().includes((unitSearch || '').toLowerCase())).length === 0 && (
+                        <div className="px-4 py-3 text-xs text-slate-400 font-bold">No results found</div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+              </div>
+            </div>
+
+            {/* Section: Remarks */}
+            <div className="bg-white border border-slate-200 rounded-2xl">
+              <div className="px-5 py-3 bg-slate-50 border-b border-slate-100 flex items-center gap-2 rounded-t-2xl">
+                <Info size={13} className="text-slate-400" />
+                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Remarks</span>
+                <span className="text-[10px] text-slate-400">(optional)</span>
+              </div>
+              <div className="p-5">
+                <textarea rows={4}
+                  value={formData.remark}
+                  onChange={(e) => setFormData({...formData, remark: e.target.value})}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:border-indigo-500 focus:bg-white transition-all resize-none"
+                  placeholder="Technical notes, observations, descriptions..."
+                />
+              </div>
+            </div>
+
+            {/* Photo Upload */}
+            <div className="bg-white border border-slate-200 rounded-2xl">
+              <div className="px-5 py-3 bg-slate-50 border-b border-slate-100 flex items-center gap-2 rounded-t-2xl">
+                <Camera size={13} className="text-indigo-500" />
+                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Product Photo</span>
+                <span className="ml-auto text-[9px] text-slate-400 font-bold">auto-compressed · max 320×320</span>
+              </div>
+              <div className="p-5">
+                {formPhoto ? (
+                  <div className="flex items-start gap-4">
+                    <img src={formPhoto} alt="product" className="w-28 h-28 object-contain rounded-xl border border-slate-200 bg-slate-50" />
+                    <div className="flex flex-col gap-2 pt-1">
+                      <label className="inline-flex items-center gap-2 px-3 py-1.5 border border-indigo-200 bg-indigo-50 text-indigo-700 text-xs font-bold rounded-lg cursor-pointer hover:bg-indigo-100 transition-all">
+                        <Camera size={13} /> Change Photo
+                        <input type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
+                      </label>
+                      <button type="button" onClick={() => setViewFormPhoto(formPhoto)}
+                        className="inline-flex items-center gap-2 px-3 py-1.5 border border-indigo-200 bg-indigo-50 text-indigo-700 text-xs font-bold rounded-lg hover:bg-indigo-100 transition-all">
+                        <Eye size={13} /> View Photo
+                      </button>
+                      <button type="button" onClick={() => { setFormPhoto(undefined); setPhotoChanged(true); }}
+                        className="inline-flex items-center gap-2 px-3 py-1.5 border border-rose-200 bg-rose-50 text-rose-700 text-xs font-bold rounded-lg hover:bg-rose-100 transition-all">
+                        <X size={13} /> Remove
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <label className="flex flex-col items-center gap-3 p-8 border-2 border-dashed border-slate-200 rounded-xl cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/30 transition-all">
+                    <div className="w-12 h-12 rounded-xl bg-indigo-50 flex items-center justify-center">
+                      <Camera size={22} className="text-indigo-400" />
+                    </div>
+                    <div className="text-center">
+                      <p className="text-sm font-bold text-slate-600">Click to upload photo</p>
+                      <p className="text-xs text-slate-400 mt-1">JPG, PNG, WEBP — auto-compressed to ~30KB</p>
+                    </div>
+                    <input type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
+                  </label>
+                )}
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-3">
+              <button type="button" onClick={() => setShowForm(false)}
+                className="flex items-center gap-2 px-5 py-3 border border-slate-200 rounded-xl text-xs font-black uppercase tracking-widest bg-white text-slate-500 hover:bg-slate-50 transition-all shadow-sm">
+                <ArrowLeft size={14} /> Back
+              </button>
+              <button type="submit" disabled={saving}
+                className="flex-1 py-3 bg-indigo-600 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-lg shadow-indigo-600/25 active:scale-[0.98] transition-all flex items-center justify-center gap-2 hover:bg-indigo-700">
+                {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                {editingProduct ? 'Save Changes' : 'Register Product'}
+              </button>
+            </div>
+
+          </div>{/* end RIGHT */}
+
+        </div>
+      </form>
+
+      {/* Product photo viewer */}
+      {viewFormPhoto && (
+        <div
+          className="fixed inset-0 z-[300] flex items-center justify-center bg-black/85 backdrop-blur-sm"
+          onClick={() => setViewFormPhoto(null)}
+        >
+          <div className="flex flex-col items-center gap-3" onClick={e => e.stopPropagation()}>
+            <img
+              src={viewFormPhoto}
+              alt="Product photo"
+              className="rounded-xl object-contain shadow-2xl"
+              style={{ maxHeight: '50vh', maxWidth: '90vw' }}
+            />
+            <button
+              onClick={() => setViewFormPhoto(null)}
+              className="px-5 py-2 bg-white/10 hover:bg-white/20 text-white text-xs font-bold rounded-full border border-white/20 transition-all"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Purchase History Price Picker Modal (used inside full-page form too) */}
+      {isPricePickerOpen && (
+        <div className="fixed inset-0 z-[250] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+          <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl border border-slate-200 flex flex-col max-h-[85vh]">
+            <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/60 shrink-0">
+              <div>
+                <h3 className="text-[13px] font-black text-slate-800 uppercase tracking-tight flex items-center gap-2">
+                  <ClipboardList size={15} className="text-indigo-600" /> Purchase History — {editingProduct?.name}
+                </h3>
+                <p className="text-[10px] text-slate-400 font-bold uppercase mt-0.5 tracking-widest">
+                  ဝယ်ထားသော purchase တစ်ခုကို ရွေးပြီး price သတ်မှတ်ပါ
+                </p>
+              </div>
+              <button onClick={() => setIsPricePickerOpen(false)} className="p-2 hover:bg-slate-200 rounded-xl transition-all">
+                <X size={18} className="text-slate-400" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto">
+              {pricePickerLoading ? (
+                <div className="flex items-center justify-center py-16 gap-2 text-slate-400">
+                  <Loader2 size={20} className="animate-spin" />
+                  <span className="text-[12px] font-bold">Loading...</span>
+                </div>
+              ) : pricePickerRows.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-16 text-slate-300 gap-2">
+                  <ClipboardList size={32} />
+                  <p className="text-[11px] font-black uppercase tracking-widest">No purchase history found</p>
+                  <p className="text-[10px] text-slate-400">ဤ product ပါဝင်သော purchase မရှိသေးပါ</p>
+                </div>
+              ) : (
+                <table className="w-full text-xs">
+                  <thead className="sticky top-0 bg-slate-50 border-b border-slate-200">
+                    <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                      <th className="px-4 py-3 text-left">Purchase Code</th>
+                      <th className="px-4 py-3 text-left">Supplier</th>
+                      <th className="px-4 py-3 text-left">Date</th>
+                      <th className="px-4 py-3 text-right">Qty</th>
+                      <th className="px-4 py-3 text-right">Unit Cost</th>
+                      <th className="px-4 py-3 text-center">Select</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {pricePickerRows.map((row, i) => (
+                      <tr key={i}
+                        onClick={() => { setPickedCost(row.unitCost); setPickedSelling(String(row.unitCost)); }}
+                        className={`cursor-pointer transition-colors hover:bg-indigo-50 ${pickedCost === row.unitCost && pickedSelling === String(row.unitCost) ? 'bg-indigo-50' : ''}`}>
+                        <td className="px-4 py-3 font-black text-indigo-600">{row.purchaseCode}</td>
+                        <td className="px-4 py-3 text-slate-600 font-semibold">{row.supplierName}</td>
+                        <td className="px-4 py-3 text-slate-500">{row.purchaseDate}</td>
+                        <td className="px-4 py-3 text-right font-bold text-slate-700">{row.qty}</td>
+                        <td className="px-4 py-3 text-right font-black text-slate-800">
+                          {row.unitCost.toLocaleString()} <span className="text-[9px] text-slate-400 font-bold">MMK</span>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <button type="button"
+                            onClick={(e) => { e.stopPropagation(); setPickedCost(row.unitCost); setPickedSelling(String(row.unitCost)); }}
+                            className={`px-3 py-1 rounded-lg text-[10px] font-black transition-all ${pickedCost === row.unitCost ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-indigo-100 hover:text-indigo-700'}`}>
+                            {pickedCost === row.unitCost ? '✓ Selected' : 'Select'}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+            {pickedCost !== null && (
+              <div className="px-6 py-4 border-t border-slate-100 bg-slate-50/60 shrink-0 space-y-3">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <div className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 rounded-xl">
+                    <span className="text-[10px] font-black text-slate-400 uppercase">Cost Price</span>
+                    <span className="text-[14px] font-black text-slate-800">{pickedCost.toLocaleString()}</span>
+                    <span className="text-[10px] text-slate-400">MMK</span>
+                  </div>
+                  <div className="flex items-center gap-2 flex-1 min-w-[200px]">
+                    <label className="text-[10px] font-black text-slate-500 uppercase whitespace-nowrap">Selling Price</label>
+                    <div className="relative flex-1">
+                      <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
+                      <input
+                        type="number" min="0"
+                        value={pickedSelling}
+                        onChange={e => setPickedSelling(e.target.value)}
+                        className="w-full pl-8 pr-3 py-2.5 bg-white border border-indigo-300 rounded-xl text-[12px] font-bold outline-none focus:border-indigo-500 shadow-sm"
+                        placeholder="Selling price ထည့်ပါ"
+                        autoFocus
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => setIsPricePickerOpen(false)}
+                    className="flex-1 py-2.5 rounded-xl bg-slate-100 text-slate-500 text-[11px] font-black uppercase hover:bg-slate-200 transition-all">
+                    Cancel
+                  </button>
+                  <button type="button"
+                    onClick={() => {
+                      const selling = Math.max(0, Number(pickedSelling) || 0);
+                      setFormData(prev => ({ ...prev, costPrice: pickedCost!, sellingPrice: selling }));
+                      setIsPricePickerOpen(false);
+                    }}
+                    className="flex-[2] py-2.5 rounded-xl bg-indigo-600 text-white text-[11px] font-black uppercase hover:bg-indigo-700 flex items-center justify-center gap-1.5 transition-all">
+                    <Save size={13} /> Apply Price
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  return (
+    <div className="space-y-3 animate-in fade-in duration-400 h-full flex flex-col overflow-hidden text-left">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 shrink-0">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-indigo-600 rounded-lg flex items-center justify-center text-white shrink-0">
+            <LayoutList size={24} />
+          </div>
+          <div>
+            <h2 className="text-lg font-bold text-slate-800">Product Master Ledger</h2>
+            <p className="text-slate-500 text-xs font-semibold mt-0.5 flex items-center gap-1.5">
+              <ClipboardList size={12} className="text-indigo-500" /> {productGroups.length} groups, {products.length} product entries
+            </p>
+          </div>
+        </div>
+
+        {/* Grouped info panel: Available Value + Low Stock */}
+        <div className="flex items-stretch gap-0 rounded-xl border border-slate-200 overflow-hidden bg-white shadow-sm">
+          <div className="flex items-center gap-3 px-4 py-3 bg-emerald-50 border-r border-emerald-200">
+            <div className="w-8 h-8 bg-emerald-600 text-white rounded-md flex items-center justify-center shrink-0">
+              <Wallet size={16} />
+            </div>
+            <div>
+              <p className="text-[9px] font-bold text-emerald-700 uppercase tracking-wider leading-none mb-1">Available Value</p>
+              <p className="text-sm font-bold text-slate-800 leading-none tabular-nums">
+                {totalAvailableStockValue.toLocaleString()} <span className="text-[10px] text-slate-500 font-bold">Ks</span>
+              </p>
+            </div>
+          </div>
+          <div className={`flex items-center gap-3 px-4 py-3 ${lowStockProducts.length > 0 ? 'bg-amber-50' : 'bg-slate-50'}`}>
+            <div className={`w-8 h-8 rounded-md flex items-center justify-center shrink-0 ${lowStockProducts.length > 0 ? 'bg-amber-500 text-white' : 'bg-slate-200 text-slate-400'}`}>
+              <TrendingDown size={16} />
+            </div>
+            <div>
+              <p className={`text-[9px] font-bold uppercase tracking-wider leading-none mb-1 ${lowStockProducts.length > 0 ? 'text-amber-700' : 'text-slate-400'}`}>Low Stock</p>
+              <p className={`text-sm font-bold leading-none ${lowStockProducts.length > 0 ? 'text-amber-800' : 'text-slate-400'}`}>
+                {lowStockProducts.length} <span className="text-[10px] font-bold">{lowStockProducts.length === 1 ? 'item' : 'items'}</span>
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => navigate(AppRoute.LABEL_DESIGNER)}
+            className="bg-violet-600 text-white px-4 py-2 rounded-lg text-xs font-bold uppercase flex items-center gap-2 hover:bg-violet-700"
+          >
+            <Barcode size={16} /> Label Designer
+          </button>
+          <button
+            onClick={() => handleOpenModal()}
+            className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-xs font-bold uppercase flex items-center gap-2 hover:bg-indigo-700"
+          >
+            <Plus size={16} /> Add Product
+          </button>
+        </div>
+      </div>
+
+      {/* Primary Filters */}
+      <div className="bg-white p-4 rounded-lg border border-slate-200 space-y-3">
+        <div className="flex flex-col xl:flex-row gap-3">
+          <div className="relative flex-1 group flex items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={16} />
+              <input
+                type="text"
+                placeholder="Search by name, code, brand or serial..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none text-sm font-medium focus:bg-white focus:border-indigo-500"
+              />
+            </div>
+            <button
+              onClick={() => setShowScanSearch(true)}
+              title="Scan barcode / QR to search"
+              className="flex-shrink-0 flex items-center gap-2 px-3 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold uppercase transition-colors"
+            >
+              <Camera size={15} /> Scan
+            </button>
+          </div>
+          
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-1 p-1 bg-slate-100 border border-slate-200 rounded-lg">
+              <span className="text-[10px] font-bold text-slate-500 uppercase px-2">Condition</span>
+              {[
+                { value: 'All',        label: 'All' },
+                { value: 'New',        label: 'New' },
+                { value: 'Second',     label: 'Second' },
+                { value: 'Second_New', label: 'Second New' },
+              ].map(({ value, label }) => (
+                <button
+                  key={value}
+                  onClick={() => setFilterCondition(value as any)}
+                  className={`px-3 py-1.5 rounded-md text-xs font-bold uppercase ${
+                    filterCondition === value ? 'bg-white text-indigo-700 border border-slate-200' : 'text-slate-500 hover:text-indigo-700'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex items-center gap-1 p-1 bg-slate-100 border border-slate-200 rounded-lg">
+              <span className="text-[10px] font-bold text-slate-500 uppercase px-2">Status</span>
+              {['All', 'In Stock', 'Out of Stock'].map((status) => (
+                <button
+                  key={status}
+                  onClick={() => setFilterStatus(status as any)}
+                  className={`px-3 py-1.5 rounded-md text-xs font-bold uppercase ${
+                    filterStatus === status ? 'bg-white text-indigo-700 border border-slate-200' : 'text-slate-500 hover:text-indigo-700'
+                  }`}
+                >
+                  {status}
+                </button>
+              ))}
+            </div>
+
+            <button onClick={() => {setSearchTerm(''); setFilterCondition('All'); setFilterStatus('All');}} className="px-3 py-2 text-slate-600 hover:text-rose-700 hover:bg-rose-50 rounded-lg border border-slate-200 bg-white inline-flex items-center gap-2 text-xs font-bold uppercase">
+              <RotateCcw size={14} /> Reset
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Ledger Groups */}
+      <div className="bg-white rounded-lg border border-slate-200 flex flex-col flex-1 overflow-hidden">
+        <div className="flex-1 overflow-auto custom-scrollbar relative">
+          <table className="w-full text-left border-collapse min-w-[1080px]">
+            <thead className="sticky top-0 z-30 bg-slate-50 border-b border-slate-200">
+              <tr>
+                <th className="w-14 px-3"></th>
+                <th className="px-4 py-3 text-xs font-bold text-slate-600 uppercase">Product Group</th>
+                <th className="px-4 py-3 text-xs font-bold text-slate-600 uppercase">Condition</th>
+                <th className="px-4 py-3 text-xs font-bold text-slate-600 uppercase">Brand / Category</th>
+                <th className="px-4 py-3 text-xs font-bold text-slate-600 uppercase text-center">Available</th>
+                <th className="px-4 py-3 text-xs font-bold text-slate-600 uppercase text-right">ပစ္စည်းတန်ဖိုး</th>
+                <th className="px-4 py-3 text-xs font-bold text-slate-600 uppercase text-right">Selling Price</th>
+                <th className="px-4 py-3 text-xs font-bold text-slate-600 uppercase text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {paginatedGroups.length > 0 ? paginatedGroups.map((group) => {
+                const isExpanded = expandedGroups.has(group.groupId);
+                const hasLowStock = group.products.some(p => lowStockIds.has(p.id));
+                return (
+                  <React.Fragment key={group.groupId}>
+                    <tr className={`group ${isExpanded ? 'bg-indigo-50/40' : hasLowStock ? 'bg-amber-50/60 hover:bg-amber-50' : 'hover:bg-slate-50'}`}>
+                      <td className="px-3 text-center">
+                        <button
+                          onClick={() => toggleGroup(group.groupId)}
+                          className={`p-1.5 rounded-md ${isExpanded ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:bg-slate-100'}`}
+                        >
+                          {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                        </button>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          {(() => {
+                            const anyPhoto = group.products.find(p => p.photoBase64)?.photoBase64;
+                            return anyPhoto
+                              ? <img src={anyPhoto} alt="" className="w-9 h-9 rounded-md object-contain border border-slate-200 bg-slate-50 shrink-0" />
+                              : <div className={`w-9 h-9 rounded-md flex items-center justify-center shrink-0 ${isExpanded ? 'bg-indigo-600 text-white' : hasLowStock ? 'bg-amber-100 text-amber-600 border border-amber-200' : 'bg-indigo-50 text-indigo-600 border border-indigo-100'}`}><Package size={18} /></div>;
+                          })()}
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm font-bold text-slate-800">{group.displayName}</p>
+                              {hasLowStock && (
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-black bg-amber-100 text-amber-700 border border-amber-200 uppercase tracking-wide">
+                                  <AlertTriangle size={9} /> Low Stock
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-slate-500 font-medium mt-0.5">
+                              {group.products.length} entry(s)
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex flex-wrap gap-1.5">
+                          {(() => {
+                            const newCnt       = group.products.filter(p => p.productType === ProductType.NEW).length;
+                            const secCnt       = group.products.filter(p => p.productType === ProductType.SECOND).length;
+                            const secNewCnt    = group.products.filter(p => p.productType === ProductType.SECOND_NEW).length;
+                            return (
+                              <>
+                                {newCnt    > 0 && <span className="px-2 py-0.5 rounded-md text-[10px] font-bold border bg-indigo-50 text-indigo-600 border-indigo-100">New ×{newCnt}</span>}
+                                {secCnt    > 0 && <span className="px-2 py-0.5 rounded-md text-[10px] font-bold border bg-amber-50 text-amber-600 border-amber-100">Second ×{secCnt}</span>}
+                                {secNewCnt > 0 && <span className="px-2 py-0.5 rounded-md text-[10px] font-bold border bg-violet-50 text-violet-600 border-violet-100">S.New ×{secNewCnt}</span>}
+                              </>
+                            );
+                          })()}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-2">
+                            <Tag size={12} className="text-indigo-500" />
+                            <span className="text-xs font-bold text-slate-700">{group.brandName}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Layers size={12} className="text-slate-300" />
+                            <span className="text-xs font-medium text-slate-500">{group.categoryName}</span>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <div className="flex justify-center">
+                          {group.totalAvailable > 0 ? (
+                            <span className="px-3 py-1 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-100 text-xs font-bold flex items-center gap-2">
+                              <CheckCircle2 size={14} /> {group.totalAvailable} Units
+                            </span>
+                          ) : (
+                            <span className="px-3 py-1 rounded-md bg-rose-50 text-rose-700 border border-rose-100 text-xs font-bold flex items-center gap-2">
+                              <AlertCircle size={14} /> Out of Stock
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <span className="text-sm font-bold text-slate-800 tabular-nums">
+                          {group.groupStockValue.toLocaleString()} <span className="text-xs text-slate-500 ml-0.5 font-bold uppercase">Ks</span>
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        {(() => {
+                          const prices = group.products.map(p => p.sellingPrice);
+                          const minP = Math.min(...prices);
+                          const maxP = Math.max(...prices);
+                          return minP === maxP ? (
+                            <span className="text-sm font-bold text-indigo-700 tabular-nums">
+                              {minP.toLocaleString()} <span className="text-xs text-slate-500 ml-0.5 font-bold uppercase">Ks</span>
+                            </span>
+                          ) : (
+                            <span className="text-xs font-bold text-indigo-700 tabular-nums leading-relaxed">
+                              {minP.toLocaleString()} – {maxP.toLocaleString()} <span className="text-[10px] text-slate-500 ml-0.5 font-bold uppercase">Ks</span>
+                            </span>
+                          );
+                        })()}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                         <div className="flex justify-end gap-2">
+                            <button 
+                              onClick={() => toggleGroup(group.groupId)}
+                              className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-indigo-600 hover:text-white text-slate-700 text-xs font-bold uppercase rounded-md flex items-center gap-2"
+                            >
+                              <Eye size={14} /> {isExpanded ? 'Hide Details' : 'View Details'}
+                            </button>
+                          </div>
+                      </td>
+                    </tr>
+                    
+                    {/* NESTED BREAKDOWN TABLE WITH INTEGRATED FILTER */}
+                    {isExpanded && (
+                      <tr className="bg-slate-50">
+                        <td colSpan={8} className="px-6 py-4">
+                          <div className="bg-white rounded-lg border border-slate-200 overflow-hidden animate-in slide-in-from-top-2 duration-300">
+                            <div className="px-4 py-3 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+                               <div className="flex items-center gap-2">
+                                  <Info size={14} className="text-indigo-500" />
+                                  <span className="text-xs font-bold text-slate-700 uppercase">Entry Details</span>
+                                </div>
+                                <div className="flex items-center gap-2 px-3 py-1 bg-white border border-slate-200 rounded-md">
+                                   <span className="text-[10px] font-bold text-slate-500 uppercase">Condition:</span>
+                                   <select 
+                                     value={getNestedFilter(group.groupId)} 
+                                     onChange={(e) => setNestedFilterForGroup(group.groupId, e.target.value as 'All' | 'New' | 'Second')}
+                                     className="bg-transparent text-xs font-bold text-indigo-700 outline-none uppercase cursor-pointer"
+                                   >
+                                    <option value="All">All Conditions</option>
+                                    <option value="New">New Only</option>
+                                    <option value="Second">Second Only</option>
+                                    <option value="Second_New">Second New Only</option>
+                                  </select>
+                               </div>
+                            </div>
+                            <table className="w-full text-left">
+                              <thead className="bg-slate-100">
+                                <tr>
+                                  <th className="px-4 py-3 text-xs font-bold text-slate-600 uppercase">Code</th>
+                                  <th className="px-4 py-3 text-xs font-bold text-slate-600 uppercase text-center">
+                                    <div className="flex items-center justify-center gap-2">
+                                      Condition <Filter size={10} className="text-indigo-400" />
+                                    </div>
+                                  </th>
+                                  <th className="px-4 py-3 text-xs font-bold text-slate-600 uppercase">Remark</th>
+                                  <th className="px-4 py-3 text-xs font-bold text-slate-600 uppercase">Serial / Qty</th>
+                                  <th className="px-4 py-3 text-xs font-bold text-slate-600 uppercase text-center">Warranty</th>
+                                  <th className="px-4 py-3 text-xs font-bold text-slate-600 uppercase text-center">Status</th>
+                                  <th className="px-4 py-3 text-xs font-bold text-slate-600 uppercase text-right">Price</th>
+                                  <th className="px-4 py-3 text-xs font-bold text-slate-600 uppercase text-right">Actions</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-100">
+                                {group.products
+                                  .filter(p => getNestedFilter(group.groupId) === 'All' || p.productType === getNestedFilter(group.groupId))
+                                  .map(p => {
+                                  const isSerialTracked = p.hasSerial !== false;
+                                  const qtyStock = p.stockQty ?? p.currentStock ?? 0;
+                                  const pSerials = allSerials.filter(sr => sr.productId === p.id);
+
+                                  if (!isSerialTracked) {
+                                    return (
+                                      <tr key={p.id} className="hover:bg-slate-50 group/row">
+                                        <td className="px-4 py-3">
+                                          <div className="flex items-center gap-2">
+                                            {p.photoBase64
+                                              ? <img src={p.photoBase64} alt="" className="w-8 h-8 rounded object-contain border border-slate-100 bg-white shrink-0" />
+                                              : <div className="w-8 h-8 rounded bg-slate-100 flex items-center justify-center shrink-0"><Package size={13} className="text-slate-400" /></div>}
+                                            <span className="font-bold text-indigo-700 text-xs">{p.productCode}</span>
+                                          </div>
+                                        </td>
+                                        <td className="px-4 py-3 text-center">
+                                          <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase border ${productTypeBadgeClass(p.productType)}`}>
+                                            {formatProductType(p.productType)}
+                                          </span>
+                                        </td>
+                                        <td className="px-4 py-3"><p className="text-xs text-slate-500 truncate max-w-[180px]">{p.remark || '-'}</p></td>
+                                        <td className="px-4 py-3">
+                                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-100 text-slate-700 border border-slate-200 text-xs font-bold">
+                                            <Box size={12} />
+                                            Qty: {qtyStock}
+                                          </span>
+                                        </td>
+                                        <td className="px-4 py-3 text-center text-xs font-semibold text-slate-600">
+                                          {formatWarranty(p)}
+                                        </td>
+                                        <td className="px-4 py-3 text-center">
+                                          <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase border ${
+                                            qtyStock > 0 ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-rose-50 text-rose-600 border-rose-100'
+                                          }`}>
+                                            {qtyStock > 0 ? 'In Stock' : 'Out of Stock'}
+                                          </span>
+                                        </td>
+                                        <td className="px-4 py-3 text-right font-bold text-slate-800 text-xs">{p.sellingPrice.toLocaleString()}</td>
+                                        <td className="px-4 py-3 text-right">
+                                          <div className="flex justify-end gap-2">
+                                            {qtyStock > 0 && (
+                                              <button
+                                                onClick={() => handleOpenAssignSerials(p)}
+                                                title="Assign serial numbers to existing stock"
+                                                className="p-1.5 bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-600 hover:text-white rounded-md"
+                                              >
+                                                <Hash size={14} />
+                                              </button>
+                                            )}
+                                            <button onClick={() => handleOpenModal(p)} title="Edit Product" className="p-1.5 bg-indigo-50 text-indigo-700 border border-indigo-100 hover:bg-indigo-600 hover:text-white rounded-md"><Edit2 size={14} /></button>
+                                          </div>
+                                        </td>
+                                      </tr>
+                                    );
+                                  }
+
+                                  if (pSerials.length === 0) {
+                                    return (
+                                      <tr key={p.id} className="hover:bg-slate-50 group/row">
+                                        <td className="px-4 py-3">
+                                          <div className="flex items-center gap-2">
+                                            {p.photoBase64
+                                              ? <img src={p.photoBase64} alt="" className="w-8 h-8 rounded object-contain border border-slate-100 bg-white shrink-0" />
+                                              : <div className="w-8 h-8 rounded bg-slate-100 flex items-center justify-center shrink-0"><Package size={13} className="text-slate-400" /></div>}
+                                            <span className="font-bold text-indigo-700 text-xs">{p.productCode}</span>
+                                          </div>
+                                        </td>
+                                        <td className="px-4 py-3 text-center">
+                                          <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase border ${productTypeBadgeClass(p.productType)}`}>
+                                            {formatProductType(p.productType)}
+                                          </span>
+                                        </td>
+                                        <td className="px-4 py-3"><p className="text-xs text-slate-500 truncate max-w-[180px]">{p.remark || '-'}</p></td>
+                                        <td className="px-4 py-3 text-xs text-rose-600 font-semibold">No serials linked</td>
+                                        <td className="px-4 py-3 text-center text-xs font-semibold text-slate-600">
+                                          {formatWarranty(p)}
+                                        </td>
+                                        <td className="px-4 py-3 text-center text-slate-400 text-xs">-</td>
+                                        <td className="px-4 py-3 text-right font-bold text-slate-800 text-xs">{p.sellingPrice.toLocaleString()}</td>
+                                        <td className="px-4 py-3 text-right">
+                                          <div className="flex justify-end gap-2">
+                                            <button onClick={() => handleOpenModal(p)} title="Edit Product" className="p-1.5 bg-indigo-50 text-indigo-700 border border-indigo-100 hover:bg-indigo-600 hover:text-white rounded-md"><Edit2 size={14} /></button>
+                                          </div>
+                                        </td>
+                                      </tr>
+                                    );
+                                  }
+
+                                  return pSerials.map((s, idx) => (
+                                    <tr key={s.id} className="hover:bg-slate-50 group/row">
+                                      <td className="px-4 py-3">
+                                        {idx === 0 ? (
+                                          <div className="flex items-center gap-2">
+                                            {p.photoBase64
+                                              ? <img src={p.photoBase64} alt="" className="w-8 h-8 rounded object-contain border border-slate-100 bg-white shrink-0" />
+                                              : <div className="w-8 h-8 rounded bg-slate-100 flex items-center justify-center shrink-0"><Package size={13} className="text-slate-400" /></div>}
+                                            <span className="font-black text-indigo-600 text-[11px]">{p.productCode}</span>
+                                          </div>
+                                        ) : <span className="text-slate-200 font-bold ml-2">↳</span>}
+                                      </td>
+                                      <td className="px-4 py-3 text-center">
+                                        {idx === 0 ? (
+                                          <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase border ${productTypeBadgeClass(p.productType)}`}>
+                                            {formatProductType(p.productType)}
+                                          </span>
+                                        ) : <span className="text-[10px] text-slate-400">same</span>}
+                                      </td>
+                                      <td className="px-4 py-3">
+                                        {idx === 0 ? <p className="text-xs text-slate-500 truncate max-w-[180px]">{p.remark || '-'}</p> : <span className="text-slate-300">-</span>}
+                                      </td>
+                                      <td className="px-4 py-3 font-bold text-slate-700 text-xs">{s.serialNumber}</td>
+                                      <td className="px-4 py-3 text-center text-xs font-semibold text-slate-600">
+                                        {Number(s.warrantyMonths ?? 0) > 0 ? `${s.warrantyMonths} mo` : formatWarranty(p)}
+                                      </td>
+                                      <td className="px-4 py-3 text-center">
+                                        <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase border ${
+                                          s.status === SerialStatus.AVAILABLE ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-slate-50 text-slate-500 border-slate-200'
+                                        }`}>{s.status.replace(/_/g, ' ')}</span>
+                                      </td>
+                                      <td className="px-4 py-3 text-right font-bold text-slate-800 text-xs">
+                                        {idx === 0 ? p.sellingPrice.toLocaleString() : <span className="text-slate-300 font-normal">-</span>}
+                                      </td>
+                                      <td className="px-4 py-3 text-right">
+                                        <div className="flex justify-end gap-2">
+                                          {idx === 0 ? (
+                                            <>
+                                              <button onClick={() => handleOpenModal(p)} title="Edit Product" className="p-1.5 bg-indigo-50 text-indigo-700 border border-indigo-100 hover:bg-indigo-600 hover:text-white rounded-md"><Edit2 size={14} /></button>
+                                            </>
+                                          ) : (
+                                            <button onClick={() => handleDeleteSerial(s.id)} title="Remove Serial" className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-md"><Trash2 size={12} /></button>
+                                          )}
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  ));
+                                })}
+                                {group.products.filter(p => getNestedFilter(group.groupId) === 'All' || p.productType === getNestedFilter(group.groupId)).length === 0 && (
+                                  <tr>
+                                    <td colSpan={8} className="px-6 py-10 text-center text-[10px] font-black text-slate-300 uppercase tracking-widest italic">
+                                      No entries match the condition: {getNestedFilter(group.groupId)}
+                                    </td>
+                                  </tr>
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                );
+              }) : (
+                <tr>
+                  <td colSpan={8} className="px-6 py-40 text-center text-slate-400">
+                    <div className="flex flex-col items-center gap-5">
+                      <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center border border-dashed border-slate-200">
+                        <Filter className="text-slate-200" size={40} />
+                      </div>
+                      <p className="text-sm font-black uppercase tracking-widest text-slate-400 italic">No Matching Product Data</p>
+                    </div>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Footer Pagination */}
+        {productGroups.length > 0 && (
+          <div className="sticky bottom-0 z-30 px-10 py-6 bg-white border-t border-slate-100 flex flex-col md:flex-row items-center justify-between gap-8 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+            <div className="w-full md:w-auto text-center md:text-left order-2 md:order-1">
+              <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                Inventory Index <span className="w-6 h-[1px] bg-slate-200"></span> 
+                Showing <span className="text-indigo-600">{startIndex + 1}-{Math.min(startIndex + itemsPerPage, productGroups.length)}</span> 
+                of <span className="text-slate-800">{productGroups.length}</span> Master Groups
+              </span>
+            </div>
+
+            <div className="w-full md:w-auto flex flex-col sm:flex-row items-center justify-center gap-5 order-1 md:order-2">
+              <select 
+                value={itemsPerPage} onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+                className="appearance-none bg-slate-50 border border-slate-200 rounded-xl px-5 py-2.5 pr-12 text-[11px] font-black text-slate-600 outline-none focus:bg-white focus:border-indigo-500 cursor-pointer transition-all shadow-sm"
+              >
+                <option value={10}>Show 10</option>
+                <option value={25}>Show 25</option>
+                <option value={50}>Show 50</option>
+              </select>
+
+              <div className="flex items-center gap-2">
+                <button disabled={currentPage === 1} onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} className="p-3 rounded-xl border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 disabled:opacity-30 transition-all active:scale-90"><ChevronLeft size={18} /></button>
+                <div className="flex gap-1.5">
+                  {pageNumbers.map((page, i) => page === '...' ? (
+                    <span key={`ellipsis-${i}`} className="min-w-[42px] h-11 px-2 inline-flex items-center justify-center text-slate-300 font-black">
+                      ...
+                    </span>
+                  ) : (
+                    <button
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      className={`min-w-[42px] h-11 rounded-xl text-[12px] font-black transition-all ${currentPage === page ? 'bg-indigo-600 text-white shadow-xl border-indigo-600' : 'bg-white border border-slate-100 text-slate-500 hover:bg-slate-100'}`}
+                    >
+                      {page}
+                    </button>
+                  ))}
+                </div>
+                <button disabled={currentPage === totalPages} onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} className="p-3 rounded-xl border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 disabled:opacity-30 transition-all active:scale-90"><ChevronRight size={18} /></button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Assign Serials Modal — retroactively convert qty-only stock to serial-tracked */}
+      {isAssignSerialsOpen && assignSerialsProduct && (
+        <div className="fixed inset-0 z-[102] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+          <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl border border-slate-200 flex flex-col max-h-[90vh] overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+              <div>
+                <h3 className="font-bold text-slate-800 text-sm">Assign Serial Numbers</h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {assignSerialsProduct.name} · {assignSerialsProduct.productCode} · {assignSerialsProduct.stockQty ?? 0} unit(s) in stock
+                </p>
+              </div>
+              <button onClick={() => setIsAssignSerialsOpen(false)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400">
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Info banner */}
+            <div className="mx-6 mt-4 px-3 py-2.5 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-800 flex items-start gap-2">
+              <Hash size={13} className="mt-0.5 shrink-0 text-amber-600" />
+              <span>
+                After saving, <strong>{assignSerialsProduct.name}</strong> will become <strong>serial-tracked</strong>.
+                Stock qty will be managed per serial number going forward.
+              </span>
+            </div>
+
+            {/* Warranty input */}
+            <div className="px-6 pt-4 flex items-center gap-3">
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-wide whitespace-nowrap">Warranty (months)</label>
+              <input
+                type="number"
+                min={0}
+                value={assignSerialsWarranty}
+                onChange={(e) => setAssignSerialsWarranty(Math.max(0, Number(e.target.value) || 0))}
+                className="w-24 px-2 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-sm text-center focus:outline-none focus:border-indigo-400"
+              />
+              <span className="text-xs text-slate-400">Applied to all serials. Use 0 if unknown.</span>
+              <button
+                onClick={() => setAssignSerialsInputs(genSerials(assignSerialsProduct.productCode || String(assignSerialsProduct.id), assignSerialsProduct.stockQty ?? 0))}
+                className="ml-auto text-xs font-semibold text-indigo-600 hover:underline"
+              >
+                Re-generate
+              </button>
+            </div>
+
+            {/* Serial inputs */}
+            <div className="px-6 py-4 overflow-y-auto flex-1">
+              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-3">
+                Serial Numbers — {assignSerialsInputs.length} item(s)
+              </p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {assignSerialsInputs.map((sn, i) => (
+                  <div key={i} className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-bold text-slate-400 w-6 text-right shrink-0">#{i + 1}</span>
+                    <input
+                      type="text"
+                      value={sn}
+                      onChange={(e) => {
+                        const next = [...assignSerialsInputs];
+                        next[i] = e.target.value;
+                        setAssignSerialsInputs(next);
+                      }}
+                      placeholder={`Serial #${i + 1}`}
+                      className={`flex-1 px-2 py-1.5 rounded-md border text-xs font-mono focus:outline-none focus:ring-1 focus:ring-indigo-500 ${!sn.trim() ? 'border-red-300 bg-red-50' : 'border-slate-200 bg-white'}`}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 border-t border-slate-200 flex justify-end gap-2">
+              <button onClick={() => setIsAssignSerialsOpen(false)} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg font-medium">
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveAssignSerials}
+                disabled={assignSerialsSaving || assignSerialsInputs.some((s) => !s.trim())}
+                className="flex items-center gap-2 px-5 py-2 bg-indigo-600 text-white rounded-lg text-sm font-bold hover:bg-indigo-700 disabled:opacity-50"
+              >
+                <Save size={15} />
+                {assignSerialsSaving ? 'Saving…' : `Assign ${assignSerialsInputs.length} Serial(s)`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Serial Management Modal */}
+      {isSerialModalOpen && selectedProductForSerial && (
+        <div className="fixed inset-0 z-[101] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200 text-left">
+          <div className="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl border border-slate-200 animate-in zoom-in-95 flex flex-col max-h-[85vh] overflow-hidden">
+            <div className="p-8 border-b border-slate-100 flex items-center justify-between shrink-0 bg-slate-50/50">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="p-1.5 bg-indigo-600 text-white rounded-lg"><Hash size={14} /></div>
+                  <h3 className="text-[14px] font-black text-slate-800 uppercase tracking-tight">Register Serial Units</h3>
+                </div>
+                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest truncate max-w-[200px]">{selectedProductForSerial.name} ({selectedProductForSerial.productCode})</p>
+              </div>
+              <button onClick={() => setIsSerialModalOpen(false)} className="p-2.5 hover:bg-white hover:shadow-md rounded-2xl transition-all border border-transparent hover:border-slate-100"><X size={20} className="text-slate-400" /></button>
+            </div>
+            
+            <div className="p-8 border-b border-slate-50 bg-white shrink-0">
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1 mb-3 block">Unit Identification (Barcode/SN)</label>
+              <div className="flex gap-3">
+                <div className="relative flex-1 group">
+                  <Barcode className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-500 transition-colors" size={16} />
+                  <input 
+                    type="text" autoFocus value={newSerialInput} onChange={(e) => setNewSerialInput(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleAddSerial()}
+                    className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-[1.25rem] text-[12px] font-bold outline-none focus:border-indigo-500 focus:bg-white shadow-sm transition-all"
+                    placeholder="E.g. SN-882-GTX"
+                  />
+                </div>
+                <button onClick={handleAddSerial} disabled={saving || !newSerialInput.trim()} className="bg-indigo-600 text-white px-5 rounded-[1.25rem] shadow-xl shadow-indigo-100 disabled:opacity-50 transition-all flex items-center justify-center hover:bg-indigo-700 active:scale-95"><Send size={20} /></button>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6 custom-scrollbar bg-slate-50/20">
+              <div className="space-y-3">
+                <div className="px-2 mb-2 text-[9px] font-black text-slate-400 uppercase tracking-widest">Active Units ({allSerials.filter(s => s.productId === selectedProductForSerial.id).length})</div>
+                {allSerials.filter(s => s.productId === selectedProductForSerial.id).map((s) => (
+                  <div key={s.id} className="flex items-center justify-between p-4 bg-white border border-slate-100 rounded-2xl hover:border-indigo-200 transition-all group shadow-sm">
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors"><Hash size={16} /></div>
+                      <div>
+                        <p className="text-[11px] font-black text-slate-700 tracking-tight">{s.serialNumber}</p>
+                        <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest">{s.status.replace(/_/g, ' ')}</span>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleDeleteSerial(s.id)}
+                      title="Delete Serial"
+                      className="p-2 rounded-xl text-rose-300 hover:text-rose-600 hover:bg-rose-50 transition-all"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="p-6 border-t border-slate-100 bg-white flex justify-center shrink-0">
+               <button onClick={() => setIsSerialModalOpen(false)} className="px-10 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest text-slate-500 hover:text-slate-800 transition-all">Close Session</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* (form is now full-page via showForm early return above) */}
+      {false && (
+        <div>
+            
+        </div>
+      )}
+
+      {/* Purchase History Price Picker Modal */}
+      {isPricePickerOpen && (
+        <div className="fixed inset-0 z-[250] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+          <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl border border-slate-200 flex flex-col max-h-[85vh]">
+            {/* Header */}
+            <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/60 shrink-0">
+              <div>
+                <h3 className="text-[13px] font-black text-slate-800 uppercase tracking-tight flex items-center gap-2">
+                  <ClipboardList size={15} className="text-indigo-600" /> Purchase History — {editingProduct?.name}
+                </h3>
+                <p className="text-[10px] text-slate-400 font-bold uppercase mt-0.5 tracking-widest">
+                  ဝယ်ထားသော purchase တစ်ခုကို ရွေးပြီး price သတ်မှတ်ပါ
+                </p>
+              </div>
+              <button onClick={() => setIsPricePickerOpen(false)} className="p-2 hover:bg-slate-200 rounded-xl transition-all">
+                <X size={18} className="text-slate-400" />
+              </button>
+            </div>
+
+            {/* Purchase list */}
+            <div className="flex-1 overflow-y-auto">
+              {pricePickerLoading ? (
+                <div className="flex items-center justify-center py-16 gap-2 text-slate-400">
+                  <Loader2 size={20} className="animate-spin" />
+                  <span className="text-[12px] font-bold">Loading...</span>
+                </div>
+              ) : pricePickerRows.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-16 text-slate-300 gap-2">
+                  <ClipboardList size={32} />
+                  <p className="text-[11px] font-black uppercase tracking-widest">No purchase history found</p>
+                  <p className="text-[10px] text-slate-400">ဤ product ပါဝင်သော purchase မရှိသေးပါ</p>
+                </div>
+              ) : (
+                <table className="w-full text-xs">
+                  <thead className="sticky top-0 bg-slate-50 border-b border-slate-200">
+                    <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                      <th className="px-4 py-3 text-left">Purchase Code</th>
+                      <th className="px-4 py-3 text-left">Supplier</th>
+                      <th className="px-4 py-3 text-left">Date</th>
+                      <th className="px-4 py-3 text-right">Qty</th>
+                      <th className="px-4 py-3 text-right">Unit Cost</th>
+                      <th className="px-4 py-3 text-center">Select</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {pricePickerRows.map((row, i) => (
+                      <tr key={i}
+                        onClick={() => { setPickedCost(row.unitCost); setPickedSelling(String(row.unitCost)); }}
+                        className={`cursor-pointer transition-colors hover:bg-indigo-50 ${pickedCost === row.unitCost && pickedSelling === String(row.unitCost) ? 'bg-indigo-50' : ''}`}>
+                        <td className="px-4 py-3 font-black text-indigo-600">{row.purchaseCode}</td>
+                        <td className="px-4 py-3 text-slate-600 font-semibold">{row.supplierName}</td>
+                        <td className="px-4 py-3 text-slate-500">{row.purchaseDate}</td>
+                        <td className="px-4 py-3 text-right font-bold text-slate-700">{row.qty}</td>
+                        <td className="px-4 py-3 text-right font-black text-slate-800">
+                          {row.unitCost.toLocaleString()} <span className="text-[9px] text-slate-400 font-bold">MMK</span>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <button type="button"
+                            onClick={(e) => { e.stopPropagation(); setPickedCost(row.unitCost); setPickedSelling(String(row.unitCost)); }}
+                            className={`px-3 py-1 rounded-lg text-[10px] font-black transition-all ${pickedCost === row.unitCost ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-indigo-100 hover:text-indigo-700'}`}>
+                            {pickedCost === row.unitCost ? '✓ Selected' : 'Select'}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+
+            {/* Bottom — selling price input & apply */}
+            {pickedCost !== null && (
+              <div className="px-6 py-4 border-t border-slate-100 bg-slate-50/60 shrink-0 space-y-3">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <div className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 rounded-xl">
+                    <span className="text-[10px] font-black text-slate-400 uppercase">Cost Price</span>
+                    <span className="text-[14px] font-black text-slate-800">{pickedCost.toLocaleString()}</span>
+                    <span className="text-[10px] text-slate-400">MMK</span>
+                  </div>
+                  <div className="flex items-center gap-2 flex-1 min-w-[200px]">
+                    <label className="text-[10px] font-black text-slate-500 uppercase whitespace-nowrap">Selling Price</label>
+                    <div className="relative flex-1">
+                      <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
+                      <input
+                        type="number" min="0"
+                        value={pickedSelling}
+                        onChange={e => setPickedSelling(e.target.value)}
+                        className="w-full pl-8 pr-3 py-2.5 bg-white border border-indigo-300 rounded-xl text-[12px] font-bold outline-none focus:border-indigo-500 shadow-sm"
+                        placeholder="Selling price ထည့်ပါ"
+                        autoFocus
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => setIsPricePickerOpen(false)}
+                    className="flex-1 py-2.5 rounded-xl bg-slate-100 text-slate-500 text-[11px] font-black uppercase hover:bg-slate-200 transition-all">
+                    Cancel
+                  </button>
+                  <button type="button"
+                    onClick={() => {
+                      const selling = Math.max(0, Number(pickedSelling) || 0);
+                      setFormData(prev => ({ ...prev, costPrice: pickedCost!, sellingPrice: selling }));
+                      setIsPricePickerOpen(false);
+                    }}
+                    className="flex-[2] py-2.5 rounded-xl bg-indigo-600 text-white text-[11px] font-black uppercase hover:bg-indigo-700 flex items-center justify-center gap-1.5 transition-all">
+                    <Save size={13} /> Apply Price
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Barcode Print Modal */}
+      {isBarcodeModalOpen && barcodeProduct && (() => {
+        const isSerial = barcodeProduct.hasSerial !== false;
+        const productSerials = allSerials.filter(s => s.productId === barcodeProduct.id);
+        return (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+            <div className="bg-white w-full max-w-3xl rounded-3xl shadow-2xl border border-slate-200 flex flex-col max-h-[90vh]">
+              <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 shrink-0">
+                <div>
+                  <h3 className="text-[13px] font-black text-slate-800 uppercase tracking-tight flex items-center gap-2">
+                    <Barcode size={16} className="text-violet-600" /> Barcode Print — {barcodeProduct.name}
+                  </h3>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase mt-0.5 tracking-widest">
+                    {isSerial ? `${productSerials.length} Serial Unit(s)` : `Non-Serial · Product Code`}
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => window.print()}
+                    className="px-4 py-2 bg-violet-600 text-white rounded-xl text-[11px] font-black uppercase tracking-widest hover:bg-violet-700 flex items-center gap-1.5"
+                  >
+                    <Barcode size={13} /> Print
+                  </button>
+                  <button onClick={() => setIsBarcodeModalOpen(false)} className="p-2 hover:bg-slate-100 rounded-xl transition-all">
+                    <X size={18} className="text-slate-400" />
+                  </button>
+                </div>
+              </div>
+
+              <div id="barcode-print-area" className="p-6 overflow-y-auto">
+                {isSerial ? (
+                  productSerials.length === 0 ? (
+                    <p className="text-center text-slate-400 text-sm py-10">No serial numbers linked to this product yet.</p>
+                  ) : (
+                    <div className="grid grid-cols-3 gap-4">
+                      {productSerials.map(s => (
+                        <div key={s.id} className="border border-slate-200 rounded-xl p-3 flex flex-col items-center gap-1 bg-white">
+                          <BarcodeLabel
+                            value={s.serialNumber}
+                            label={barcodeProduct.name}
+                            subLabel={`S/N · ${s.serialNumber}`}
+                            width={1.7}
+                            height={40}
+                          />
+                          <span className={`mt-1 px-2 py-0.5 rounded text-[9px] font-black uppercase ${s.status === SerialStatus.AVAILABLE ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
+                            {s.status}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )
+                ) : (
+                  <div className="flex justify-center py-4">
+                    <div className="border border-slate-200 rounded-xl p-6 flex flex-col items-center gap-2 bg-white w-72 print:page-break-after-always print:break-after-page print:break-inside-avoid print:page-break-inside-avoid">
+                      <BarcodeLabel
+                        value={barcodeProduct.productCode || String(barcodeProduct.id)}
+                        label={barcodeProduct.name}
+                        subLabel={`Code · ${barcodeProduct.productCode}`}
+                        width={2}
+                        height={50}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {showScanSearch && (
+        <BarcodeScannerCamera
+          onDetected={(code) => {
+            setSearchTerm(code);
+            setShowScanSearch(false);
+          }}
+          onClose={() => setShowScanSearch(false)}
+        />
+      )}
+
+      <style>{`
+        @media print {
+          @page { margin: 8mm; size: A4; }
+          body * { visibility: hidden !important; }
+          #barcode-print-area,
+          #barcode-print-area * { visibility: visible !important; }
+          #barcode-print-area {
+            position: absolute !important;
+            top: 0 !important; left: 0 !important;
+            width: 100% !important;
+            overflow: visible !important;
+            padding: 8px !important;
+          }
+          #barcode-print-area .grid {
+            display: grid !important;
+            grid-template-columns: repeat(1, 1fr) !important;
+            gap: 8px !important;
+          }
+          #barcode-print-area .grid > div {
+            width: 100% !important;
+            page-break-inside: avoid !important;
+            break-inside: avoid-column !important;
+            break-inside: avoid-page !important;
+            page-break-after: always !important;
+            break-after: page !important;
+          }
+          #barcode-print-area .grid > div:last-child {
+            page-break-after: auto !important;
+            break-after: auto !important;
+          }
+          #barcode-print-area > div { overflow: visible !important; }
+        }
+      `}</style>
+    </div>
+  );
+};
+
+export default ProductManagement;

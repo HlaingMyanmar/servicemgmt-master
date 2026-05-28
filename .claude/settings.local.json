@@ -1,0 +1,38 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\SSPD Customer\\\\Documents\\\\sspdmgmt\\\\servicemgmt\" -Force)",
+      "Bash(Select-Object Name, FullName)",
+      "PowerShell(Get-ChildItem -Path \"c:\\\\Users\\\\SSPD Customer\\\\Documents\\\\sspdmgmt\\\\servicemgmt\\\\src\" -Recurse -Force -Depth 3 | Where-Object {$_.PSIsContainer} | Select-Object FullName | Sort-Object FullName | Format-Table -AutoSize -Wrap)",
+      "Bash(Remove-Item \"c:\\\\Users\\\\SSPD Customer\\\\Documents\\\\sspdmgmt\\\\servicemgmt\\\\src\\\\main\\\\java\\\\org\\\\sspd\\\\servicemgmt\\\\securityConfig\\\\SpaController.java\")",
+      "Bash(Get-ChildItem -Path \"e:\\\\Projects\\\\sspdmgmt\\\\servicemgmt\" -Directory)",
+      "Bash(Select-Object Name)",
+      "Bash(Get-ChildItem -Path \"e:\\\\Projects\\\\sspdmgmt\\\\servicemgmt\" -Force)",
+      "Bash(Select-Object -Property Name, PSIsContainer)",
+      "Bash(xargs grep -l \"external.*api\\\\|api.*client\\\\|http.*client\" -i)",
+      "Bash(xargs grep -l \"RestTemplate\\\\|WebClient\\\\|FeignClient\\\\|HttpClient\")",
+      "Bash(xargs grep -l \"properties\\\\|config\")",
+      "PowerShell(node --version)",
+      "PowerShell(cd \"E:\\\\Projects\\\\servicemgmt-master\\\\src\\\\main\\\\resources\\\\ui\"; $env:NODE_OPTIONS=\"--no-experimental-strip-types\"; npm run build 2>&1)",
+      "PowerShell(cd \"E:\\\\Projects\\\\servicemgmt-master\\\\src\\\\main\\\\resources\\\\ui\"; $proc = Start-Process -FilePath \"node_modules\\\\vite\\\\node_modules\\\\@esbuild\\\\win32-x64\\\\esbuild.exe\" -ArgumentList \"--version\" -Wait -NoNewWindow -PassThru; $proc.ExitCode)",
+      "PowerShell(Get-Process | Where-Object { $_.ProcessName -eq \"gnode\" } | Select-Object Id, ProcessName)",
+      "Bash(curl -sk https://localhost:8080 -o /dev/null -w \"%{http_code}\")",
+      "Bash(keytool -genkeypair -alias servicemgmt -keyalg RSA -keysize 2048 -storetype PKCS12 -keystore \"E:/Projects/servicemgmt-master/src/main/resources/keystore.p12\" -storepass servicemgmt2024 -validity 3650 -dname \"CN=localhost, OU=Dev, O=SSPD, L=Yangon, ST=Yangon, C=MM\")",
+      "Bash(java -jar target/servicemgmt-0.0.1-SNAPSHOT.war)",
+      "Bash(cat /c/Windows/System32/drivers/etc/hosts | head -20)",
+      "Bash(java -Djava.net.preferIPv4Stack=true -Djdk.net.hosts.file=/dev/null -jar target/servicemgmt-0.0.1-SNAPSHOT.war)",
+      "Bash(java -Djdk.nio.channels.spi.SelectorProvider=sun.nio.ch.WEPollSelectorProvider -Djava.nio.channels.spi.SelectorProvider=sun.nio.ch.WEPollSelectorProvider -jar target/servicemgmt-0.0.1-SNAPSHOT.war)",
+      "Bash(\"/c/Program Files/Microsoft/jdk-21.0.10/bin/java\" -jar target/servicemgmt-0.0.1-SNAPSHOT.war)",
+      "Bash(\"/c/Program Files/Java/jdk-21.0.10/bin/java\" -jar target/servicemgmt-0.0.1-SNAPSHOT.war)",
+      "PowerShell(if \\(-not \\(Test-Path \"C:\\\\Temp\"\\)\\) { New-Item -ItemType Directory -Path \"C:\\\\Temp\" -Force })",
+      "Bash(npm run *)",
+      "Read(//c/Program Files/**)",
+      "Read(//c/Program Files \\(x86\\)/**)",
+      "Read(//c/Users/**)",
+      "Bash(cmd.exe /c \"where npm 2>&1\")",
+      "Bash(cmd.exe /c \"dir /s /b C:\\\\\\\\node.exe 2>nul & dir /s /b D:\\\\\\\\node.exe 2>nul & dir /s /b \\\\\"C:\\\\\\\\Program Files\\\\\\\\nodejs\\\\\\\\node.exe\\\\\" 2>nul & dir /s /b \\\\\"%APPDATA%\\\\\\\\nvm\\\\\\\\*node.exe\\\\\" 2>nul & dir /s /b \\\\\"%LOCALAPPDATA%\\\\\\\\fnm*\\\\\\\\node.exe\\\\\" 2>nul\")",
+      "Bash(cmd.exe /c \"echo %NVM_HOME% & echo %FNM_DIR% & echo %VOLTA_HOME% & echo %PATH%\")",
+      "Bash(git config *)"
+    ]
+  }
+}
