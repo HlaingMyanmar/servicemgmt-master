@@ -170,7 +170,10 @@ private fun ProductCard(p: ProductDTO) {
     val imgBitmap = remember(p.photoBase64) {
         if (p.photoBase64.isNullOrBlank()) null
         else runCatching {
-            val bytes = Base64.decode(p.photoBase64, Base64.DEFAULT)
+            // Backend stores photo as data URL: "data:image/jpeg;base64,/9j/..."
+            // Strip the prefix before decoding
+            val raw = p.photoBase64.substringAfter("base64,", p.photoBase64)
+            val bytes = Base64.decode(raw, Base64.DEFAULT)
             BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
         }.getOrNull()
     }
