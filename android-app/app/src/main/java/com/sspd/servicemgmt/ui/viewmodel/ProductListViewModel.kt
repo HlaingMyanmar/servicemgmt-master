@@ -32,23 +32,31 @@ class ProductListViewModel(application: Application) : AndroidViewModel(applicat
         }
     }
 
-    fun setSearch(q: String) = _uiState.update { it.copy(search = q) }
+    fun setSearch(q: String) {
+        // Clear scan result when user types manually
+        _uiState.update { it.copy(search = q, scannedProductId = null) }
+    }
 
-    fun showScanner()   = _uiState.update { it.copy(showScanner = true) }
+    fun showScanner()    = _uiState.update { it.copy(showScanner = true) }
     fun dismissScanner() = _uiState.update { it.copy(showScanner = false) }
     fun clearScanError() = _uiState.update { it.copy(scanError = null) }
+    fun clearScanResult() = _uiState.update { it.copy(scannedProductId = null, search = "") }
 
     fun onScanResult(serial: String) {
         viewModelScope.launch {
             _uiState.update { it.copy(scanLoading = true, scanError = null, showScanner = false) }
             try {
                 val res = ApiClient.service.findProductBySerial(ApiClient.bearer(prefs.authToken), serial)
-                val found = res.body()?.data?.firstOrNull()
+                val found = res.body()?.data
                 if (res.isSuccessful && found != null) {
-                    _uiState.update { it.copy(search = found.productName ?: serial, scanLoading = false) }
+                    // Filter by exact productId — reliable, no name mismatch
+                    _uiState.update { it.copy(
+                        scannedProductId = found.productId,
+                        search = "",
+                        scanLoading = false
+                    ) }
                 } else {
                     _uiState.update { it.copy(
-                        search = serial,
                         scanLoading = false,
                         scanError = "Serial '$serial' နှင့် ကုန်ပစ္စည်း မတွေ့ပါ"
                     ) }
@@ -60,11 +68,12 @@ class ProductListViewModel(application: Application) : AndroidViewModel(applicat
     }
 
     data class ProductListUiState(
-        val items:       List<ProductDTO> = emptyList(),
-        val loading:     Boolean          = true,
-        val search:      String           = "",
-        val showScanner: Boolean          = false,
-        val scanLoading: Boolean          = false,
-        val scanError:   String?          = null
+        val items:           List<ProductDTO> = emptyList(),
+        val loading:         Boolean          = true,
+        val search:          String           = "",
+        val scannedProductId: Int?            = null,
+        val showScanner:     Boolean          = false,
+        val scanLoading:     Boolean          = false,
+        val scanError:       String?          = null
     )
 }

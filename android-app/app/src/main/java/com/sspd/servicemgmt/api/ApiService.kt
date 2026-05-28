@@ -50,9 +50,9 @@ interface ApiService {
         @Body body: SendMessageRequest
     ): Response<ApiResponse<ChatMessageDTO>>
 
-    @GET("product-serials")
+    @GET("product-serials/by-serial/{serialNumber}")
     suspend fun findProductBySerial(
         @Header("Authorization") auth: String,
-        @Query("serialNumber") serial: String
-    ): Response<ApiResponse<List<ProductSerialDTO>>>
+        @Path("serialNumber") serial: String
+    ): Response<ApiResponse<ProductSerialDTO>>
 }

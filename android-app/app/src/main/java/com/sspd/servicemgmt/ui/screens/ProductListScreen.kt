@@ -47,10 +47,16 @@ fun ProductListScreen(onBack: () -> Unit) {
         }
     }
 
-    val filtered = state.items.filter {
-        state.search.isBlank() ||
-        it.name.contains(state.search, true) ||
-        it.productCode.contains(state.search, true)
+    val filtered = when {
+        state.scannedProductId != null ->
+            state.items.filter { it.id == state.scannedProductId }
+        state.search.isBlank() ->
+            state.items
+        else ->
+            state.items.filter {
+                it.name.contains(state.search, true) ||
+                it.productCode.contains(state.search, true)
+            }
     }
 
     Box(Modifier.fillMaxSize()) {
@@ -102,6 +108,26 @@ fun ProductListScreen(onBack: () -> Unit) {
                     singleLine = true,
                     shape = RoundedCornerShape(12.dp)
                 )
+
+                // Scanned product banner
+                if (state.scannedProductId != null) {
+                    Surface(
+                        color = PrimaryLight,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Outlined.QrCodeScanner, null, tint = Primary, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("Scan ဖြင့် ရှာဖွေနေသည်", fontSize = 12.sp, color = Primary, modifier = Modifier.weight(1f))
+                            TextButton(onClick = { vm.clearScanResult() }) {
+                                Text("ရှင်းမည်", fontSize = 12.sp, color = Primary)
+                            }
+                        }
+                    }
+                }
 
                 if (state.loading) {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
