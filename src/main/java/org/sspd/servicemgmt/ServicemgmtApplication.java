@@ -14,6 +14,6 @@ public class  ServicemgmtApplication {
 		SpringApplication.run(ServicemgmtApplication.class, args);
 	}
 
-	System.out.println()
+
 
 }
