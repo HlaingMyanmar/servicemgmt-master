@@ -16,10 +16,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavGraphBuilder
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.navigation
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.sspd.servicemgmt.ui.screens.*
 import com.sspd.servicemgmt.ui.viewmodel.ServerStatus
 import com.sspd.servicemgmt.ui.viewmodel.ServerStatusViewModel
@@ -101,7 +103,33 @@ fun AppNavigation() {
                 }
 
                 screen(Screen.Sales.route)        { SaleListScreen       { nav.popBackStack() } }
-                screen(Screen.Products.route)     { ProductListScreen    { nav.popBackStack() } }
+                screen(Screen.Products.route) {
+                    ProductListScreen(
+                        onBack = { nav.popBackStack() },
+                        onProductClick = { id -> nav.navigate(Screen.ProductDetail.createRoute(id)) }
+                    )
+                }
+
+                composable(
+                    route = Screen.ProductDetail.route,
+                    arguments = listOf(navArgument("productId") { type = NavType.IntType }),
+                    enterTransition = {
+                        slideInHorizontally(initialOffsetX = { it }, animationSpec = tween(ANIM_MS, easing = FastOutSlowInEasing))
+                    },
+                    exitTransition = {
+                        slideOutHorizontally(targetOffsetX = { -it / 4 }, animationSpec = tween(ANIM_MS, easing = FastOutSlowInEasing)) +
+                        fadeOut(tween(ANIM_MS - 40))
+                    },
+                    popEnterTransition = {
+                        slideInHorizontally(initialOffsetX = { -it / 4 }, animationSpec = tween(ANIM_MS, easing = FastOutSlowInEasing)) +
+                        fadeIn(tween(ANIM_MS - 40))
+                    },
+                    popExitTransition = {
+                        slideOutHorizontally(targetOffsetX = { it }, animationSpec = tween(ANIM_MS, easing = FastOutSlowInEasing))
+                    }
+                ) {
+                    ProductDetailScreen(onBack = { nav.popBackStack() })
+                }
                 screen(Screen.ServiceJobs.route)  { ServiceJobListScreen { nav.popBackStack() } }
                 screen(Screen.Bookings.route)     { BookingListScreen    { nav.popBackStack() } }
                 screen(Screen.StaffReport.route)  { StaffReportScreen    { nav.popBackStack() } }

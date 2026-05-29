@@ -13,7 +13,10 @@ sealed class Screen(val route: String) {
     object AuditLog     : Screen("audit_log")
     object Chat         : Screen("chat")
     object Account      : Screen("account")
-    object About        : Screen("about")
+    object About          : Screen("about")
+    object ProductDetail  : Screen("product_detail/{productId}") {
+        fun createRoute(id: Int) = "product_detail/$id"
+    }
 }
 
 const val AUTH_GRAPH = "auth_graph"

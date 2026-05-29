@@ -5,6 +5,7 @@ import android.util.Base64
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -31,7 +32,7 @@ import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ProductListScreen(onBack: () -> Unit) {
+fun ProductListScreen(onBack: () -> Unit, onProductClick: (Int) -> Unit = {}) {
     val vm: ProductListViewModel = viewModel()
     val state by vm.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -147,7 +148,7 @@ fun ProductListScreen(onBack: () -> Unit) {
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         items(filtered, key = { it.id }) { p ->
-                            ProductCard(p)
+                            ProductCard(p, onClick = { onProductClick(p.id) })
                         }
                         item { Spacer(Modifier.height(24.dp)) }
                     }
@@ -166,7 +167,7 @@ fun ProductListScreen(onBack: () -> Unit) {
 }
 
 @Composable
-private fun ProductCard(p: ProductDTO) {
+private fun ProductCard(p: ProductDTO, onClick: () -> Unit = {}) {
     val imgBitmap = remember(p.photoBase64) {
         if (p.photoBase64.isNullOrBlank()) null
         else runCatching {
@@ -181,7 +182,8 @@ private fun ProductCard(p: ProductDTO) {
     Card(
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = CardBg),
-        border = BorderStroke(1.dp, BorderColor)
+        border = BorderStroke(1.dp, BorderColor),
+        modifier = Modifier.clickable { onClick() }
     ) {
         Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
 
