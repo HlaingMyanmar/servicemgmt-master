@@ -48,7 +48,7 @@ const emptyForm = {
 
 const emptySettle = {
   finalCost: '', discountAmount: '0', foc: false,
-  paidAmount: '', dueDate: '',
+  paidAmount: '', dueDate: '', staffId: '',
   paymentMethodId: '', paymentAccountId: '', transactionNo: '',
 };
 
@@ -290,13 +290,21 @@ export default function ServiceJobManagement() {
   const openSettle = (j: any) => {
     const estCost = j.finalCost && Number(j.finalCost) > 0 ? j.finalCost : (j.estimatedCost ?? '');
     setSettleJob(j);
-    setSettleForm({ ...emptySettle, finalCost: estCost ? String(estCost) : '', paidAmount: estCost ? String(estCost) : '' });
+    setSettleForm({
+      ...emptySettle,
+      finalCost:  estCost ? String(estCost) : '',
+      paidAmount: estCost ? String(estCost) : '',
+      staffId:    j.assignedStaffId ? String(j.assignedStaffId) : '',
+    });
     setShowSettle(true);
   };
 
   const handleSettle = async () => {
     if (!settleJob) return;
     const paid = settleForm.foc ? 0 : Number(settleForm.paidAmount || 0);
+    if (!settleForm.staffId) {
+      Swal.fire('အမှား', 'ဝန်ထမ်း ရွေးပါ', 'error'); return;
+    }
     if (!settleForm.foc && paid > 0 && !settleForm.paymentMethodId) {
       Swal.fire('အမှား', 'ငွေပေးချေနည်း ရွေးပါ', 'error'); return;
     }
@@ -306,6 +314,7 @@ export default function ServiceJobManagement() {
       foc:              settleForm.foc,
       paidAmount:       paid,
       dueDate:          settleForm.dueDate || null,
+      staffId:          Number(settleForm.staffId),
       paymentMethodId:  settleForm.paymentMethodId ? Number(settleForm.paymentMethodId) : null,
       paymentAccountId: settleForm.paymentAccountId ? Number(settleForm.paymentAccountId) : null,
       transactionNo:    settleForm.transactionNo || null,
@@ -907,6 +916,21 @@ export default function ServiceJobManagement() {
               <div className="bg-slate-50 rounded-xl px-4 py-3">
                 <span className="text-xs text-slate-500">ပစ္စည်း: </span>
                 <span className="text-sm font-bold text-slate-800">{settleJob.itemName || '—'}</span>
+              </div>
+
+              {/* Staff — required */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">ဝန်ထမ်း <span className="text-red-500">*</span></label>
+                <select
+                  value={settleForm.staffId}
+                  onChange={e => setSettleForm(p => ({ ...p, staffId: e.target.value }))}
+                  className={`w-full border rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-400 ${!settleForm.staffId ? 'border-red-300' : 'border-slate-200'}`}
+                >
+                  <option value="">— ဝန်ထမ်း ရွေးပါ —</option>
+                  {staffList.map((s: any) => (
+                    <option key={s.id} value={s.id}>{s.name}{s.role ? ` (${s.role})` : ''}</option>
+                  ))}
+                </select>
               </div>
 
               {/* FOC */}
