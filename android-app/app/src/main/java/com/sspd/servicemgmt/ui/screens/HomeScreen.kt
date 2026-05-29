@@ -163,13 +163,15 @@ fun HomeScreen(
                 Spacer(Modifier.height(10.dp))
 
                 listOf(
-                    Triple("ကုန်ပစ္စည်းများ",        Icons.Default.Inventory2,    Screen.Products.route),
-                    Triple("ရောင်းချမှုများ",         Icons.Default.Receipt,       Screen.Sales.route),
-                    Triple("Booking များ",           Icons.Default.CalendarMonth, Screen.Bookings.route),
-                    Triple("ဝန်ဆောင်မှု Jobs",       Icons.Default.Build,         Screen.ServiceJobs.route),
-                    Triple("ဝန်ထမ်းစွမ်းဆောင်ရည်", Icons.Default.BarChart,      Screen.StaffReport.route),
+                    Triple("ကုန်ပစ္စည်းများ",           Icons.Default.Inventory2,    Screen.Products.route),
+                    Triple("ရောင်းချမှုများ",            Icons.Default.Receipt,       Screen.Sales.route),
+                    Triple("ပစ္စည်းလက်ခံ (Booking)",    Icons.Default.CalendarMonth, Screen.Bookings.route),
+                    Triple("ဝန်ဆောင်မှုလုပ်ငန်း",       Icons.Default.Build,         Screen.ServiceJobs.route),
+                    Triple("ဝန်ဆောင်မှုများ",           Icons.Default.MiscellaneousServices, Screen.ServiceMgmt.route),
+                    Triple("ကန့်တည်နေရာများ",           Icons.Default.LocationOn,    Screen.ShelfLocations.route),
+                    Triple("ဝန်ထမ်းစွမ်းဆောင်ရည်",     Icons.Default.BarChart,      Screen.StaffReport.route),
                 ).forEachIndexed { i, (label, icon, route) ->
-                    val colors = listOf(Color(0xFF0891B2), Primary, Violet, Color(0xFF059669), Color(0xFF7C3AED))
+                    val colors = listOf(Color(0xFF0891B2), Primary, Violet, Color(0xFF059669), Color(0xFFD97706), Color(0xFF0891B2), Color(0xFF7C3AED))
                     if (i > 0) Spacer(Modifier.height(8.dp))
                     ActionCard(label, icon, colors[i]) { onNavigate(route) }
                 }
@@ -283,13 +285,15 @@ fun DrawerContent(
         // Menu
         Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(top = 8.dp)) {
             listOf(
-                Triple("ကုန်ကျစရိတ်များ",           Icons.Outlined.AccountBalanceWallet, Screen.Expenses.route),
-                Triple("အဖွဲ့ Chat",                Icons.Outlined.Chat,                 Screen.Chat.route),
-                Triple("ဝန်ထမ်းစွမ်းဆောင်ရည်",      Icons.Outlined.BarChart,             Screen.StaffReport.route),
-                Triple("ရောင်းအကောင်းဆုံးစာရင်း",  Icons.Outlined.EmojiEvents,          Screen.SalesRanking.route),
-                Triple("Audit မှတ်တမ်းများ",         Icons.Outlined.Security,             Screen.AuditLog.route),
-                Triple("အကောင့်သတ်မှတ်ချက်",        Icons.Outlined.ManageAccounts,        Screen.Account.route),
-                Triple("အကြောင်းအရာ",               Icons.Outlined.Info,                  Screen.About.route),
+                Triple("ဝန်ဆောင်မှုများ",            Icons.Outlined.MiscellaneousServices, Screen.ServiceMgmt.route),
+                Triple("ကန့်တည်နေရာများ",            Icons.Outlined.LocationOn,            Screen.ShelfLocations.route),
+                Triple("ကုန်ကျစရိတ်များ",            Icons.Outlined.AccountBalanceWallet,  Screen.Expenses.route),
+                Triple("အဖွဲ့ Chat",                 Icons.Outlined.Chat,                  Screen.Chat.route),
+                Triple("ဝန်ထမ်းစွမ်းဆောင်ရည်",       Icons.Outlined.BarChart,              Screen.StaffReport.route),
+                Triple("ရောင်းအကောင်းဆုံးစာရင်း",   Icons.Outlined.EmojiEvents,           Screen.SalesRanking.route),
+                Triple("Audit မှတ်တမ်းများ",          Icons.Outlined.Security,              Screen.AuditLog.route),
+                Triple("အကောင့်သတ်မှတ်ချက်",         Icons.Outlined.ManageAccounts,         Screen.Account.route),
+                Triple("အကြောင်းအရာ",                Icons.Outlined.Info,                   Screen.About.route),
             ).forEach { (label, icon, route) ->
                 DrawerMenuItem(label, icon) { onNavigate(route) }
             }

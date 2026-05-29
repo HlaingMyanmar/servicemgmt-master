@@ -32,15 +32,11 @@ class ProductListViewModel(application: Application) : AndroidViewModel(applicat
         }
     }
 
-    fun setSearch(q: String) {
-        // Clear scan result when user types manually
-        _uiState.update { it.copy(search = q, scannedProductId = null) }
-    }
+    fun setSearch(q: String) = _uiState.update { it.copy(search = q) }
 
     fun showScanner()    = _uiState.update { it.copy(showScanner = true) }
     fun dismissScanner() = _uiState.update { it.copy(showScanner = false) }
     fun clearScanError() = _uiState.update { it.copy(scanError = null) }
-    fun clearScanResult() = _uiState.update { it.copy(scannedProductId = null, search = "") }
 
     fun onScanResult(serial: String) {
         viewModelScope.launch {
@@ -48,11 +44,10 @@ class ProductListViewModel(application: Application) : AndroidViewModel(applicat
             try {
                 val res = ApiClient.service.findProductBySerial(ApiClient.bearer(prefs.authToken), serial)
                 val found = res.body()?.data
-                if (res.isSuccessful && found != null) {
-                    // Filter by exact productId — reliable, no name mismatch
+                if (res.isSuccessful && found != null && found.productId != null) {
+                    // Navigate directly to ProductDetail with serial highlighted
                     _uiState.update { it.copy(
-                        scannedProductId = found.productId,
-                        search = "",
+                        navigateToDetail = found.productId to serial,
                         scanLoading = false
                     ) }
                 } else {
@@ -67,13 +62,15 @@ class ProductListViewModel(application: Application) : AndroidViewModel(applicat
         }
     }
 
+    fun onNavigated() = _uiState.update { it.copy(navigateToDetail = null) }
+
     data class ProductListUiState(
-        val items:           List<ProductDTO> = emptyList(),
-        val loading:         Boolean          = true,
-        val search:          String           = "",
-        val scannedProductId: Int?            = null,
-        val showScanner:     Boolean          = false,
-        val scanLoading:     Boolean          = false,
-        val scanError:       String?          = null
+        val items:            List<ProductDTO>   = emptyList(),
+        val loading:          Boolean            = true,
+        val search:           String             = "",
+        val showScanner:      Boolean            = false,
+        val scanLoading:      Boolean            = false,
+        val scanError:        String?            = null,
+        val navigateToDetail: Pair<Int, String>? = null  // productId to serialNumber
     )
 }

@@ -1,13 +1,27 @@
 package com.sspd.servicemgmt.ui.screens
 
+import android.content.Context
+import android.content.Intent
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.ImageDecoder
+import android.net.Uri
+import android.os.Build
+import android.provider.MediaStore
 import android.util.Base64
+import androidx.core.content.FileProvider
+import java.io.File
+import java.io.FileOutputStream
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.*
@@ -19,342 +33,559 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sspd.servicemgmt.api.ProductSerialDTO
 import com.sspd.servicemgmt.ui.theme.*
 import com.sspd.servicemgmt.ui.viewmodel.ProductDetailViewModel
+import kotlinx.coroutines.launch
+import java.io.ByteArrayOutputStream
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProductDetailScreen(onBack: () -> Unit) {
     val vm: ProductDetailViewModel = viewModel()
     val state by vm.uiState.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("ကုန်ပစ္စည်း အချက်အလက်", fontWeight = FontWeight.ExtraBold) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Outlined.ArrowBack, null, tint = Color.White)
-                    }
-                },
-                actions = {
-                    IconButton(onClick = { vm.load() }) {
-                        Icon(Icons.Outlined.Refresh, null, tint = Color.White)
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Primary, titleContentColor = Color.White
-                )
-            )
-        }
-    ) { padding ->
-        if (state.loading) {
-            Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = Primary)
-            }
-            return@Scaffold
-        }
+    var pendingUploadSerial  by remember { mutableStateOf<ProductSerialDTO?>(null) }
+    var pendingProductPhoto  by remember { mutableStateOf(false) }
+    var viewingPhoto         by remember { mutableStateOf<String?>(null) }   // data-uri string
+    var showSourceSheet      by remember { mutableStateOf(false) }
 
-        val p = state.product
-        if (p == null) {
-            Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(Icons.Outlined.ErrorOutline, null, tint = TextMuted, modifier = Modifier.size(48.dp))
-                    Spacer(Modifier.height(8.dp))
-                    Text("ကုန်ပစ္စည်း မတွေ့ပါ", color = TextMuted)
-                }
-            }
-            return@Scaffold
+    fun handleBitmap(bitmap: Bitmap) {
+        val b64 = bitmapToBase64(bitmap)
+        if (pendingProductPhoto) {
+            vm.uploadProductPhoto(b64)
+            pendingProductPhoto = false
+        } else {
+            pendingUploadSerial?.id?.let { vm.uploadSerialPhoto(it, b64) }
+            pendingUploadSerial = null
         }
+    }
 
-        // Decode photo
-        val imgBitmap = remember(p.photoBase64) {
-            if (p.photoBase64.isNullOrBlank()) null
-            else runCatching {
-                val raw = p.photoBase64.substringAfter("base64,", p.photoBase64)
-                val bytes = Base64.decode(raw, Base64.DEFAULT)
-                BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
-            }.getOrNull()
+    fun handleUri(uri: Uri) {
+        val bmp = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)
+            ImageDecoder.decodeBitmap(ImageDecoder.createSource(context.contentResolver, uri))
+        else @Suppress("DEPRECATION") MediaStore.Images.Media.getBitmap(context.contentResolver, uri)
+        handleBitmap(bmp)
+    }
+
+    val galleryLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        uri?.let { handleUri(it) }
+    }
+    val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicturePreview()) { bmp ->
+        bmp?.let { handleBitmap(it) }
+    }
+
+    // Auto-scroll to highlighted serial
+    LaunchedEffect(state.scannedSerial) {
+        val serial = state.scannedSerial ?: return@LaunchedEffect
+        val idx = state.serials.indexOfFirst { it.serialNumber == serial }
+        if (idx >= 0) {
+            // items: header(0), price(1), stock(2), details(3), serial-header(4), then pairs
+            val pairIdx = idx / 2
+            scope.launch { listState.animateScrollToItem(5 + pairIdx) }
         }
+    }
 
-        LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(padding).background(ScreenBg),
-            contentPadding = PaddingValues(bottom = 32.dp)
+    LaunchedEffect(state.scanError)    { state.scanError?.let    { snackbarHostState.showSnackbar(it); vm.clearScanError() } }
+    LaunchedEffect(state.uploadError)  { state.uploadError?.let  { snackbarHostState.showSnackbar(it); vm.clearUploadError() } }
+    LaunchedEffect(state.uploadSuccess){ state.uploadSuccess?.let{ snackbarHostState.showSnackbar("ပုံ upload အောင်မြင်ပါသည်"); vm.clearUploadSuccess() } }
+
+    // Full-screen photo viewer
+    if (viewingPhoto != null) {
+        Dialog(
+            onDismissRequest = { viewingPhoto = null },
+            properties = DialogProperties(usePlatformDefaultWidth = false)
         ) {
-
-            // ── Photo + Name header ──────────────────────────────────────────
-            item {
-                Box(
-                    modifier = Modifier.fillMaxWidth().height(220.dp).background(Primary),
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (imgBitmap != null) {
-                        Image(
-                            bitmap = imgBitmap,
-                            contentDescription = p.name,
-                            contentScale = ContentScale.Fit,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                        // Dark overlay for text readability
-                        Box(Modifier.fillMaxSize().background(Color(0x66000000)))
-                    } else {
-                        Icon(
-                            Icons.Outlined.Inventory2, null,
-                            tint = Color.White.copy(alpha = 0.5f),
-                            modifier = Modifier.size(80.dp)
-                        )
-                    }
-                    // Name + badges overlay
-                    Column(
-                        modifier = Modifier.align(Alignment.BottomStart).padding(16.dp)
-                    ) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            TypeBadge(p.productType)
-                            Surface(color = Color.White.copy(0.2f), shape = RoundedCornerShape(4.dp)) {
-                                Text(
-                                    p.productCode,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-                                    fontSize = 10.sp, color = Color.White, fontWeight = FontWeight.Bold
-                                )
-                            }
-                        }
-                        Spacer(Modifier.height(4.dp))
-                        Text(p.name, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
-                    }
+            Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.88f)).clickable { viewingPhoto = null },
+                contentAlignment = Alignment.Center
+            ) {
+                val bmp = remember(viewingPhoto) { decodeDataUri(viewingPhoto!!) }
+                if (bmp != null) {
+                    Image(bitmap = bmp.asImageBitmap(), contentDescription = null,
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier.fillMaxWidth(0.92f).fillMaxHeight(0.55f))
                 }
-            }
-
-            // ── Price card ──────────────────────────────────────────────────
-            item {
-                Spacer(Modifier.height(12.dp))
-                SectionCard(
-                    icon = Icons.Outlined.AttachMoney,
-                    title = "ဈေးနှုန်း",
-                    iconColor = Primary
-                ) {
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                        PriceBox("ရောင်းဈေး", "${p.sellingPrice.fmt()} Ks", Primary)
-                        if (p.costPrice != null && p.costPrice > 0) {
-                            VerticalDivider(modifier = Modifier.height(40.dp))
-                            PriceBox("ဝယ်ဈေး", "${p.costPrice.fmt()} Ks", TextMuted)
-                        }
-                    }
-                }
-            }
-
-            // ── Stock card ──────────────────────────────────────────────────
-            item {
-                Spacer(Modifier.height(8.dp))
-                SectionCard(
-                    icon = Icons.Outlined.Inventory,
-                    title = "Stock အခြေအနေ",
-                    iconColor = Success
-                ) {
-                    val displayQty = if (p.hasSerial == true) p.availableSerialCount ?: p.stockQty else p.stockQty
-                    val stockColor = when {
-                        displayQty <= 0 -> Danger
-                        p.reorderLevel != null && displayQty <= p.reorderLevel -> Warning
-                        else -> Success
-                    }
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                        StockBox("လက်ကျန်", "$displayQty ခု", stockColor)
-                        if (p.reorderLevel != null) {
-                            VerticalDivider(modifier = Modifier.height(40.dp))
-                            StockBox("Reorder Level", "${p.reorderLevel} ခု", Warning)
-                        }
-                        if (p.shortageQty != null && p.shortageQty > 0) {
-                            VerticalDivider(modifier = Modifier.height(40.dp))
-                            StockBox("ပြည့်ရမည်", "${p.shortageQty} ခု", Danger)
-                        }
-                    }
-                }
-            }
-
-            // ── Details card ────────────────────────────────────────────────
-            item {
-                Spacer(Modifier.height(8.dp))
-                SectionCard(
-                    icon = Icons.Outlined.Info,
-                    title = "အချက်အလက်များ",
-                    iconColor = Violet
-                ) {
-                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        if (!p.categoryName.isNullOrBlank())
-                            DetailRow(Icons.Outlined.Category, "အမျိုးအစား", p.categoryName)
-                        if (!p.brandName.isNullOrBlank())
-                            DetailRow(Icons.Outlined.Sell, "Brand", p.brandName)
-                        if (!p.unitName.isNullOrBlank())
-                            DetailRow(Icons.Outlined.Scale, "Unit", p.unitName)
-
-                        val warranty = when {
-                            !p.warrantyTerms.isNullOrBlank() -> p.warrantyTerms
-                            (p.warrantyMonths ?: 0) > 0      -> "${p.warrantyMonths} လ"
-                            else                             -> null
-                        }
-                        if (warranty != null)
-                            DetailRow(Icons.Outlined.Shield, "အာမခံ", warranty)
-                        if (!p.remark.isNullOrBlank())
-                            DetailRow(Icons.Outlined.Notes, "မှတ်ချက်", p.remark)
-
-                        DetailRow(
-                            Icons.Outlined.QrCode2, "Serial ခြေရာခံ",
-                            if (p.hasSerial == true) "ခြေရာခံသည်" else "ခြေရာမခံ"
-                        )
-                    }
-                }
-            }
-
-            // ── Serials section ─────────────────────────────────────────────
-            if (p.hasSerial == true && state.serials.isNotEmpty()) {
-                item {
-                    Spacer(Modifier.height(8.dp))
-                    Spacer(Modifier.height(0.dp)) // section header
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Icon(Icons.Outlined.QrCode2, null, tint = Primary, modifier = Modifier.size(16.dp))
-                        Text(
-                            "Serial Numbers (${state.serials.size})",
-                            fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, color = TextMain
-                        )
-                    }
-                }
-                items(state.serials) { serial ->
-                    SerialRow(serial)
-                }
+                Text("Tap anywhere to close",
+                    color = Color.White.copy(0.5f), fontSize = 11.sp,
+                    modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 24.dp))
             }
         }
     }
+
+    // Camera / Gallery chooser
+    if (showSourceSheet) {
+        ModalBottomSheet(onDismissRequest = { showSourceSheet = false }) {
+            Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                Text("ပုံ ရွေးချယ်ရန်", fontSize = 14.sp, fontWeight = FontWeight.ExtraBold,
+                    modifier = Modifier.padding(bottom = 12.dp))
+                ListItem(
+                    headlineContent = { Text("ကင်မရာ") },
+                    leadingContent  = { Icon(Icons.Outlined.CameraAlt, null, tint = Primary) },
+                    modifier = Modifier.clickable { showSourceSheet = false; cameraLauncher.launch(null) }
+                )
+                ListItem(
+                    headlineContent = { Text("Gallery") },
+                    leadingContent  = { Icon(Icons.Outlined.PhotoLibrary, null, tint = Primary) },
+                    modifier = Modifier.clickable { showSourceSheet = false; galleryLauncher.launch("image/*") }
+                )
+                Spacer(Modifier.height(16.dp))
+            }
+        }
+    }
+
+    Box(Modifier.fillMaxSize()) {
+        Scaffold(
+            snackbarHost = { SnackbarHost(snackbarHostState) },
+            topBar = {
+                TopAppBar(
+                    title = { Text("ကုန်ပစ္စည်း အချက်အလက်", fontWeight = FontWeight.ExtraBold) },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) { Icon(Icons.Outlined.ArrowBack, null, tint = Color.White) }
+                    },
+                    actions = {
+                        if (state.product?.hasSerial == true) {
+                            IconButton(onClick = { vm.showScanner() }) {
+                                Icon(Icons.Outlined.QrCodeScanner, null, tint = Color.White)
+                            }
+                        }
+                        IconButton(onClick = { vm.load() }) {
+                            Icon(Icons.Outlined.Refresh, null, tint = Color.White)
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Primary, titleContentColor = Color.White)
+                )
+            }
+        ) { padding ->
+            if (state.loading) {
+                Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = Primary)
+                }
+                return@Scaffold
+            }
+
+            val p = state.product ?: run {
+                Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(Icons.Outlined.ErrorOutline, null, tint = TextMuted, modifier = Modifier.size(48.dp))
+                        Spacer(Modifier.height(8.dp))
+                        Text("ကုန်ပစ္စည်း မတွေ့ပါ", color = TextMuted)
+                    }
+                }
+                return@Scaffold
+            }
+
+            val avail = p.availableSerialCount ?: p.stockQty
+            val serialPairs = state.serials.chunked(2)
+
+            LazyColumn(
+                state = listState,
+                modifier = Modifier.fillMaxSize().padding(padding).background(ScreenBg),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // ── Header card (matches RN) ──────────────────────────────
+                item {
+                    Card(
+                        shape  = RoundedCornerShape(14.dp),
+                        colors = CardDefaults.cardColors(containerColor = CardBg),
+                        border = BorderStroke(1.dp, BorderColor),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            Modifier.fillMaxWidth().padding(18.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            // 140dp product photo box
+                            Box(
+                                modifier = Modifier.size(140.dp).clip(RoundedCornerShape(12.dp)),
+                                contentAlignment = Alignment.BottomCenter
+                            ) {
+                                if (state.uploadingProductPhoto) {
+                                    Box(Modifier.fillMaxSize().background(ScreenBg), contentAlignment = Alignment.Center) {
+                                        CircularProgressIndicator(color = Primary)
+                                    }
+                                } else {
+                                    val photoUri = p.photoBase64
+                                    val bmp = remember(photoUri) { photoUri?.let { decodeDataUri(it) } }
+                                    if (bmp != null) {
+                                        Image(bitmap = bmp.asImageBitmap(), contentDescription = p.name,
+                                            contentScale = ContentScale.Crop,
+                                            modifier = Modifier.fillMaxSize())
+                                        // Overlay buttons row — camera | view | share
+                                        Row(Modifier.fillMaxWidth().height(34.dp)) {
+                                            Box(Modifier.weight(1f).fillMaxHeight()
+                                                .background(Color.Black.copy(0.50f))
+                                                .clickable { pendingProductPhoto = true; showSourceSheet = true },
+                                                contentAlignment = Alignment.Center) {
+                                                Icon(Icons.Outlined.CameraAlt, null, tint = Color.White, modifier = Modifier.size(16.dp))
+                                            }
+                                            Box(Modifier.weight(1f).fillMaxHeight()
+                                                .background(Color(0xCC6366F1))
+                                                .clickable { viewingPhoto = photoUri },
+                                                contentAlignment = Alignment.Center) {
+                                                Icon(Icons.Outlined.Visibility, null, tint = Color.White, modifier = Modifier.size(16.dp))
+                                            }
+                                            Box(Modifier.weight(1f).fillMaxHeight()
+                                                .background(Color(0xCC16A34A))
+                                                .clickable {
+                                                    val shareText = "${p.name}\nCode: ${p.productCode}\n${p.sellingPrice.fmt()} Ks"
+                                                    shareContent(context, bmp, shareText)
+                                                },
+                                                contentAlignment = Alignment.Center) {
+                                                Icon(Icons.Outlined.Share, null, tint = Color.White, modifier = Modifier.size(16.dp))
+                                            }
+                                        }
+                                    } else {
+                                        Box(Modifier.fillMaxSize()
+                                            .background(ScreenBg, RoundedCornerShape(12.dp))
+                                            .clickable { pendingProductPhoto = true; showSourceSheet = true },
+                                            contentAlignment = Alignment.Center) {
+                                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                                Icon(Icons.Outlined.CameraAlt, null, tint = TextMuted, modifier = Modifier.size(28.dp))
+                                                Text("Add Product Photo", fontSize = 10.sp, color = TextMuted, fontWeight = FontWeight.SemiBold)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            Spacer(Modifier.height(14.dp))
+                            Text(p.name, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = TextMain)
+                            Spacer(Modifier.height(10.dp))
+                            TypeBadge(p.productType)
+                            Spacer(Modifier.height(10.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                val stockBg    = if (avail > 0) SuccessBg else DangerBg
+                                val stockColor = if (avail > 0) Success    else Danger
+                                val stockText  = if (avail > 0) "$avail available" else "Out of stock"
+                                Surface(color = stockBg, shape = RoundedCornerShape(8.dp)) {
+                                    Text(stockText, modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                                        fontSize = 12.sp, fontWeight = FontWeight.Bold, color = stockColor)
+                                }
+                                if (p.hasSerial == true) {
+                                    Surface(color = PrimaryLight, shape = RoundedCornerShape(8.dp)) {
+                                        Text("Serial tracked", modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                                            fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Primary)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // ── Remark ───────────────────────────────────────────────
+                if (!p.remark.isNullOrBlank()) item {
+                    Card(shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = CardBg),
+                        border = BorderStroke(1.dp, BorderColor),
+                        modifier = Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(14.dp)) {
+                            Text("REMARK", fontSize = 10.sp, fontWeight = FontWeight.ExtraBold,
+                                color = Warning, letterSpacing = 0.5.sp)
+                            Spacer(Modifier.height(5.dp))
+                            Text(p.remark, fontSize = 13.sp, color = TextMain, lineHeight = 20.sp)
+                        }
+                    }
+                }
+
+                if (!p.warrantyTerms.isNullOrBlank()) item {
+                    Card(shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = CardBg),
+                        border = BorderStroke(1.dp, BorderColor),
+                        modifier = Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(14.dp)) {
+                            Text("WARRANTY TERMS", fontSize = 10.sp, fontWeight = FontWeight.ExtraBold,
+                                color = Success, letterSpacing = 0.5.sp)
+                            Spacer(Modifier.height(5.dp))
+                            Text(p.warrantyTerms, fontSize = 13.sp, color = TextMain, lineHeight = 20.sp)
+                        }
+                    }
+                }
+
+                // ── Details table ─────────────────────────────────────────
+                item {
+                    Card(shape = RoundedCornerShape(14.dp),
+                        colors = CardDefaults.cardColors(containerColor = CardBg),
+                        border = BorderStroke(1.dp, BorderColor),
+                        modifier = Modifier.fillMaxWidth()) {
+                        Column {
+                            listOf(
+                                "ကုန်ပစ္စည်းကုဒ်"  to p.productCode,
+                                "အမျိုးအစား"       to (p.categoryName ?: "—"),
+                                "Brand"            to (p.brandName ?: "—"),
+                                "Unit"             to (p.unitName ?: "—"),
+                                "ရောင်းဈေး"        to "${p.sellingPrice.fmt()} Ks",
+                                "လက်ကျန်"          to "$avail ခု",
+                                "Reorder Level"    to (p.reorderLevel?.let { "$it ခု" } ?: "—"),
+                                "အာမခံ"            to (p.warrantyMonths?.let { "$it လ" } ?: "—"),
+                            ).forEachIndexed { i, (label, value) ->
+                                Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Text(label, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                                        color = TextMuted, modifier = Modifier.weight(1f))
+                                    Text(value, fontSize = 13.sp, fontWeight = FontWeight.Bold,
+                                        color = TextMain, modifier = Modifier.weight(1f))
+                                }
+                                if (i < 7) HorizontalDivider(color = BorderColor)
+                            }
+                        }
+                    }
+                }
+
+                // ── Serial section ────────────────────────────────────────
+                if (p.hasSerial == true) {
+                    item {
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween) {
+                            Row(verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text("SERIAL NUMBERS", fontSize = 11.sp, fontWeight = FontWeight.ExtraBold,
+                                    color = TextMuted, letterSpacing = 0.6.sp)
+                                if (state.serials.isNotEmpty())
+                                    Text("(${state.serials.size})", fontSize = 11.sp, color = TextMuted)
+                            }
+                            if (state.scannedSerial != null) {
+                                TextButton(onClick = { vm.clearHighlight() },
+                                    contentPadding = PaddingValues(horizontal = 8.dp)) {
+                                    Text("Highlight ရှင်းမည်", fontSize = 11.sp, color = Primary)
+                                }
+                            }
+                        }
+
+                        if (state.scannedSerial != null) {
+                            Spacer(Modifier.height(6.dp))
+                            Surface(color = PrimaryLight, shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier.fillMaxWidth()) {
+                                Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Text("Scan ဖတ်ရ", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Primary)
+                                    Text(state.scannedSerial ?: "", fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, color = Primary)
+                                }
+                            }
+                        }
+                    }
+
+                    // 2-column grid rows
+                    items(serialPairs) { pair ->
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            pair.forEach { serial ->
+                                SerialCard(
+                                    modifier      = Modifier.weight(1f),
+                                    serial        = serial,
+                                    isHighlighted = serial.serialNumber == state.scannedSerial,
+                                    isUploading   = state.uploadingSerialId == serial.id,
+                                    onViewPhoto   = { viewingPhoto = it },
+                                    onUploadPhoto = {
+                                        pendingUploadSerial = serial
+                                        showSourceSheet = true
+                                    },
+                                    onSharePhoto  = { bmp ->
+                                        val shareText = buildString {
+                                            appendLine("🏷 ${p.name}")
+                                            if (!p.brandName.isNullOrBlank()) appendLine("Brand: ${p.brandName}")
+                                            appendLine("ရောင်းဈေး: ${p.sellingPrice.fmt()} Ks")
+                                            appendLine("လက်ကျန်: ${p.availableSerialCount ?: p.stockQty} ခု")
+                                            val warranty = when {
+                                                !p.warrantyTerms.isNullOrBlank() -> p.warrantyTerms
+                                                (p.warrantyMonths ?: 0) > 0      -> "${p.warrantyMonths} လ"
+                                                else                             -> null
+                                            }
+                                            if (warranty != null) appendLine("အာမခံ: $warranty")
+                                            if (!p.remark.isNullOrBlank()) appendLine("မှတ်ချက်: ${p.remark}")
+                                            appendLine("─────────────────")
+                                            appendLine("Serial: ${serial.serialNumber}")
+                                            if (!serial.condition.isNullOrBlank()) appendLine("Condition: ${serial.condition}")
+                                            if (serial.warrantyEndDate != null)    appendLine("အာမခံကုန်ဆုံး: ${serial.warrantyEndDate.take(10)}")
+                                            append("Status: ${serial.status ?: "—"}")
+                                        }
+                                        shareContent(context, bmp, shareText)
+                                    }
+                                )
+                            }
+                            if (pair.size == 1) Spacer(Modifier.weight(1f))
+                        }
+                    }
+                }
+            }
+        }
+
+        if (state.showScanner) {
+            BarcodeScannerView(onResult = { vm.onScanResult(it) }, onClose = { vm.dismissScanner() })
+        }
+    }
 }
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+private fun shareContent(context: Context, bitmap: Bitmap?, text: String) {
+    val intent = Intent(Intent.ACTION_SEND)
+    if (bitmap != null) {
+        val file = File(context.cacheDir, "share_photo.jpg")
+        FileOutputStream(file).use { bitmap.compress(Bitmap.CompressFormat.JPEG, 90, it) }
+        val uri = FileProvider.getUriForFile(context, "${context.packageName}.provider", file)
+        intent.type = "image/jpeg"
+        intent.putExtra(Intent.EXTRA_STREAM, uri)
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    } else {
+        intent.type = "text/plain"
+    }
+    intent.putExtra(Intent.EXTRA_TEXT, text)
+    context.startActivity(Intent.createChooser(intent, "Share via"))
+}
+
+private fun bitmapToBase64(bitmap: Bitmap): String {
+    val maxDim = 400
+    val scaled = if (bitmap.width > maxDim || bitmap.height > maxDim) {
+        val ratio = maxDim.toFloat() / maxOf(bitmap.width, bitmap.height)
+        Bitmap.createScaledBitmap(bitmap, (bitmap.width * ratio).toInt(), (bitmap.height * ratio).toInt(), true)
+    } else bitmap
+    val out = ByteArrayOutputStream()
+    scaled.compress(Bitmap.CompressFormat.JPEG, 75, out)
+    return "data:image/jpeg;base64," + Base64.encodeToString(out.toByteArray(), Base64.NO_WRAP)
+}
+
+private fun decodeDataUri(uri: String): Bitmap? = runCatching {
+    val raw = uri.substringAfter("base64,", uri)
+    val bytes = Base64.decode(raw, Base64.DEFAULT)
+    BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+}.getOrNull()
 
 // ── Sub-composables ──────────────────────────────────────────────────────────
 
 @Composable
 private fun TypeBadge(type: String) {
     val (bg, color, label) = when (type.uppercase()) {
-        "NEW"        -> Triple(Color(0xFF4ADE80), Color(0xFF14532D), "အသစ်")
-        "SECOND_NEW" -> Triple(Color(0xFFA78BFA), Color(0xFF4C1D95), "Second New")
-        else         -> Triple(Color(0xFFFBBF24), Color(0xFF78350F), "အသုံးပြုပြီး")
+        "NEW"        -> Triple(Color(0xFF4ADE80), Color(0xFF14532D), "NEW")
+        "SECOND_NEW" -> Triple(Color(0xFFA78BFA), Color(0xFF4C1D95), "SECOND NEW")
+        else         -> Triple(Color(0xFFFBBF24), Color(0xFF78350F), "SECOND")
     }
-    Surface(color = bg, shape = RoundedCornerShape(4.dp)) {
-        Text(
-            label,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-            fontSize = 9.sp, fontWeight = FontWeight.ExtraBold, color = color
-        )
+    Surface(color = bg, shape = RoundedCornerShape(8.dp)) {
+        Text(label, modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+            fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, color = color,
+            letterSpacing = 0.5.sp)
     }
 }
 
 @Composable
-private fun SectionCard(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    title: String,
-    iconColor: Color,
-    content: @Composable ColumnScope.() -> Unit
+private fun SerialCard(
+    modifier:      Modifier = Modifier,
+    serial:        ProductSerialDTO,
+    isHighlighted: Boolean = false,
+    isUploading:   Boolean = false,
+    onViewPhoto:   (String) -> Unit = {},
+    onUploadPhoto: () -> Unit = {},
+    onSharePhoto:  (Bitmap?) -> Unit = {}
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
-        shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = CardBg),
-        border = BorderStroke(1.dp, BorderColor)
-    ) {
-        Column(Modifier.padding(14.dp)) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                Icon(icon, null, tint = iconColor, modifier = Modifier.size(16.dp))
-                Text(title, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, color = iconColor)
-            }
-            HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp), color = BorderColor)
-            content()
-        }
-    }
-}
-
-@Composable
-private fun PriceBox(label: String, value: String, color: Color) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(label, fontSize = 11.sp, color = TextMuted, fontWeight = FontWeight.SemiBold)
-        Spacer(Modifier.height(4.dp))
-        Text(value, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, color = color)
-    }
-}
-
-@Composable
-private fun StockBox(label: String, value: String, color: Color) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(label, fontSize = 11.sp, color = TextMuted, fontWeight = FontWeight.SemiBold)
-        Spacer(Modifier.height(4.dp))
-        Text(value, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = color)
-    }
-}
-
-@Composable
-private fun DetailRow(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    label: String,
-    value: String
-) {
-    Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        Icon(icon, null, tint = TextMuted, modifier = Modifier.size(15.dp).padding(top = 1.dp))
-        Text(label, fontSize = 12.sp, color = TextMuted, modifier = Modifier.width(90.dp))
-        Text(value, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = TextMain, modifier = Modifier.weight(1f))
-    }
-}
-
-@Composable
-private fun SerialRow(serial: ProductSerialDTO) {
     val (statusBg, statusColor, statusLabel) = when (serial.status?.uppercase()) {
-        "AVAILABLE"  -> Triple(SuccessBg, Success, "ရှိ")
-        "SOLD"       -> Triple(DangerBg,  Danger,  "ရောင်းပြီး")
-        "IN_SERVICE" -> Triple(WarningBg, Warning, "ဝန်ဆောင်မှုဆဲ")
-        "DEFECTIVE"  -> Triple(DangerBg,  Danger,  "ချွတ်ယွင်းချက်")
-        "RETURNED"   -> Triple(WarningBg, Warning, "ပြန်လည်")
-        else         -> Triple(BorderColor, TextMuted, serial.status ?: "-")
+        "AVAILABLE"      -> Triple(SuccessBg, Success, "Available")
+        "SOLD"           -> Triple(DangerBg,  Danger,  "Sold")
+        "USED_IN_SERVICE",
+        "IN_SERVICE"     -> Triple(WarningBg, Warning, "In Service")
+        "DEFECTIVE",
+        "DAMAGED"        -> Triple(DangerBg,  Danger,  "Damaged")
+        "LOST","RETURNED"-> Triple(BorderColor, TextMuted, serial.status)
+        else             -> Triple(BorderColor, TextMuted, serial.status ?: "—")
     }
+
+    val photoUri = serial.photoBase64
+    val photoBmp = remember(photoUri) { photoUri?.let { decodeDataUri(it) } }
+
     Card(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 3.dp),
-        shape = RoundedCornerShape(10.dp),
-        colors = CardDefaults.cardColors(containerColor = CardBg),
-        border = BorderStroke(1.dp, BorderColor)
+        modifier = modifier,
+        shape    = RoundedCornerShape(14.dp),
+        colors   = CardDefaults.cardColors(containerColor = CardBg),
+        border   = BorderStroke(if (isHighlighted) 2.dp else 1.dp,
+                                if (isHighlighted) Primary else BorderColor)
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                Icons.Outlined.QrCode2, null,
-                tint = TextMuted, modifier = Modifier.size(14.dp)
-            )
-            Spacer(Modifier.width(8.dp))
-            Text(
-                serial.serialNumber,
-                fontSize = 13.sp, fontWeight = FontWeight.Bold, color = TextMain,
-                modifier = Modifier.weight(1f)
-            )
-            Surface(color = statusBg, shape = RoundedCornerShape(6.dp)) {
-                Text(
-                    statusLabel,
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-                    fontSize = 10.sp, fontWeight = FontWeight.Bold, color = statusColor
-                )
+        Column {
+            // ── Square photo area ─────────────────────────────────────
+            Box(
+                modifier = Modifier.fillMaxWidth().aspectRatio(1f),
+                contentAlignment = Alignment.BottomCenter
+            ) {
+                if (isUploading) {
+                    Box(Modifier.fillMaxSize().background(ScreenBg), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = Primary, modifier = Modifier.size(28.dp), strokeWidth = 2.dp)
+                    }
+                } else if (photoBmp != null) {
+                    Image(bitmap = photoBmp.asImageBitmap(), contentDescription = serial.serialNumber,
+                        contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                    // Overlay buttons — camera | view | share
+                    Row(Modifier.fillMaxWidth().height(32.dp)) {
+                        Box(Modifier.weight(1f).fillMaxHeight()
+                            .background(Color.Black.copy(0.50f))
+                            .clickable { onUploadPhoto() },
+                            contentAlignment = Alignment.Center) {
+                            Icon(Icons.Outlined.CameraAlt, null, tint = Color.White, modifier = Modifier.size(14.dp))
+                        }
+                        Box(Modifier.weight(1f).fillMaxHeight()
+                            .background(Color(0xBF6366F1))
+                            .clickable { onViewPhoto(photoUri!!) },
+                            contentAlignment = Alignment.Center) {
+                            Icon(Icons.Outlined.Visibility, null, tint = Color.White, modifier = Modifier.size(14.dp))
+                        }
+                        Box(Modifier.weight(1f).fillMaxHeight()
+                            .background(Color(0xBF16A34A))
+                            .clickable { onSharePhoto(photoBmp) },
+                            contentAlignment = Alignment.Center) {
+                            Icon(Icons.Outlined.Share, null, tint = Color.White, modifier = Modifier.size(14.dp))
+                        }
+                    }
+                } else {
+                    Box(Modifier.fillMaxSize().background(ScreenBg)
+                        .clickable { onUploadPhoto() },
+                        contentAlignment = Alignment.Center) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Icon(Icons.Outlined.CameraAlt, null,
+                                tint = if (isHighlighted) Primary else TextMuted,
+                                modifier = Modifier.size(26.dp))
+                            Text("Tap to add photo", fontSize = 9.sp,
+                                color = if (isHighlighted) Primary else TextMuted,
+                                fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                }
             }
-        }
-        if (serial.warrantyEndDate != null) {
-            Text(
-                "အာမခံကုန်ဆုံး: ${serial.warrantyEndDate.take(10)}",
-                fontSize = 10.sp, color = TextMuted,
-                modifier = Modifier.padding(start = 36.dp, bottom = 8.dp)
-            )
+
+            // ── Info area ─────────────────────────────────────────────
+            Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    text = (if (isHighlighted) "▶ " else "") + serial.serialNumber,
+                    fontSize = 12.sp, fontWeight = FontWeight.ExtraBold,
+                    color = if (isHighlighted) Primary else TextMain,
+                    maxLines = 1
+                )
+                if (!serial.condition.isNullOrBlank()) {
+                    Surface(color = Color(0xFFFFFBEB),
+                        shape = RoundedCornerShape(5.dp),
+                        border = BorderStroke(1.dp, Color(0xFFFDE68A))) {
+                        Text(serial.condition,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                            fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color(0xFF92400E))
+                    }
+                }
+                if (serial.warrantyEndDate != null) {
+                    Text("🛡 ${serial.warrantyEndDate.take(10)}", fontSize = 10.sp, color = TextMuted)
+                }
+                Surface(color = statusBg, shape = RoundedCornerShape(5.dp)) {
+                    Text(statusLabel ?: "—",
+                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
+                        fontSize = 10.sp, fontWeight = FontWeight.Bold, color = statusColor)
+                }
+            }
         }
     }
 }

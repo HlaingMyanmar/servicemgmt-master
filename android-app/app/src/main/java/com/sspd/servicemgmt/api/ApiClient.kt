@@ -12,7 +12,7 @@ import javax.net.ssl.TrustManager
 import javax.net.ssl.X509TrustManager
 
 object ApiClient {
-    private var _baseUrl = "https://192.168.100.99:8080/api/v1/"
+    private var _baseUrl = "https://192.168.20.197:8080/api/v1/"
     private var retrofit: Retrofit? = null
 
     fun setBaseUrl(url: String) {
@@ -63,6 +63,9 @@ object ApiClient {
     fun bearer(token: String) = "Bearer $token"
 
     val pingUrl: String get() = _baseUrl
+
+    /** Base URL without the /api/v1/ suffix, e.g. "https://192.168.x.x:8080/" */
+    val rawBaseUrl: String get() = _baseUrl.removeSuffix("api/v1/")
 
     fun buildPingClient(): OkHttpClient {
         val trustAll = arrayOf<TrustManager>(object : X509TrustManager {

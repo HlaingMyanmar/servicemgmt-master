@@ -1,5 +1,6 @@
 package com.sspd.servicemgmt.api
 
+import okhttp3.ResponseBody
 import retrofit2.Response
 import retrofit2.http.*
 
@@ -15,13 +16,270 @@ interface ApiService {
     suspend fun getProducts(@Header("Authorization") auth: String): Response<ApiResponse<List<ProductDTO>>>
 
     @GET("sales")
-    suspend fun getSales(@Header("Authorization") auth: String): Response<ApiResponse<List<SaleDTO>>>
+    suspend fun getSales(
+        @Header("Authorization") auth: String,
+        @Query("page") page: Int = 0,
+        @Query("size") size: Int = 50,
+        @Query("search") search: String = ""
+    ): Response<ApiResponse<PagedResponse<SaleDTO>>>
 
+    @GET("payment-transactions/reference/{refId}")
+    suspend fun getPaymentTransactions(
+        @Header("Authorization") auth: String,
+        @Path("refId") refId: Int,
+        @Query("type") type: String = "Sale"
+    ): Response<ApiResponse<List<PaymentTransactionDTO>>>
+
+    @POST("sales/{id}/pay")
+    suspend fun payDue(
+        @Header("Authorization") auth: String,
+        @Path("id") id: Int,
+        @Body body: SalePaymentRequest
+    ): Response<ApiResponse<SaleDTO>>
+
+    @GET("sales/{id}")
+    suspend fun getSaleById(
+        @Header("Authorization") auth: String,
+        @Path("id") id: Int
+    ): Response<ApiResponse<SaleDTO>>
+
+    @POST("sales")
+    suspend fun createSale(
+        @Header("Authorization") auth: String,
+        @Body body: SaleDTO
+    ): Response<ApiResponse<SaleDTO>>
+
+    @GET("customers")
+    suspend fun getCustomers(@Header("Authorization") auth: String): Response<ApiResponse<List<CustomerDTO>>>
+
+    @POST("customers")
+    suspend fun createCustomer(
+        @Header("Authorization") auth: String,
+        @Body body: CustomerDTO
+    ): Response<ApiResponse<CustomerDTO>>
+
+    @GET("staffs/active")
+    suspend fun getActiveStaff(@Header("Authorization") auth: String): Response<ApiResponse<List<StaffDTO>>>
+
+    @GET("payment-methods/active")
+    suspend fun getActivePaymentMethods(@Header("Authorization") auth: String): Response<ApiResponse<List<PaymentMethodDTO>>>
+
+    @GET("credit-terms/customer/{customerId}")
+    suspend fun getCreditTerm(
+        @Header("Authorization") auth: String,
+        @Path("customerId") customerId: Int
+    ): Response<ApiResponse<CustomerCreditTermDTO>>
+
+    // ── Service Types ─────────────────────────────────────────────────────────
+    @GET("service-types")
+    suspend fun getServiceTypes(@Header("Authorization") auth: String): Response<ApiResponse<List<ServiceTypeDTO>>>
+
+    @GET("service-types/active")
+    suspend fun getActiveServiceTypes(@Header("Authorization") auth: String): Response<ApiResponse<List<ServiceTypeDTO>>>
+
+    @POST("service-types")
+    suspend fun createServiceType(
+        @Header("Authorization") auth: String,
+        @Body body: ServiceTypeDTO
+    ): Response<ApiResponse<ServiceTypeDTO>>
+
+    @PUT("service-types/{id}")
+    suspend fun updateServiceType(
+        @Header("Authorization") auth: String,
+        @Path("id") id: Int,
+        @Body body: ServiceTypeDTO
+    ): Response<ApiResponse<ServiceTypeDTO>>
+
+    @DELETE("service-types/{id}")
+    suspend fun deleteServiceType(
+        @Header("Authorization") auth: String,
+        @Path("id") id: Int
+    ): Response<ApiResponse<Void>>
+
+    // ── Sub Service Types ─────────────────────────────────────────────────────
+    @GET("sub-service-types/by-type/{typeId}")
+    suspend fun getSubServiceTypes(
+        @Header("Authorization") auth: String,
+        @Path("typeId") typeId: Int
+    ): Response<ApiResponse<List<SubServiceTypeDTO>>>
+
+    @POST("sub-service-types")
+    suspend fun createSubServiceType(
+        @Header("Authorization") auth: String,
+        @Body body: SubServiceTypeDTO
+    ): Response<ApiResponse<SubServiceTypeDTO>>
+
+    @PUT("sub-service-types/{id}")
+    suspend fun updateSubServiceType(
+        @Header("Authorization") auth: String,
+        @Path("id") id: Int,
+        @Body body: SubServiceTypeDTO
+    ): Response<ApiResponse<SubServiceTypeDTO>>
+
+    @DELETE("sub-service-types/{id}")
+    suspend fun deleteSubServiceType(
+        @Header("Authorization") auth: String,
+        @Path("id") id: Int
+    ): Response<ApiResponse<Void>>
+
+    // ── Service Items ─────────────────────────────────────────────────────────
+    @GET("services")
+    suspend fun getAllServiceItems(@Header("Authorization") auth: String): Response<ApiResponse<List<ServiceItemDTO>>>
+
+    @GET("services/active")
+    suspend fun getActiveServiceItems(@Header("Authorization") auth: String): Response<ApiResponse<List<ServiceItemDTO>>>
+
+    @POST("services")
+    suspend fun createServiceItem(
+        @Header("Authorization") auth: String,
+        @Body body: ServiceItemDTO
+    ): Response<ApiResponse<ServiceItemDTO>>
+
+    @PUT("services/{id}")
+    suspend fun updateServiceItem(
+        @Header("Authorization") auth: String,
+        @Path("id") id: Int,
+        @Body body: ServiceItemDTO
+    ): Response<ApiResponse<ServiceItemDTO>>
+
+    @DELETE("services/{id}")
+    suspend fun deleteServiceItem(
+        @Header("Authorization") auth: String,
+        @Path("id") id: Int
+    ): Response<ApiResponse<Void>>
+
+    // ── Shelf Locations ───────────────────────────────────────────────────────
+    @GET("shelf-locations")
+    suspend fun getShelfLocations(@Header("Authorization") auth: String): Response<ApiResponse<List<ShelfLocationDTO>>>
+
+    @GET("shelf-locations/active")
+    suspend fun getActiveShelfLocations(@Header("Authorization") auth: String): Response<ApiResponse<List<ShelfLocationDTO>>>
+
+    @POST("shelf-locations")
+    suspend fun createShelfLocation(
+        @Header("Authorization") auth: String,
+        @Body body: ShelfLocationDTO
+    ): Response<ApiResponse<ShelfLocationDTO>>
+
+    @PUT("shelf-locations/{id}")
+    suspend fun updateShelfLocation(
+        @Header("Authorization") auth: String,
+        @Path("id") id: Int,
+        @Body body: ShelfLocationDTO
+    ): Response<ApiResponse<ShelfLocationDTO>>
+
+    // ── Bookings ──────────────────────────────────────────────────────────────
     @GET("bookings")
-    suspend fun getBookings(@Header("Authorization") auth: String): Response<ApiResponse<List<BookingDTO>>>
+    suspend fun getBookings(
+        @Header("Authorization") auth: String,
+        @Query("page")     page:     Int    = 0,
+        @Query("size")     size:     Int    = 100,
+        @Query("search")   search:   String = "",
+        @Query("dateFrom") dateFrom: String = "",
+        @Query("dateTo")   dateTo:   String = ""
+    ): Response<ApiResponse<PagedResponse<BookingDTO>>>
 
+    @GET("bookings/{id}")
+    suspend fun getBookingById(
+        @Header("Authorization") auth: String,
+        @Path("id") id: Int
+    ): Response<ApiResponse<BookingDTO>>
+
+    @PATCH("bookings/{id}/status")
+    suspend fun updateBookingStatus(
+        @Header("Authorization") auth: String,
+        @Path("id") id: Int,
+        @Query("status") status: String
+    ): Response<ApiResponse<BookingDTO>>
+
+    @POST("bookings")
+    suspend fun createBooking(
+        @Header("Authorization") auth: String,
+        @Body body: BookingDTO
+    ): Response<ApiResponse<BookingDTO>>
+
+    @PUT("bookings/{id}")
+    suspend fun updateBooking(
+        @Header("Authorization") auth: String,
+        @Path("id") id: Int,
+        @Body body: BookingDTO
+    ): Response<ApiResponse<BookingDTO>>
+
+    @DELETE("bookings/{id}")
+    suspend fun deleteBooking(
+        @Header("Authorization") auth: String,
+        @Path("id") id: Int
+    ): Response<ApiResponse<Void>>
+
+    @POST("bookings/{id}/convert-to-job")
+    suspend fun convertBookingToJob(
+        @Header("Authorization") auth: String,
+        @Path("id") id: Int
+    ): Response<ApiResponse<List<ServiceJobDTO>>>
+
+    // ── Service Jobs ──────────────────────────────────────────────────────────
     @GET("service-jobs")
-    suspend fun getServiceJobs(@Header("Authorization") auth: String): Response<ApiResponse<List<ServiceJobDTO>>>
+    suspend fun getServiceJobs(
+        @Header("Authorization") auth: String,
+        @Query("page")     page:     Int    = 0,
+        @Query("size")     size:     Int    = 100,
+        @Query("search")   search:   String = "",
+        @Query("dateFrom") dateFrom: String = "",
+        @Query("dateTo")   dateTo:   String = ""
+    ): Response<ApiResponse<PagedResponse<ServiceJobDTO>>>
+
+    @POST("service-jobs")
+    suspend fun createServiceJob(
+        @Header("Authorization") auth: String,
+        @Body body: ServiceJobDTO
+    ): Response<ApiResponse<ServiceJobDTO>>
+
+    @PUT("service-jobs/{id}")
+    suspend fun updateServiceJob(
+        @Header("Authorization") auth: String,
+        @Path("id") id: Int,
+        @Body body: ServiceJobDTO
+    ): Response<ApiResponse<ServiceJobDTO>>
+
+    @DELETE("service-jobs/{id}")
+    suspend fun deleteServiceJob(
+        @Header("Authorization") auth: String,
+        @Path("id") id: Int
+    ): Response<ApiResponse<Void>>
+
+    @POST("service-jobs/{id}/rework")
+    suspend fun createRework(
+        @Header("Authorization") auth: String,
+        @Path("id") id: Int,
+        @Body body: ReworkRequestDTO
+    ): Response<ApiResponse<ServiceJobDTO>>
+
+    @GET("service-jobs/{id}")
+    suspend fun getServiceJobById(
+        @Header("Authorization") auth: String,
+        @Path("id") id: Int
+    ): Response<ApiResponse<ServiceJobDTO>>
+
+    @PATCH("service-jobs/{id}/status")
+    suspend fun updateServiceJobStatus(
+        @Header("Authorization") auth: String,
+        @Path("id") id: Int,
+        @Query("status") status: String
+    ): Response<ApiResponse<ServiceJobDTO>>
+
+    @POST("service-jobs/{id}/settle")
+    suspend fun settleServiceJob(
+        @Header("Authorization") auth: String,
+        @Path("id") id: Int,
+        @Body body: SettleJobRequest
+    ): Response<ApiResponse<ServiceJobDTO>>
+
+    @POST("service-jobs/{id}/pay-due")
+    suspend fun payServiceJobDue(
+        @Header("Authorization") auth: String,
+        @Path("id") id: Int,
+        @Body body: ServiceJobPayDueRequest
+    ): Response<ApiResponse<ServiceJobDTO>>
 
     @GET("reports/staff")
     suspend fun getStaffReport(
@@ -67,4 +325,39 @@ interface ApiService {
         @Header("Authorization") auth: String,
         @Path("serialNumber") serial: String
     ): Response<ApiResponse<ProductSerialDTO>>
+
+    @PUT("product-serials/{id}")
+    suspend fun updateProductSerial(
+        @Header("Authorization") auth: String,
+        @Path("id") id: Int,
+        @Body body: ProductSerialDTO
+    ): Response<ApiResponse<ProductSerialDTO>>
+
+    // ── Print ─────────────────────────────────────────────────────────────────
+    @POST("print/preview")
+    suspend fun getBookingPrintHtml(
+        @Header("Authorization") auth: String,
+        @Body body: PrintPreviewRequest
+    ): Response<ResponseBody>
+
+    @GET("print/preview/service-job/{id}")
+    suspend fun getServiceJobPrintHtml(
+        @Header("Authorization") auth: String,
+        @Path("id") id: Int,
+        @Query("paper") paper: String = "A4"
+    ): Response<ResponseBody>
+
+    @GET("print/preview/sale/{id}")
+    suspend fun getSalePrintHtml(
+        @Header("Authorization") auth: String,
+        @Path("id") id: Int,
+        @Query("paper") paper: String = "A4"
+    ): Response<ResponseBody>
+
+    @PUT("products/{id}/photo")
+    suspend fun updateProductPhoto(
+        @Header("Authorization") auth: String,
+        @Path("id") id: Int,
+        @Body body: Map<String, String>
+    ): Response<ApiResponse<Void>>
 }

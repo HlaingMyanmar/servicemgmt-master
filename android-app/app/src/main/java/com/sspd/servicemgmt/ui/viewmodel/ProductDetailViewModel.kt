@@ -22,6 +22,7 @@ class ProductDetailViewModel(
 
     private val prefs = PreferenceManager(application)
     private val productId: Int = checkNotNull(savedStateHandle["productId"])
+    private val incomingSerial: String? = savedStateHandle["serialNumber"]
 
     private val _uiState = MutableStateFlow(ProductDetailUiState())
     val uiState: StateFlow<ProductDetailUiState> = _uiState.asStateFlow()
@@ -43,7 +44,8 @@ class ProductDetailViewModel(
                     it.copy(
                         product = if (productRes.isSuccessful) productRes.body()?.data else null,
                         serials = if (serialsRes.isSuccessful) serialsRes.body()?.data ?: emptyList() else emptyList(),
-                        loading = false
+                        loading = false,
+                        scannedSerial = incomingSerial
                     )
                 }
             } catch (_: Exception) {
@@ -52,9 +54,93 @@ class ProductDetailViewModel(
         }
     }
 
+    fun uploadSerialPhoto(serialId: Int, photoBase64: String) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(uploadingSerialId = serialId) }
+            try {
+                val token   = ApiClient.bearer(prefs.authToken)
+                val current = _uiState.value.serials.find { it.id == serialId } ?: return@launch
+                val updated = current.copy(photoBase64 = photoBase64)
+                val res = ApiClient.service.updateProductSerial(token, serialId, updated)
+                if (res.isSuccessful) {
+                    _uiState.update { state ->
+                        state.copy(
+                            serials = state.serials.map {
+                                if (it.id == serialId) it.copy(photoBase64 = photoBase64) else it
+                            },
+                            uploadSuccess   = serialId,
+                            uploadingSerialId = null
+                        )
+                    }
+                } else {
+                    val msg = when (res.code()) {
+                        403  -> "ခွင့်မပြုပါ (Permission မရှိ)"
+                        413  -> "ပုံ အရွယ်အစားကြီးလွန်းသည်"
+                        else -> "ပုံ upload မအောင်မြင်ပါ (${res.code()})"
+                    }
+                    _uiState.update { it.copy(uploadError = msg, uploadingSerialId = null) }
+                }
+            } catch (_: Exception) {
+                _uiState.update { it.copy(uploadError = "ချိတ်ဆက်မှု ချို့ယွင်းနေသည်", uploadingSerialId = null) }
+            }
+        }
+    }
+
+    fun uploadProductPhoto(photoBase64: String) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(uploadingProductPhoto = true) }
+            try {
+                val token = ApiClient.bearer(prefs.authToken)
+                val res = ApiClient.service.updateProductPhoto(token, productId, mapOf("photoBase64" to photoBase64))
+                if (res.isSuccessful) {
+                    _uiState.update { state ->
+                        state.copy(
+                            product = state.product?.copy(photoBase64 = photoBase64),
+                            uploadSuccess = -1,
+                            uploadingProductPhoto = false
+                        )
+                    }
+                } else {
+                    val msg = when (res.code()) {
+                        403  -> "ခွင့်မပြုပါ (Permission မရှိ)"
+                        413  -> "ပုံ အရွယ်အစားကြီးလွန်းသည်"
+                        else -> "ပုံ upload မအောင်မြင်ပါ (${res.code()})"
+                    }
+                    _uiState.update { it.copy(uploadError = msg, uploadingProductPhoto = false) }
+                }
+            } catch (_: Exception) {
+                _uiState.update { it.copy(uploadError = "ချိတ်ဆက်မှု ချို့ယွင်းနေသည်", uploadingProductPhoto = false) }
+            }
+        }
+    }
+
+    fun clearUploadSuccess() = _uiState.update { it.copy(uploadSuccess = null) }
+    fun clearUploadError()   = _uiState.update { it.copy(uploadError = null) }
+    fun showScanner()        = _uiState.update { it.copy(showScanner = true) }
+    fun dismissScanner()     = _uiState.update { it.copy(showScanner = false) }
+    fun clearHighlight()     = _uiState.update { it.copy(scannedSerial = null) }
+    fun clearScanError()     = _uiState.update { it.copy(scanError = null) }
+
+    fun onScanResult(serialNumber: String) {
+        _uiState.update { it.copy(showScanner = false) }
+        val found = _uiState.value.serials.any { it.serialNumber == serialNumber }
+        if (found) {
+            _uiState.update { it.copy(scannedSerial = serialNumber) }
+        } else {
+            _uiState.update { it.copy(scanError = "\"$serialNumber\" ဤပစ္စည်းတွင် မတွေ့ပါ") }
+        }
+    }
+
     data class ProductDetailUiState(
         val product: ProductDTO? = null,
         val serials: List<ProductSerialDTO> = emptyList(),
-        val loading: Boolean = true
+        val loading: Boolean = true,
+        val showScanner: Boolean = false,
+        val scannedSerial: String? = null,
+        val scanError: String? = null,
+        val uploadingSerialId: Int? = null,
+        val uploadingProductPhoto: Boolean = false,
+        val uploadSuccess: Int? = null,   // serialId, or -1 for product photo
+        val uploadError: String? = null
     )
 }

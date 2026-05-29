@@ -61,40 +61,6 @@ fun AccountSettingsScreen(onBack: () -> Unit) {
                 }
             }
 
-            // Server settings
-            Card(shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = CardBg), border = BorderStroke(1.dp, BorderColor)) {
-                Column(Modifier.padding(16.dp)) {
-                    Text("Server IP", fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, color = TextMain)
-                    Spacer(Modifier.height(10.dp))
-                    OutlinedTextField(
-                        value = state.serverInput,
-                        onValueChange = { vm.setServerInput(it) },
-                        modifier = Modifier.fillMaxWidth(),
-                        label = { Text("https://192.168.x.x:8080") },
-                        leadingIcon = { Icon(Icons.Outlined.Wifi, null) },
-                        singleLine = true,
-                        shape = RoundedCornerShape(12.dp)
-                    )
-                    Spacer(Modifier.height(10.dp))
-                    Button(
-                        onClick = { vm.saveServerUrl() },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Primary)
-                    ) {
-                        Text("Server IP သိမ်းရန်", fontWeight = FontWeight.Bold)
-                    }
-                    if (state.saved) {
-                        Spacer(Modifier.height(6.dp))
-                        Row(horizontalArrangement = Arrangement.Center, modifier = Modifier.fillMaxWidth()) {
-                            Icon(Icons.Outlined.CheckCircle, null, tint = Success, modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.width(4.dp))
-                            Text("သိမ်းပြီးပါပြီ", fontSize = 12.sp, color = Success, fontWeight = FontWeight.Bold)
-                        }
-                    }
-                }
-            }
-
             // Note about password change
             Card(shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = PrimaryLight), border = BorderStroke(1.dp, Primary.copy(0.3f))) {
                 Row(Modifier.padding(16.dp), verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(10.dp)) {

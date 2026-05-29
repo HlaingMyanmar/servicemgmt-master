@@ -113,6 +113,17 @@ public class ProductSerialService {
         return enrichPurchaseInfo(mapper.toDto(savedEntity));
     }
 
+    @PreAuthorize("hasAuthority('CAN_ACCESS_PRODUCT_SERIAL_UPDATE')")
+    @Transactional
+    public void updatePhoto(Integer id, String photoBase64) {
+        if (id == null) throw new ResourceNotFoundException("Product Serial id must not be null");
+        ProductSerial entity = productSerialRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Product Serial Not Found with id " + id));
+        entity.setPhotoBase64(photoBase64);
+        productSerialRepository.save(entity);
+        messagingTemplate.convertAndSend(PRODUCT_SERIAL_TOPIC, "PRODUCT_SERIAL_UPDATED");
+    }
+
     @PreAuthorize("hasAuthority('CAN_ACCESS_PRODUCT_SERIAL_DELETE')")
     @Transactional
     public void delete(Integer id){

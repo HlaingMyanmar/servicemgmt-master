@@ -32,7 +32,11 @@ import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ProductListScreen(onBack: () -> Unit, onProductClick: (Int) -> Unit = {}) {
+fun ProductListScreen(
+    onBack: () -> Unit,
+    onProductClick: (Int) -> Unit = {},
+    onScanNavigate: (productId: Int, serial: String) -> Unit = { _, _ -> }
+) {
     val vm: ProductListViewModel = viewModel()
     val state by vm.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -48,16 +52,18 @@ fun ProductListScreen(onBack: () -> Unit, onProductClick: (Int) -> Unit = {}) {
         }
     }
 
-    val filtered = when {
-        state.scannedProductId != null ->
-            state.items.filter { it.id == state.scannedProductId }
-        state.search.isBlank() ->
-            state.items
-        else ->
-            state.items.filter {
-                it.name.contains(state.search, true) ||
-                it.productCode.contains(state.search, true)
-            }
+    // Scan success → navigate to ProductDetail with serial highlighted
+    LaunchedEffect(state.navigateToDetail) {
+        state.navigateToDetail?.let { (productId, serial) ->
+            onScanNavigate(productId, serial)
+            vm.onNavigated()
+        }
+    }
+
+    val filtered = if (state.search.isBlank()) state.items
+    else state.items.filter {
+        it.name.contains(state.search, true) ||
+        it.productCode.contains(state.search, true)
     }
 
     Box(Modifier.fillMaxSize()) {
@@ -77,13 +83,18 @@ fun ProductListScreen(onBack: () -> Unit, onProductClick: (Int) -> Unit = {}) {
                 )
             }
         ) { padding ->
-            Column(modifier = Modifier.fillMaxSize().padding(padding).background(ScreenBg)) {
+            Column(modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .background(ScreenBg)) {
 
                 // Search field with scan button
                 OutlinedTextField(
                     value = state.search,
                     onValueChange = { vm.setSearch(it) },
-                    modifier = Modifier.fillMaxWidth().padding(12.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp),
                     placeholder = { Text("ကုန်ပစ္စည်း ရှာဖွေရန်...") },
                     leadingIcon = { Icon(Icons.Outlined.Search, null) },
                     trailingIcon = {
@@ -109,26 +120,6 @@ fun ProductListScreen(onBack: () -> Unit, onProductClick: (Int) -> Unit = {}) {
                     singleLine = true,
                     shape = RoundedCornerShape(12.dp)
                 )
-
-                // Scanned product banner
-                if (state.scannedProductId != null) {
-                    Surface(
-                        color = PrimaryLight,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(Icons.Outlined.QrCodeScanner, null, tint = Primary, modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.width(8.dp))
-                            Text("Scan ဖြင့် ရှာဖွေနေသည်", fontSize = 12.sp, color = Primary, modifier = Modifier.weight(1f))
-                            TextButton(onClick = { vm.clearScanResult() }) {
-                                Text("ရှင်းမည်", fontSize = 12.sp, color = Primary)
-                            }
-                        }
-                    }
-                }
 
                 if (state.loading) {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -214,25 +205,10 @@ private fun ProductCard(p: ProductDTO, onClick: () -> Unit = {}) {
 
             // Name / code / category
             Column(modifier = Modifier.weight(1f)) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        p.name, fontSize = 13.sp,
-                        fontWeight = FontWeight.ExtraBold, color = TextMain
-                    )
-                    val typeBg    = if (p.productType.equals("New", true)) PrimaryLight else WarningBg
-                    val typeColor = if (p.productType.equals("New", true)) Primary else Warning
-                    val typeLabel = if (p.productType.equals("New", true)) "အသစ်" else "အသုံးပြုပြီး"
-                    Surface(color = typeBg, shape = RoundedCornerShape(4.dp)) {
-                        Text(
-                            typeLabel,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp),
-                            fontSize = 9.sp, fontWeight = FontWeight.Bold, color = typeColor
-                        )
-                    }
-                }
+                Text(
+                    p.name, fontSize = 13.sp,
+                    fontWeight = FontWeight.ExtraBold, color = TextMain
+                )
                 Spacer(Modifier.height(2.dp))
                 Text(p.productCode, fontSize = 11.sp, color = TextMuted)
                 if (!p.categoryName.isNullOrBlank()) {
@@ -243,8 +219,18 @@ private fun ProductCard(p: ProductDTO, onClick: () -> Unit = {}) {
                 }
             }
 
-            // Price & stock badge
+            // Type badge / price / stock
             Column(horizontalAlignment = Alignment.End) {
+                val typeBg    = if (p.productType.equals("New", true)) PrimaryLight else WarningBg
+                val typeColor = if (p.productType.equals("New", true)) Primary else Warning
+                val typeLabel = if (p.productType.equals("New", true)) "အသစ်" else "အသုံးပြုပြီး"
+                Surface(color = typeBg, shape = RoundedCornerShape(4.dp)) {
+                    Text(
+                        typeLabel,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp),
+                        fontSize = 9.sp, fontWeight = FontWeight.Bold, color = typeColor
+                    )
+                }
                 Text(
                     "${p.sellingPrice.fmt()} Ks",
                     fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, color = Primary
@@ -275,3 +261,36 @@ private fun ProductCard(p: ProductDTO, onClick: () -> Unit = {}) {
 }
 
 private fun Long.fmt() = String.format("%,d", this)
+
+
+@androidx.compose.ui.tooling.preview.Preview(showBackground = true, widthDp = 360)
+@Composable
+fun UIPrevice(modifier: Modifier = Modifier) {
+    val sampleProduct = com.sspd.servicemgmt.api.ProductDTO(
+        id = 1,
+        productCode = "PRD-001",
+        name = "Samsung Galaxy A55",
+        stockQty = 15,
+        availableSerialCount = 12,
+        productType = "New",
+        sellingPrice = 850000,
+        costPrice = 720000,
+        categoryName = "မိုဘိုင်းဖုန်း",
+        brandName = "Samsung",
+        unitName = "လုံး",
+        reorderLevel = 5,
+        hasSerial = true,
+        warrantyMonths = 12,
+        photoBase64 = null
+    )
+    com.sspd.servicemgmt.ui.theme.AppTheme {
+        androidx.compose.foundation.layout.Box(
+            modifier = Modifier
+                .background(ScreenBg)
+                .padding(horizontal = 12.dp, vertical = 8.dp)
+        ) {
+            ProductCard(sampleProduct)
+        }
+    }
+}
+

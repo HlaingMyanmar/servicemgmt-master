@@ -81,6 +81,15 @@ public class ProductSerialController {
         );
     }
 
+    @PreAuthorize("hasAuthority('CAN_ACCESS_PRODUCT_SERIAL_UPDATE')")
+    @PutMapping("/{id}/photo")
+    public ResponseEntity<ApiResponse<Void>> updatePhoto(
+            @PathVariable Integer id,
+            @RequestBody java.util.Map<String, String> body) {
+        service.updatePhoto(id, body.get("photoBase64"));
+        return ResponseEntity.ok(new ApiResponse<>(true, "Photo updated", null));
+    }
+
     // 🔹 Delete by Serial Number
     @PreAuthorize("hasAuthority('CAN_ACCESS_PRODUCT_SERIAL_DELETE')")
     @DeleteMapping("/by-serial/{serialNumber}")

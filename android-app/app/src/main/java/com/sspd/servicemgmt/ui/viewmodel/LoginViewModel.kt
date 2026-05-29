@@ -47,7 +47,7 @@ class LoginViewModel(application: Application) : AndroidViewModel(application) {
                 _uiState.update { it.copy(
                     loading = false,
                     error   = when {
-                        e.message?.contains("timeout", true) == true          -> "Server မတုံ့ပြန်ပါ — Network စစ်ကြည့်ပါ"
+                        e.message?.contains("timeout", true) == true               -> "Server မတုံ့ပြန်ပါ — Network စစ်ကြည့်ပါ"
                         e.message?.contains("Unable to resolve host", true) == true -> "Server IP မတွေ့ — WiFi စစ်ကြည့်ပါ"
                         else -> "${e.javaClass.simpleName}: ${e.message}"
                     }
