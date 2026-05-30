@@ -9,7 +9,6 @@ import com.sspd.servicemgmt.api.PaymentMethodDTO
 import com.sspd.servicemgmt.api.ServiceJobDTO
 import com.sspd.servicemgmt.api.ServiceJobPayDueRequest
 import com.sspd.servicemgmt.api.SettleJobRequest
-import com.sspd.servicemgmt.api.StaffDTO
 import com.sspd.servicemgmt.utils.PreferenceManager
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -35,15 +34,13 @@ class ServiceJobDetailViewModel(
         viewModelScope.launch {
             _uiState.update { it.copy(loading = true) }
             try {
-                val token  = ApiClient.bearer(prefs.authToken)
-                val jobD   = async { ApiClient.service.getServiceJobById(token, jobId) }
-                val pmD    = async { ApiClient.service.getActivePaymentMethods(token) }
-                val staffD = async { ApiClient.service.getActiveStaff(token) }
+                val token = ApiClient.bearer(prefs.authToken)
+                val jobD  = async { ApiClient.service.getServiceJobById(token, jobId) }
+                val pmD   = async { ApiClient.service.getActivePaymentMethods(token) }
                 _uiState.update {
                     it.copy(
                         job            = jobD.await().body()?.data,
                         paymentMethods = pmD.await().body()?.data ?: emptyList(),
-                        staffList      = staffD.await().body()?.data ?: emptyList(),
                         loading        = false
                     )
                 }
@@ -82,7 +79,6 @@ class ServiceJobDetailViewModel(
         discount:  Double,
         foc:       Boolean,
         paid:      Double,
-        staffId:   Int?,
         methodId:  Int?,
         txnNo:     String?,
         dueDate:   String?
@@ -98,7 +94,6 @@ class ServiceJobDetailViewModel(
                         discountAmount  = discount,
                         foc             = foc,
                         paidAmount      = paid,
-                        staffId         = staffId,
                         paymentMethodId = methodId,
                         transactionNo   = txnNo?.ifBlank { null },
                         dueDate         = dueDate
@@ -188,7 +183,6 @@ class ServiceJobDetailViewModel(
     data class UiState(
         val job:              ServiceJobDTO?        = null,
         val paymentMethods:   List<PaymentMethodDTO> = emptyList(),
-        val staffList:        List<StaffDTO>        = emptyList(),
         val loading:          Boolean               = true,
         val actionLoading:    Boolean               = false,
         val showSettleDialog: Boolean               = false,

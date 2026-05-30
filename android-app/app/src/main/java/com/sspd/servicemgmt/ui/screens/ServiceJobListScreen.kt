@@ -3,9 +3,11 @@ package com.sspd.servicemgmt.ui.screens
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.*
@@ -121,8 +123,11 @@ fun ServiceJobListScreen(
         )
     }
 
-    val filtered = if (state.filter == "ALL") state.items
-                   else state.items.filter { it.status?.uppercase() == state.filter }
+    val filtered = when (state.filter) {
+        "ALL"    -> state.items
+        "CREDIT" -> state.items.filter { (it.dueAmount ?: 0.0) > 0 }
+        else     -> state.items.filter { it.status?.uppercase() == state.filter }
+    }
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbar) },
@@ -191,19 +196,26 @@ fun ServiceJobListScreen(
 
             // ── Status filter chips ───────────────────────────────────────────
             Row(
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                modifier = Modifier
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 12.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 listOf(
                     "ALL"         to "အားလုံး",
                     "PENDING"     to "စောင့်ဆိုင်း",
                     "IN_PROGRESS" to "လုပ်ဆဲ",
-                    "COMPLETED"   to "ပြီး"
+                    "COMPLETED"   to "ပြီး",
+                    "CREDIT"      to "ကြွေးကျန်"
                 ).forEach { (k, v) ->
                     FilterChip(
                         selected = state.filter == k,
                         onClick  = { vm.setFilter(k) },
-                        label    = { Text(v, fontSize = 12.sp) }
+                        label    = { Text(v, fontSize = 12.sp) },
+                        colors   = if (k == "CREDIT") FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = DangerBg,
+                            selectedLabelColor     = Danger
+                        ) else FilterChipDefaults.filterChipColors()
                     )
                 }
             }
@@ -235,13 +247,6 @@ fun ServiceJobListScreen(
                                         Text(job.customerName ?: "-", fontSize = 13.sp, color = TextMain)
                                     }
                                     JobStatusBadge(job.status)
-                                    Spacer(Modifier.width(6.dp))
-                                    IconButton(
-                                        onClick  = { vm.confirmDelete(job) },
-                                        modifier = Modifier.size(28.dp)
-                                    ) {
-                                        Icon(Icons.Outlined.DeleteOutline, null, tint = Danger, modifier = Modifier.size(16.dp))
-                                    }
                                 }
                                 Spacer(Modifier.height(6.dp))
                                 if (!job.itemName.isNullOrBlank()) {
@@ -254,15 +259,29 @@ fun ServiceJobListScreen(
                                     Text(job.problemDesc, fontSize = 11.sp, color = TextMuted, maxLines = 1)
                                 }
                                 Spacer(Modifier.height(4.dp))
-                                Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
                                         Icon(Icons.Outlined.Person, null, tint = TextMuted, modifier = Modifier.size(12.dp))
                                         Text(job.assignedStaffName ?: "-", fontSize = 11.sp, color = TextMuted)
                                     }
-                                    Text(
-                                        "${String.format("%,.0f", job.netAmount ?: 0.0)} Ks",
-                                        fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, color = Primary
-                                    )
+                                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        if ((job.dueAmount ?: 0.0) > 0) {
+                                            Surface(color = DangerBg, shape = RoundedCornerShape(6.dp)) {
+                                                Row(
+                                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                                    horizontalArrangement = Arrangement.spacedBy(3.dp),
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Icon(Icons.Outlined.CreditCard, null, tint = Danger, modifier = Modifier.size(10.dp))
+                                                    Text("ကြွေး ${String.format("%,.0f", job.dueAmount)} Ks", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Danger)
+                                                }
+                                            }
+                                        }
+                                        Text(
+                                            "${String.format("%,.0f", job.netAmount ?: 0.0)} Ks",
+                                            fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, color = Primary
+                                        )
+                                    }
                                 }
                             }
                         }

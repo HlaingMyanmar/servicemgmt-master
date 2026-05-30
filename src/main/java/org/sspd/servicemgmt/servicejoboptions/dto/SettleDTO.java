@@ -15,5 +15,4 @@ public class SettleDTO {
     private Integer paymentMethodId;
     private Integer paymentAccountId;
     private String transactionNo;
-    private Integer staffId;
 }

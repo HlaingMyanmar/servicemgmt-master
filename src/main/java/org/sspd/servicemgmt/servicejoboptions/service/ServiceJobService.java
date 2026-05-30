@@ -380,9 +380,7 @@ public class ServiceJobService {
     private SaleDTO createSaleFromServiceJob(ServiceJob job, SettleDTO dto, BigDecimal totalAmount) {
         SaleDTO saleDto = new SaleDTO();
         saleDto.setCustomerId(job.getCustomer().getId());
-        Integer staffId = dto.getStaffId() != null ? dto.getStaffId()
-                : (job.getAssignedStaff() != null ? job.getAssignedStaff().getId() : null);
-        saleDto.setStaffId(staffId);
+        saleDto.setStaffId(job.getAssignedStaff() != null ? job.getAssignedStaff().getId() : null);
         saleDto.setSaleDate(LocalDateTime.now());
 
         List<SaleDetailDTO> details = new ArrayList<>();

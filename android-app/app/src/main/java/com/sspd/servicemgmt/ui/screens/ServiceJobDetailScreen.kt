@@ -88,12 +88,11 @@ fun ServiceJobDetailScreen(
     if (state.showSettleDialog) {
         SettleDialog(
             job            = state.job,
-            staffList      = state.staffList,
             paymentMethods = state.paymentMethods,
             loading        = state.actionLoading,
             onDismiss      = { vm.dismissSettleDialog() },
-            onSettle       = { cost, disc, foc, paid, sid, mid, txn, due ->
-                vm.settle(cost, disc, foc, paid, sid, mid, txn, due)
+            onSettle       = { cost, disc, foc, paid, mid, txn, due ->
+                vm.settle(cost, disc, foc, paid, mid, txn, due)
             }
         )
     }
@@ -117,10 +116,9 @@ fun ServiceJobDetailScreen(
                     IconButton(onClick = onBack) { Icon(Icons.Outlined.ArrowBack, null, tint = Color.White) }
                 },
                 actions = {
-                    IconButton(onClick = { vm.load() })          { Icon(Icons.Outlined.Refresh,       null, tint = Color.White) }
-                    IconButton(onClick = onEdit)                  { Icon(Icons.Outlined.Edit,          null, tint = Color.White) }
-                    IconButton(onClick = onPrint)                 { Icon(Icons.Outlined.Print,         null, tint = Color.White) }
-                    IconButton(onClick = { vm.showDeleteDialog() }) { Icon(Icons.Outlined.DeleteOutline, null, tint = Color.White) }
+                    IconButton(onClick = { vm.load() }) { Icon(Icons.Outlined.Refresh, null, tint = Color.White) }
+                    IconButton(onClick = onEdit)       { Icon(Icons.Outlined.Edit,    null, tint = Color.White) }
+                    IconButton(onClick = onPrint)      { Icon(Icons.Outlined.Print,   null, tint = Color.White) }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Primary, titleContentColor = Color.White)
             )
@@ -293,8 +291,52 @@ fun ServiceJobDetailScreen(
                 }
             }
 
+            // ── Credit / Due info card ────────────────────────────────────────
+            if ((job.dueAmount ?: 0.0) > 0) {
+                item {
+                    Card(
+                        shape  = RoundedCornerShape(14.dp),
+                        colors = CardDefaults.cardColors(containerColor = DangerBg),
+                        border = BorderStroke(1.5.dp, Danger.copy(alpha = 0.4f))
+                    ) {
+                        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Icon(Icons.Outlined.CreditCard, null, tint = Danger, modifier = Modifier.size(18.dp))
+                                Text("ကြွေးကျန် အချက်အလက်", fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, color = Danger, letterSpacing = 0.5.sp)
+                            }
+                            HorizontalDivider(color = Danger.copy(alpha = 0.2f))
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("ကျန်ငွေ", fontSize = 13.sp, color = Danger, fontWeight = FontWeight.Bold)
+                                Text("${job.dueAmount.fmtD()} Ks", fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = Danger)
+                            }
+                            if (!job.dueDate.isNullOrBlank()) {
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Outlined.CalendarMonth, null, tint = Danger, modifier = Modifier.size(14.dp))
+                                        Text("ဆပ်ရမည့်ရက်", fontSize = 12.sp, color = Danger)
+                                    }
+                                    Text(job.dueDate.take(10), fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Danger)
+                                }
+                            }
+                            if (!job.paymentMethodName.isNullOrBlank()) {
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Outlined.AccountBalance, null, tint = TextMuted, modifier = Modifier.size(14.dp))
+                                        Text("ငွေပေးချေနည်း", fontSize = 12.sp, color = TextMuted)
+                                    }
+                                    Text(job.paymentMethodName, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = TextMain)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             // ── Action buttons ────────────────────────────────────────────────
-            if (job.status?.uppercase() == "COMPLETED" && (job.paymentStatus?.uppercase() != "PAID" || job.netAmount == null)) {
+            // Settle button — only when not yet settled (no due amount means it's a fresh settle)
+            if (job.status?.uppercase() == "COMPLETED"
+                && (job.paymentStatus?.uppercase() != "PAID" || job.netAmount == null)
+                && (job.dueAmount ?: 0.0) == 0.0) {
                 item {
                     Button(
                         onClick = { vm.showSettleDialog() },
@@ -420,27 +462,22 @@ private fun PartCard(part: ServiceJobPartDTO) {
 @Composable
 private fun SettleDialog(
     job:            ServiceJobDTO?,
-    staffList:      List<StaffDTO>,
     paymentMethods: List<PaymentMethodDTO>,
     loading:        Boolean,
     onDismiss:      () -> Unit,
-    onSettle:       (finalCost: Double, discount: Double, foc: Boolean, paid: Double, staffId: Int?, methodId: Int?, txnNo: String?, dueDate: String?) -> Unit
+    onSettle:       (finalCost: Double, discount: Double, foc: Boolean, paid: Double, methodId: Int?, txnNo: String?, dueDate: String?) -> Unit
 ) {
-    val defaultCost  = job?.estimatedCost ?: job?.netAmount ?: 0.0
-    var costStr      by remember { mutableStateOf(String.format("%.0f", defaultCost)) }
-    var discountStr  by remember { mutableStateOf("0") }
-    var foc          by remember { mutableStateOf(false) }
-    var paidStr      by remember { mutableStateOf("") }
-    var txnNo        by remember { mutableStateOf("") }
-    var selectedPm   by remember { mutableStateOf<PaymentMethodDTO?>(null) }
-    var selectedStaff by remember {
-        mutableStateOf(staffList.find { it.id == job?.assignedStaffId })
-    }
-    var showSheet    by remember { mutableStateOf(false) }
-    var showStaffSheet by remember { mutableStateOf(false) }
+    val defaultCost = job?.estimatedCost ?: job?.netAmount ?: 0.0
+    var costStr     by remember { mutableStateOf(String.format("%.0f", defaultCost)) }
+    var discountStr by remember { mutableStateOf("0") }
+    var foc         by remember { mutableStateOf(false) }
+    var paidStr     by remember { mutableStateOf("") }
+    var txnNo       by remember { mutableStateOf("") }
+    var selectedPm  by remember { mutableStateOf<PaymentMethodDTO?>(null) }
+    var showSheet   by remember { mutableStateOf(false) }
     var showDuePicker by remember { mutableStateOf(false) }
-    var dueDate      by remember { mutableStateOf("") }
-    var error        by remember { mutableStateOf("") }
+    var dueDate     by remember { mutableStateOf("") }
+    var error       by remember { mutableStateOf("") }
 
     val net     = ((costStr.toDoubleOrNull() ?: 0.0) - (discountStr.toDoubleOrNull() ?: 0.0)).coerceAtLeast(0.0)
     val paid    = if (foc) 0.0 else paidStr.toDoubleOrNull() ?: 0.0
@@ -463,30 +500,6 @@ private fun SettleDialog(
             },
             dismissButton = { TextButton(onClick = { showDuePicker = false }) { Text("ပယ်ဖျက်") } }
         ) { DatePicker(state = dpState) }
-    }
-
-    // Staff sheet
-    if (showStaffSheet) {
-        ModalBottomSheet(onDismissRequest = { showStaffSheet = false }) {
-            Column(Modifier.padding(16.dp)) {
-                Text("ဝန်ထမ်း ရွေးပါ", fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
-                Spacer(Modifier.height(8.dp))
-                staffList.forEach { s ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth().clickable { selectedStaff = s; showStaffSheet = false }.padding(vertical = 13.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column {
-                            Text(s.name, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = TextMain)
-                            Text(s.role, fontSize = 11.sp, color = TextMuted)
-                        }
-                        if (selectedStaff?.id == s.id) Icon(Icons.Outlined.Check, null, tint = Primary, modifier = Modifier.size(18.dp))
-                    }
-                    HorizontalDivider(color = BorderColor)
-                }
-                Spacer(Modifier.height(24.dp))
-            }
-        }
     }
 
     // Payment method sheet
@@ -520,31 +533,6 @@ private fun SettleDialog(
         },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-
-                // ── Staff (required) ──────────────────────────────────────────
-                OutlinedCard(
-                    modifier = Modifier.fillMaxWidth().clickable { showStaffSheet = true },
-                    shape    = RoundedCornerShape(10.dp),
-                    border   = BorderStroke(1.dp, if (selectedStaff != null) Primary else if (error.contains("ဝန်ထမ်း")) Danger else BorderColor)
-                ) {
-                    Row(Modifier.fillMaxWidth().padding(14.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Outlined.Badge, null,
-                                tint = if (selectedStaff != null) Primary else TextMuted,
-                                modifier = Modifier.size(16.dp))
-                            Column {
-                                Text(if (selectedStaff != null) selectedStaff!!.name else "ဝန်ထမ်း ရွေးပါ *",
-                                    fontSize = 13.sp,
-                                    color = if (selectedStaff != null) TextMain else TextMuted)
-                                if (selectedStaff != null)
-                                    Text(selectedStaff!!.role, fontSize = 10.sp, color = TextMuted)
-                            }
-                        }
-                        Icon(Icons.Outlined.ChevronRight, null, tint = TextMuted, modifier = Modifier.size(16.dp))
-                    }
-                }
 
                 // ── Cost & Discount ───────────────────────────────────────────
                 OutlinedTextField(
@@ -682,14 +670,12 @@ private fun SettleDialog(
                     val paidVal = if (foc) 0.0 else paidStr.toDoubleOrNull()
                     val needPm  = !foc && (paidVal ?: 0.0) > 0
                     when {
-                        selectedStaff == null             -> error = "ဝန်ထမ်း ရွေးပါ"
-                        cost == null || cost < 0          -> error = "ကိုန် မှန်ကန်စွာ ရိုက်ပါ"
-                        !foc && paidVal == null           -> error = "ပမာဏ မှန်ကန်စွာ ရိုက်ပါ"
-                        needPm && selectedPm == null      -> error = "ငွေပေးချေမှု နည်းလမ်း ရွေးပါ"
+                        cost == null || cost < 0     -> error = "ကိုန် မှန်ကန်စွာ ရိုက်ပါ"
+                        !foc && paidVal == null      -> error = "ပမာဏ မှန်ကန်စွာ ရိုက်ပါ"
+                        needPm && selectedPm == null -> error = "ငွေပေးချေမှု နည်းလမ်း ရွေးပါ"
                         else -> onSettle(
                             cost, disc, foc,
                             paidVal ?: 0.0,
-                            selectedStaff!!.id,
                             selectedPm?.id,
                             txnNo.ifBlank { null },
                             dueDate.ifBlank { null }

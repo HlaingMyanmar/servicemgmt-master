@@ -271,7 +271,6 @@ data class SettleJobRequest(
     val discountAmount:   Double  = 0.0,
     val foc:              Boolean = false,
     val paidAmount:       Double,
-    val staffId:          Int?    = null,
     val paymentMethodId:  Int?    = null,
     val transactionNo:    String? = null,
     val dueDate:          String? = null
