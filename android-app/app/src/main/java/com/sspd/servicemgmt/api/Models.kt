@@ -88,6 +88,37 @@ data class ProductSerialDTO(
     val photoBase64: String? = null
 )
 
+// ─── Sale Returns ─────────────────────────────────────────────────────────────
+
+data class SaleReturnDetailDTO(
+    val id:            Int?          = null,
+    val returnId:      Int?          = null,
+    val productId:     Int?          = null,
+    val productName:   String?       = null,
+    val qty:           Int?          = null,
+    val unitPrice:     Double?       = null,
+    val subtotal:      Double?       = null,
+    val serialNumbers: List<String>? = null
+)
+
+data class SaleReturnDTO(
+    val id:                Int?                    = null,
+    val saleId:            Int?                    = null,
+    val saleCode:          String?                 = null,
+    val customerId:        Int?                    = null,
+    val customerName:      String?                 = null,
+    val staffId:           Int?                    = null,
+    val returnCode:        String?                 = null,
+    val returnDate:        String?                 = null,
+    val totalReturnAmount: Double?                 = null,
+    val refundAmount:      Double?                 = null,
+    val paymentMethodId:   Int?                    = null,
+    val paymentMethodName: String?                 = null,
+    val transactionNo:     String?                 = null,
+    val reason:            String?                 = null,
+    val details:           List<SaleReturnDetailDTO>? = null
+)
+
 // ─── Sales ───────────────────────────────────────────────────────────────────
 
 data class PaymentTransactionDTO(
@@ -397,26 +428,39 @@ data class PurchaseDTO(
 
 // ─── Expenses / Income ───────────────────────────────────────────────────────
 
-data class ExpenseDTO(
-    val id: Int? = null,
-    val expenseCode: String? = null,
-    val expenseDate: String? = null,
+data class ChartOfAccountDTO(
+    val id:          Int?    = null,
     val accountName: String? = null,
+    val accountType: String? = null,
+    val code:        String? = null
+)
+
+data class ExpenseDTO(
+    val id:                Int?    = null,
+    val expenseCode:       String? = null,
+    val expenseDate:       String? = null,
+    val accountId:         Int?    = null,
+    val accountName:       String? = null,
+    val paymentMethodId:   Int?    = null,
     val paymentMethodName: String? = null,
-    val amount: Long = 0,
-    val description: String? = null,
-    val staffName: String? = null
+    val amount:            Long    = 0,
+    val description:       String? = null,
+    val staffId:           Int?    = null,
+    val staffName:         String? = null
 )
 
 data class IncomeDTO(
-    val id: Int? = null,
-    val incomeCode: String? = null,
-    val incomeDate: String? = null,
-    val accountName: String? = null,
+    val id:                Int?    = null,
+    val incomeCode:        String? = null,
+    val incomeDate:        String? = null,
+    val accountId:         Int?    = null,
+    val accountName:       String? = null,
+    val paymentMethodId:   Int?    = null,
     val paymentMethodName: String? = null,
-    val amount: Long = 0,
-    val description: String? = null,
-    val staffName: String? = null
+    val amount:            Long    = 0,
+    val description:       String? = null,
+    val staffId:           Int?    = null,
+    val staffName:         String? = null
 )
 
 // ─── Reports ─────────────────────────────────────────────────────────────────
@@ -475,4 +519,84 @@ data class UserDTO(
     val phone: String? = null,
     val isActive: Boolean = true,
     val roles: List<String> = emptyList()
+)
+
+// ─── Income & Profit Report ───────────────────────────────────────────────────
+
+data class PeriodSummaryDTO(
+    val saleCount:            Long?   = null,
+    val saleRevenue:          Double? = null,
+    val saleReturnAmount:     Double? = null,
+    val netSaleRevenue:       Double? = null,
+    val saleProfit:           Double? = null,
+    val serviceRevenue:       Double? = null,
+    val otherIncome:          Double? = null,
+    val totalIncome:          Double? = null,
+    val purchaseAmount:       Double? = null,
+    val purchaseReturnAmount: Double? = null,
+    val netPurchaseCost:      Double? = null,
+    val stockAdjLoss:         Double? = null,
+    val totalExpenses:        Double? = null,
+    val grossProfit:          Double? = null,
+    val netProfit:            Double? = null
+)
+
+data class MonthlyDataDTO(
+    val month:                Int?    = null,
+    val label:                String? = null,
+    val saleCount:            Long?   = null,
+    val saleRevenue:          Double? = null,
+    val saleReturnAmount:     Double? = null,
+    val netSaleRevenue:       Double? = null,
+    val saleProfit:           Double? = null,
+    val serviceRevenue:       Double? = null,
+    val otherIncome:          Double? = null,
+    val totalIncome:          Double? = null,
+    val purchaseAmount:       Double? = null,
+    val purchaseReturnAmount: Double? = null,
+    val netPurchaseCost:      Double? = null,
+    val stockAdjLoss:         Double? = null,
+    val totalExpenses:        Double? = null,
+    val grossProfit:          Double? = null,
+    val netProfit:            Double? = null
+)
+
+data class YearlySummaryDTO(
+    val year:                       Int?                  = null,
+    val months:                     List<MonthlyDataDTO>? = null,
+    val totalSaleRevenue:           Double?               = null,
+    val totalSaleReturnAmount:      Double?               = null,
+    val totalNetSaleRevenue:        Double?               = null,
+    val totalServiceRevenue:        Double?               = null,
+    val totalOtherIncome:           Double?               = null,
+    val totalIncome:                Double?               = null,
+    val totalPurchaseAmount:        Double?               = null,
+    val totalPurchaseReturnAmount:  Double?               = null,
+    val totalNetPurchaseCost:       Double?               = null,
+    val totalStockAdjLoss:          Double?               = null,
+    val totalExpenses:              Double?               = null,
+    val totalNetProfit:             Double?               = null
+)
+
+data class ProfitLossLineItemDTO(
+    val accountCode: String? = null,
+    val accountName: String? = null,
+    val amount:      Double? = null
+)
+
+data class ProfitLossReportDTO(
+    val from:             String?                    = null,
+    val to:               String?                    = null,
+    val grossSales:       Double?                    = null,
+    val salesReturns:     Double?                    = null,
+    val netRevenue:       Double?                    = null,
+    val purchases:        Double?                    = null,
+    val purchaseReturns:  Double?                    = null,
+    val netPurchases:     Double?                    = null,
+    val grossProfit:      Double?                    = null,
+    val otherIncomeItems: List<ProfitLossLineItemDTO>? = null,
+    val totalOtherIncome: Double?                    = null,
+    val expenseItems:     List<ProfitLossLineItemDTO>? = null,
+    val totalExpenses:    Double?                    = null,
+    val netProfit:        Double?                    = null
 )

@@ -179,9 +179,11 @@ fun AppNavigation() {
                     // ── Sales ───────────────────────────────────────────────
                     screen(Screen.Sales.route) {
                         SaleListScreen(
-                            onBack      = { nav.popBackStack() },
-                            onSaleClick = { id -> nav.navigate(Screen.SaleDetail.createRoute(id)) },
-                            onNewSale   = { nav.navigate(Screen.NewSale.route) }
+                            onBack        = { nav.popBackStack() },
+                            onSaleClick   = { id -> nav.navigate(Screen.SaleDetail.createRoute(id)) },
+                            onNewSale     = { nav.navigate(Screen.NewSale.route) },
+                            onReturnClick = { id -> nav.navigate(Screen.SaleReturnDetail.createRoute(id)) },
+                            onNewReturn   = { nav.navigate(Screen.NewSaleReturn.route) }
                         )
                     }
                     screen(Screen.NewSale.route) {
@@ -361,11 +363,77 @@ fun AppNavigation() {
                         ServiceJobPrintScreen(onBack = { nav.popBackStack() })
                     }
 
+                    // ── Sale Returns ────────────────────────────────────────
+                    screen(Screen.SaleReturns.route) {
+                        SaleReturnListScreen(
+                            onBack        = { nav.popBackStack() },
+                            onReturnClick = { id -> nav.navigate(Screen.SaleReturnDetail.createRoute(id)) },
+                            onNewReturn   = { nav.navigate(Screen.NewSaleReturn.route) }
+                        )
+                    }
+                    screen(Screen.NewSaleReturn.route) {
+                        SaleReturnFormScreen(
+                            onBack    = { nav.popBackStack() },
+                            onSuccess = {
+                                nav.navigate(Screen.SaleReturns.route) {
+                                    popUpTo(Screen.NewSaleReturn.route) { inclusive = true }
+                                }
+                            }
+                        )
+                    }
+                    composable(
+                        route = Screen.EditSaleReturn.route,
+                        arguments = listOf(navArgument("returnId") { type = NavType.IntType }),
+                        enterTransition    = { slideInHorizontally(initialOffsetX = { it }, animationSpec = tween(ANIM_MS, easing = FastOutSlowInEasing)) },
+                        exitTransition     = { slideOutHorizontally(targetOffsetX = { -it / 4 }, animationSpec = tween(ANIM_MS, easing = FastOutSlowInEasing)) + fadeOut(tween(ANIM_MS - 40)) },
+                        popEnterTransition = { slideInHorizontally(initialOffsetX = { -it / 4 }, animationSpec = tween(ANIM_MS, easing = FastOutSlowInEasing)) + fadeIn(tween(ANIM_MS - 40)) },
+                        popExitTransition  = { slideOutHorizontally(targetOffsetX = { it }, animationSpec = tween(ANIM_MS, easing = FastOutSlowInEasing)) }
+                    ) {
+                        SaleReturnFormScreen(
+                            onBack    = { nav.popBackStack() },
+                            onSuccess = { nav.popBackStack() }
+                        )
+                    }
+                    composable(
+                        route = Screen.SaleReturnDetail.route,
+                        arguments = listOf(navArgument("returnId") { type = NavType.IntType }),
+                        enterTransition    = { slideInHorizontally(initialOffsetX = { it }, animationSpec = tween(ANIM_MS, easing = FastOutSlowInEasing)) },
+                        exitTransition     = { slideOutHorizontally(targetOffsetX = { -it / 4 }, animationSpec = tween(ANIM_MS, easing = FastOutSlowInEasing)) + fadeOut(tween(ANIM_MS - 40)) },
+                        popEnterTransition = { slideInHorizontally(initialOffsetX = { -it / 4 }, animationSpec = tween(ANIM_MS, easing = FastOutSlowInEasing)) + fadeIn(tween(ANIM_MS - 40)) },
+                        popExitTransition  = { slideOutHorizontally(targetOffsetX = { it }, animationSpec = tween(ANIM_MS, easing = FastOutSlowInEasing)) }
+                    ) { entry ->
+                        val returnId = entry.arguments?.getInt("returnId") ?: 0
+                        SaleReturnDetailScreen(
+                            onBack = { nav.popBackStack() },
+                            onEdit = { nav.navigate(Screen.EditSaleReturn.createRoute(returnId)) }
+                        )
+                    }
+
                     // ── Other screens ───────────────────────────────────────
                     screen(Screen.ServiceMgmt.route)    { ServiceManagementScreen { nav.popBackStack() } }
                     screen(Screen.ShelfLocations.route) { ShelfLocationScreen     { nav.popBackStack() } }
                     screen(Screen.StaffReport.route)    { StaffReportScreen       { nav.popBackStack() } }
-                    screen(Screen.Expenses.route)       { ExpenseScreen           { nav.popBackStack() } }
+                    screen(Screen.Expenses.route) {
+                        ExpenseScreen(
+                            onBack     = { nav.popBackStack() },
+                            onNewEntry = { type -> nav.navigate(Screen.NewExpenseEntry.createRoute(type)) }
+                        )
+                    }
+                    composable(
+                        route = Screen.NewExpenseEntry.route,
+                        arguments = listOf(navArgument("type") { type = NavType.StringType; defaultValue = "EXPENSE" }),
+                        enterTransition    = { slideInHorizontally(initialOffsetX = { it }, animationSpec = tween(ANIM_MS, easing = FastOutSlowInEasing)) },
+                        exitTransition     = { slideOutHorizontally(targetOffsetX = { -it / 4 }, animationSpec = tween(ANIM_MS, easing = FastOutSlowInEasing)) + fadeOut(tween(ANIM_MS - 40)) },
+                        popEnterTransition = { slideInHorizontally(initialOffsetX = { -it / 4 }, animationSpec = tween(ANIM_MS, easing = FastOutSlowInEasing)) + fadeIn(tween(ANIM_MS - 40)) },
+                        popExitTransition  = { slideOutHorizontally(targetOffsetX = { it }, animationSpec = tween(ANIM_MS, easing = FastOutSlowInEasing)) }
+                    ) {
+                        ExpenseFormScreen(
+                            onBack    = { nav.popBackStack() },
+                            onSuccess = { nav.popBackStack() }
+                        )
+                    }
+                    screen(Screen.Report.route)         { ReportScreen            { nav.popBackStack() } }
+                    screen(Screen.IncomeReport.route)   { IncomeReportScreen       { nav.popBackStack() } }
                     screen(Screen.SalesRanking.route)   { SalesRankingScreen      { nav.popBackStack() } }
                     screen(Screen.AuditLog.route)       { AuditLogScreen          { nav.popBackStack() } }
                     screen(Screen.Chat.route)           { ChatScreen              { nav.popBackStack() } }

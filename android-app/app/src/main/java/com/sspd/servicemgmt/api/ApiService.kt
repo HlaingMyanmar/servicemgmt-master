@@ -43,6 +43,34 @@ interface ApiService {
         @Path("id") id: Int
     ): Response<ApiResponse<SaleDTO>>
 
+    // ── Sale Returns ──────────────────────────────────────────────────────────
+    @GET("sale-returns")
+    suspend fun getSaleReturns(
+        @Header("Authorization") auth: String,
+        @Query("page")   page:   Int    = 0,
+        @Query("size")   size:   Int    = 50,
+        @Query("search") search: String = ""
+    ): Response<ApiResponse<PagedResponse<SaleReturnDTO>>>
+
+    @GET("sale-returns/{id}")
+    suspend fun getSaleReturnById(
+        @Header("Authorization") auth: String,
+        @Path("id") id: Int
+    ): Response<ApiResponse<SaleReturnDTO>>
+
+    @POST("sale-returns")
+    suspend fun createSaleReturn(
+        @Header("Authorization") auth: String,
+        @Body body: SaleReturnDTO
+    ): Response<ApiResponse<SaleReturnDTO>>
+
+    @PUT("sale-returns/{id}")
+    suspend fun updateSaleReturn(
+        @Header("Authorization") auth: String,
+        @Path("id") id: Int,
+        @Body body: SaleReturnDTO
+    ): Response<ApiResponse<SaleReturnDTO>>
+
     @POST("sales")
     suspend fun createSale(
         @Header("Authorization") auth: String,
@@ -290,6 +318,24 @@ interface ApiService {
     @GET("expenses")
     suspend fun getExpenses(@Header("Authorization") auth: String): Response<ApiResponse<List<ExpenseDTO>>>
 
+    @POST("expenses")
+    suspend fun createExpense(
+        @Header("Authorization") auth: String,
+        @Body body: ExpenseDTO
+    ): Response<ApiResponse<ExpenseDTO>>
+
+    @GET("incomes")
+    suspend fun getIncomes(@Header("Authorization") auth: String): Response<ApiResponse<List<IncomeDTO>>>
+
+    @POST("incomes")
+    suspend fun createIncome(
+        @Header("Authorization") auth: String,
+        @Body body: IncomeDTO
+    ): Response<ApiResponse<IncomeDTO>>
+
+    @GET("chart-of-accounts")
+    suspend fun getChartOfAccounts(@Header("Authorization") auth: String): Response<ApiResponse<List<ChartOfAccountDTO>>>
+
     @GET("audit-logs")
     suspend fun getAuditLogs(@Header("Authorization") auth: String): Response<ApiResponse<List<AuditLogDTO>>>
 
@@ -353,6 +399,27 @@ interface ApiService {
         @Path("id") id: Int,
         @Query("paper") paper: String = "A4"
     ): Response<ResponseBody>
+
+    // ── Income & Profit Reports ───────────────────────────────────────────────
+    @GET("reports/daily-summary")
+    suspend fun getPeriodSummary(
+        @Header("Authorization") auth: String,
+        @Query("from") from: String,
+        @Query("to")   to:   String
+    ): Response<ApiResponse<PeriodSummaryDTO>>
+
+    @GET("reports/yearly-summary")
+    suspend fun getYearlySummary(
+        @Header("Authorization") auth: String,
+        @Query("year") year: Int
+    ): Response<ApiResponse<YearlySummaryDTO>>
+
+    @GET("reports/profit-loss")
+    suspend fun getProfitLoss(
+        @Header("Authorization") auth: String,
+        @Query("from") from: String,
+        @Query("to")   to:   String
+    ): Response<ApiResponse<ProfitLossReportDTO>>
 
     @PUT("products/{id}/photo")
     suspend fun updateProductPhoto(

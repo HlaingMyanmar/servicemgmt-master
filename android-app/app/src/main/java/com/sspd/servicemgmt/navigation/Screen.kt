@@ -43,6 +43,19 @@ sealed class Screen(val route: String) {
     object EditBooking     : Screen("edit_booking/{bookingId}") {
         fun createRoute(id: Int) = "edit_booking/$id"
     }
+    object SaleReturns     : Screen("sale_returns")
+    object SaleReturnDetail : Screen("sale_return_detail/{returnId}") {
+        fun createRoute(id: Int) = "sale_return_detail/$id"
+    }
+    object NewSaleReturn   : Screen("new_sale_return")
+    object EditSaleReturn  : Screen("edit_sale_return/{returnId}") {
+        fun createRoute(id: Int) = "edit_sale_return/$id"
+    }
+    object NewExpenseEntry : Screen("new_expense_entry/{type}") {
+        fun createRoute(type: String) = "new_expense_entry/$type"
+    }
+    object Report          : Screen("report")
+    object IncomeReport    : Screen("income_report")
     object NewServiceJob   : Screen("new_service_job")
     object EditServiceJob  : Screen("edit_service_job/{jobId}") {
         fun createRoute(id: Int) = "edit_service_job/$id"

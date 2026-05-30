@@ -25,6 +25,7 @@ import com.sspd.servicemgmt.api.PaymentMethodDTO
 import com.sspd.servicemgmt.api.SaleDTO
 import com.sspd.servicemgmt.ui.theme.*
 import com.sspd.servicemgmt.ui.viewmodel.SaleListViewModel
+import com.sspd.servicemgmt.ui.viewmodel.SaleReturnListViewModel
 import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.*
@@ -32,12 +33,17 @@ import java.util.*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SaleListScreen(
-    onBack:      () -> Unit,
-    onSaleClick: (Int) -> Unit = {},
-    onNewSale:   () -> Unit    = {}
+    onBack:        () -> Unit,
+    onSaleClick:   (Int) -> Unit = {},
+    onNewSale:     () -> Unit    = {},
+    onReturnClick: (Int) -> Unit = {},
+    onNewReturn:   () -> Unit    = {}
 ) {
     val vm: SaleListViewModel = viewModel()
     val state by vm.uiState.collectAsStateWithLifecycle()
+
+    val returnVm: SaleReturnListViewModel = viewModel()
+    val returnState by returnVm.uiState.collectAsStateWithLifecycle()
 
     LaunchedEffect(Unit) {
         while (true) { vm.load(); delay(30_000) }
@@ -48,6 +54,9 @@ fun SaleListScreen(
 
     var showFromPicker by remember { mutableStateOf(false) }
     var showToPicker   by remember { mutableStateOf(false) }
+
+    var showReturnFromPicker by remember { mutableStateOf(false) }
+    var showReturnToPicker   by remember { mutableStateOf(false) }
 
     LaunchedEffect(state.paySuccess) {
         state.paySuccess?.let { snackbar.showSnackbar("$it — ငွေဆပ်မှု အောင်မြင်ပါသည် ✓"); vm.clearPaySuccess() }
@@ -102,6 +111,38 @@ fun SaleListScreen(
         ) { DatePicker(state = dpState) }
     }
 
+    if (showReturnFromPicker) {
+        val dpState = rememberDatePickerState(
+            initialSelectedDateMillis = returnState.fromDate?.let { dateToMillis(it) }
+        )
+        DatePickerDialog(
+            onDismissRequest = { showReturnFromPicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    dpState.selectedDateMillis?.let { returnVm.setFromDate(millisToDate(it)) }
+                    showReturnFromPicker = false
+                }) { Text("OK") }
+            },
+            dismissButton = { TextButton(onClick = { showReturnFromPicker = false }) { Text("Cancel") } }
+        ) { DatePicker(state = dpState) }
+    }
+
+    if (showReturnToPicker) {
+        val dpState = rememberDatePickerState(
+            initialSelectedDateMillis = returnState.toDate?.let { dateToMillis(it) }
+        )
+        DatePickerDialog(
+            onDismissRequest = { showReturnToPicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    dpState.selectedDateMillis?.let { returnVm.setToDate(millisToDate(it)) }
+                    showReturnToPicker = false
+                }) { Text("OK") }
+            },
+            dismissButton = { TextButton(onClick = { showReturnToPicker = false }) { Text("Cancel") } }
+        ) { DatePicker(state = dpState) }
+    }
+
     // ── Filtered lists ───────────────────────────────────────────────────────
     val fromDate = state.fromDate
     val toDate   = state.toDate
@@ -120,11 +161,26 @@ fun SaleListScreen(
     val saleList = state.items.filter { searchOk(it) && (searching || dateOk(it)) }
     val dueList  = state.items.filter { (it.dueAmount ?: 0.0) > 0 && searchOk(it) }
 
+    val returnFromDate = returnState.fromDate
+    val returnToDate   = returnState.toDate
+    val returnDateOk: (com.sspd.servicemgmt.api.SaleReturnDTO) -> Boolean = { ret ->
+        val d = ret.returnDate?.take(10) ?: ""
+        (returnFromDate == null || d >= returnFromDate) &&
+        (returnToDate   == null || d <= returnToDate)
+    }
+    val returnSearchOk: (com.sspd.servicemgmt.api.SaleReturnDTO) -> Boolean = { ret ->
+        returnState.search.isBlank() ||
+        ret.returnCode?.contains(returnState.search, true) == true ||
+        ret.customerName?.contains(returnState.search, true) == true ||
+        ret.saleCode?.contains(returnState.search, true) == true
+    }
+    val returnList = returnState.items.filter { returnSearchOk(it) && returnDateOk(it) }
+
     Scaffold(
         snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
             TopAppBar(
-                title = { Text("ရောင်းချမှုများ", fontWeight = FontWeight.ExtraBold) },
+                title = { Text("အရောင်းဆိုင်ရာ", fontWeight = FontWeight.ExtraBold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Outlined.ArrowBack, null, tint = Color.White)
@@ -136,14 +192,18 @@ fun SaleListScreen(
             )
         },
         floatingActionButton = {
-            if (selectedTab == 0) {
-                ExtendedFloatingActionButton(
+            when (selectedTab) {
+                0 -> ExtendedFloatingActionButton(
                     onClick        = onNewSale,
                     containerColor = Primary,
                     contentColor   = Color.White,
                     icon = { Icon(Icons.Outlined.Add, null) },
                     text = { Text("New Sale", fontWeight = FontWeight.Bold) }
                 )
+                2 -> FloatingActionButton(onClick = onNewReturn, containerColor = Danger) {
+                    Icon(Icons.Outlined.Add, null, tint = Color.White)
+                }
+                else -> {}
             }
         }
     ) { padding ->
@@ -175,7 +235,7 @@ fun SaleListScreen(
                             horizontalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
                             Text(
-                                "အကြွေးဆပ်ရမည်",
+                                "အကြွေး",
                                 fontWeight = if (selectedTab == 1) FontWeight.ExtraBold else FontWeight.Normal,
                                 fontSize = 13.sp
                             )
@@ -191,18 +251,34 @@ fun SaleListScreen(
                         }
                     }
                 )
+                Tab(
+                    selected = selectedTab == 2,
+                    onClick  = { selectedTab = 2 },
+                    text = {
+                        Text(
+                            "ပြန်ပေးခြင်း",
+                            fontWeight = if (selectedTab == 2) FontWeight.ExtraBold else FontWeight.Normal,
+                            fontSize = 13.sp
+                        )
+                    }
+                )
             }
 
             // ── Search ───────────────────────────────────────────────────────
             OutlinedTextField(
-                value         = state.search,
-                onValueChange = { vm.setSearch(it) },
+                value         = if (selectedTab == 2) returnState.search else state.search,
+                onValueChange = {
+                    if (selectedTab == 2) returnVm.setSearch(it) else vm.setSearch(it)
+                },
                 modifier      = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
                 placeholder   = { Text("ရှာဖွေရန်...") },
                 leadingIcon   = { Icon(Icons.Outlined.Search, null) },
                 trailingIcon  = {
-                    if (state.search.isNotBlank()) {
-                        IconButton(onClick = { vm.setSearch("") }) {
+                    val hasText = if (selectedTab == 2) returnState.search.isNotBlank() else state.search.isNotBlank()
+                    if (hasText) {
+                        IconButton(onClick = {
+                            if (selectedTab == 2) returnVm.setSearch("") else vm.setSearch("")
+                        }) {
                             Icon(Icons.Outlined.Clear, null, tint = TextMuted)
                         }
                     }
@@ -247,26 +323,80 @@ fun SaleListScreen(
                 }
             }
 
-            // ── List body ────────────────────────────────────────────────────
-            if (state.loading) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = Primary)
+            // ── Date filter row (returns tab) ────────────────────────────────
+            if (selectedTab == 2) Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp)
+                    .padding(bottom = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment     = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Outlined.DateRange, null, tint = TextMuted, modifier = Modifier.size(16.dp))
+                FilterChip(
+                    selected  = returnState.fromDate != null,
+                    onClick   = { showReturnFromPicker = true },
+                    label     = { Text(returnState.fromDate ?: "မှ ရက်", fontSize = 11.sp) },
+                    modifier  = Modifier.weight(1f)
+                )
+                Text("—", color = TextMuted, fontSize = 12.sp)
+                FilterChip(
+                    selected  = returnState.toDate != null,
+                    onClick   = { showReturnToPicker = true },
+                    label     = { Text(returnState.toDate ?: "အထိ ရက်", fontSize = 11.sp) },
+                    modifier  = Modifier.weight(1f)
+                )
+                FilterChip(
+                    selected  = false,
+                    onClick   = { returnVm.setToday() },
+                    label     = { Text("Today", fontSize = 11.sp) }
+                )
+                if (returnState.fromDate != null || returnState.toDate != null) {
+                    IconButton(
+                        onClick  = { returnVm.clearDateFilter() },
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(Icons.Outlined.Clear, null, tint = Danger, modifier = Modifier.size(16.dp))
+                    }
                 }
-            } else {
-                val displayList = if (selectedTab == 0) saleList else dueList
+            }
 
-                if (displayList.isEmpty()) {
+            // ── Summary bar (sales tab) ──────────────────────────────────────
+            if (selectedTab == 0 && saleList.isNotEmpty()) {
+                val totalNet  = saleList.sumOf { it.netAmount  ?: 0.0 }
+                val totalPaid = saleList.sumOf { it.paidAmount ?: 0.0 }
+                val totalDue  = saleList.sumOf { it.dueAmount  ?: 0.0 }
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp).padding(bottom = 6.dp),
+                    shape    = RoundedCornerShape(12.dp),
+                    colors   = CardDefaults.cardColors(containerColor = CardBg),
+                    border   = BorderStroke(1.dp, BorderColor)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        SummaryCol("ရောင်းချမှု", "${saleList.size} ခု", TextMuted)
+                        SummaryCol("စုစုပေါင်း",  "${fmtD(totalNet)} Ks",  Primary)
+                        SummaryCol("ပေးပြီး",     "${fmtD(totalPaid)} Ks", Success)
+                        if (totalDue > 0)
+                            SummaryCol("ကျန်ငွေ", "${fmtD(totalDue)} Ks", Danger)
+                    }
+                }
+            }
+
+            // ── List body ────────────────────────────────────────────────────
+            if (selectedTab == 2) {
+                if (returnState.loading) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = Danger)
+                    }
+                } else if (returnList.isEmpty()) {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(
-                                if (selectedTab == 1) Icons.Outlined.CheckCircle else Icons.Outlined.ReceiptLong,
-                                null, tint = TextMuted, modifier = Modifier.size(48.dp)
-                            )
+                            Icon(Icons.Outlined.AssignmentReturn, null, tint = TextMuted, modifier = Modifier.size(48.dp))
                             Spacer(Modifier.height(8.dp))
-                            Text(
-                                if (selectedTab == 1) "အကြွေးဆပ်ရမည့် စာရင်း မရှိပါ ✓" else "ဒေတာမရှိပါ",
-                                color = TextMuted
-                            )
+                            Text("ပြန်လည်ခံယူမှု မရှိသေးပါ", color = TextMuted)
                         }
                     }
                 } else {
@@ -274,41 +404,115 @@ fun SaleListScreen(
                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        if (selectedTab == 1) {
-                            item {
-                                val totalDue = dueList.sumOf { it.dueAmount ?: 0.0 }
-                                Surface(
-                                    color    = DangerBg,
-                                    shape    = RoundedCornerShape(10.dp),
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
+                        items(returnList) { ret ->
+                            Card(
+                                shape    = RoundedCornerShape(12.dp),
+                                colors   = CardDefaults.cardColors(containerColor = CardBg),
+                                border   = BorderStroke(1.dp, BorderColor),
+                                modifier = Modifier.clickable { ret.id?.let { onReturnClick(it) } }
+                            ) {
+                                Column(Modifier.padding(14.dp)) {
                                     Row(
-                                        Modifier.fillMaxWidth().padding(12.dp),
-                                        horizontalArrangement = Arrangement.SpaceBetween
+                                        Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment     = Alignment.CenterVertically
                                     ) {
-                                        Text(
-                                            "စုစုပေါင်း ကျန်ငွေ",
-                                            fontSize = 13.sp, color = Danger, fontWeight = FontWeight.Bold
-                                        )
-                                        Text(
-                                            "${fmtD(totalDue)} Ks",
-                                            fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, color = Danger
-                                        )
+                                        Column {
+                                            Text(ret.returnCode ?: "#${ret.id}", fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, color = Danger)
+                                            Text(ret.customerName ?: "—", fontSize = 13.sp, color = TextMain)
+                                        }
+                                        Surface(color = DangerBg, shape = RoundedCornerShape(8.dp)) {
+                                            Text(
+                                                "${String.format("%,.0f", ret.totalReturnAmount ?: 0.0)} Ks",
+                                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                                fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, color = Danger
+                                            )
+                                        }
+                                    }
+                                    Spacer(Modifier.height(6.dp))
+                                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(Icons.Outlined.Receipt, null, tint = TextMuted, modifier = Modifier.size(12.dp))
+                                            Text(ret.saleCode ?: "—", fontSize = 11.sp, color = TextMuted)
+                                        }
+                                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(Icons.Outlined.CalendarMonth, null, tint = TextMuted, modifier = Modifier.size(12.dp))
+                                            Text(ret.returnDate?.take(10) ?: "—", fontSize = 11.sp, color = TextMuted)
+                                        }
+                                    }
+                                    if (!ret.reason.isNullOrBlank()) {
+                                        Spacer(Modifier.height(4.dp))
+                                        Text(ret.reason, fontSize = 11.sp, color = TextMuted, maxLines = 1)
                                     }
                                 }
                             }
                         }
-
-                        items(displayList) { sale ->
-                            SaleCard(
-                                sale        = sale,
-                                showDueOnly = selectedTab == 1,
-                                onClick     = { sale.id?.let { onSaleClick(it) } },
-                                onPayClick  = if (selectedTab == 1 && (sale.dueAmount ?: 0.0) > 0)
-                                    { { vm.showPayDialog(sale) } } else null
-                            )
-                        }
                         item { Spacer(Modifier.height(80.dp)) }
+                    }
+                }
+            } else {
+                if (state.loading) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = Primary)
+                    }
+                } else {
+                    val displayList = if (selectedTab == 0) saleList else dueList
+
+                    if (displayList.isEmpty()) {
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(
+                                    if (selectedTab == 1) Icons.Outlined.CheckCircle else Icons.Outlined.ReceiptLong,
+                                    null, tint = TextMuted, modifier = Modifier.size(48.dp)
+                                )
+                                Spacer(Modifier.height(8.dp))
+                                Text(
+                                    if (selectedTab == 1) "အကြွေး စာရင်း မရှိပါ ✓" else "ဒေတာမရှိပါ",
+                                    color = TextMuted
+                                )
+                            }
+                        }
+                    } else {
+                        LazyColumn(
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            if (selectedTab == 1) {
+                                item {
+                                    val totalDue = dueList.sumOf { it.dueAmount ?: 0.0 }
+                                    Surface(
+                                        color    = DangerBg,
+                                        shape    = RoundedCornerShape(10.dp),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Row(
+                                            Modifier.fillMaxWidth().padding(12.dp),
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Text(
+                                                "စုစုပေါင်း ကျန်ငွေ",
+                                                fontSize = 13.sp, color = Danger, fontWeight = FontWeight.Bold
+                                            )
+                                            Text(
+                                                "${fmtD(totalDue)} Ks",
+                                                fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, color = Danger
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+
+                            items(displayList) { sale ->
+                                SaleCard(
+                                    sale        = sale,
+                                    showDueOnly = selectedTab == 1,
+                                    onClick     = { sale.id?.let { onSaleClick(it) } },
+                                    onPayClick  = if (selectedTab == 1 && (sale.dueAmount ?: 0.0) > 0)
+                                        { { vm.showPayDialog(sale) } } else null
+                                )
+                            }
+                            item { Spacer(Modifier.height(80.dp)) }
+                        }
                     }
                 }
             }
@@ -449,7 +653,6 @@ private fun QuickPayDialog(
         },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                // Sale reference
                 Surface(color = ScreenBg, shape = RoundedCornerShape(8.dp)) {
                     Row(
                         Modifier.fillMaxWidth().padding(10.dp),
@@ -459,7 +662,6 @@ private fun QuickPayDialog(
                         Text(sale.customerName ?: "—", fontSize = 12.sp, color = TextMuted)
                     }
                 }
-                // Due amount display
                 Surface(color = DangerBg, shape = RoundedCornerShape(8.dp)) {
                     Row(
                         Modifier.fillMaxWidth().padding(10.dp),
@@ -469,7 +671,6 @@ private fun QuickPayDialog(
                         Text("${fmtD(dueAmount)} Ks", fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, color = Danger)
                     }
                 }
-                // Amount input
                 OutlinedTextField(
                     value           = amountStr,
                     onValueChange   = { amountStr = it; error = "" },
@@ -480,7 +681,6 @@ private fun QuickPayDialog(
                     shape           = RoundedCornerShape(10.dp),
                     isError         = error.isNotBlank()
                 )
-                // Payment method picker
                 OutlinedCard(
                     modifier = Modifier.fillMaxWidth().clickable { showSheet = true },
                     shape    = RoundedCornerShape(10.dp),
@@ -502,7 +702,6 @@ private fun QuickPayDialog(
                         Icon(Icons.Outlined.ChevronRight, null, tint = TextMuted, modifier = Modifier.size(16.dp))
                     }
                 }
-                // Note
                 OutlinedTextField(
                     value         = note,
                     onValueChange = { note = it },
@@ -561,6 +760,14 @@ private fun StatusBadge(status: String?) {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+
+@Composable
+private fun SummaryCol(label: String, value: String, color: androidx.compose.ui.graphics.Color) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(label, fontSize = 10.sp, color = TextMuted)
+        Text(value, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, color = color)
+    }
+}
 
 private fun fmtD(v: Double?) = String.format("%,.0f", v ?: 0.0)
 
