@@ -12,7 +12,7 @@ import javax.net.ssl.TrustManager
 import javax.net.ssl.X509TrustManager
 
 object ApiClient {
-    private var _baseUrl = "https://192.168.20.197:8080/api/v1/"
+    private var _baseUrl = "https://192.168.20.253:8080/api/v1/"
     private var retrofit: Retrofit? = null
 
     fun setBaseUrl(url: String) {

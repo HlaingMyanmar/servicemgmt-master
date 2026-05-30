@@ -16,9 +16,20 @@ android {
         vectorDrawables { useSupportLibrary = true }
     }
 
+    signingConfigs {
+        create("release") {
+            storeFile     = file("../sspd-release.keystore")
+            storePassword = "sspd@2024"
+            keyAlias      = "sspd"
+            keyPassword   = "sspd@2024"
+        }
+    }
+
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled   = false
+            isShrinkResources = false
+            signingConfig     = signingConfigs.getByName("release")
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
