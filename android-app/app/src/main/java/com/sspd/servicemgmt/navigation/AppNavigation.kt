@@ -41,6 +41,7 @@ import androidx.navigation.compose.navigation
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.sspd.servicemgmt.api.ApiClient
+import com.sspd.servicemgmt.api.AuthEventBus
 import com.sspd.servicemgmt.ui.screens.*
 import com.sspd.servicemgmt.ui.theme.Primary
 import com.sspd.servicemgmt.ui.theme.TextMuted
@@ -191,6 +192,20 @@ fun AppNavigation() {
 
     val serverVm: ServerStatusViewModel = viewModel()
     val serverStatus by serverVm.status.collectAsStateWithLifecycle()
+
+    // Auto-logout: redirect to login when server returns 401 (token expired)
+    val tokenExpired by AuthEventBus.tokenExpired.collectAsStateWithLifecycle()
+    LaunchedEffect(tokenExpired) {
+        if (tokenExpired) {
+            AuthEventBus.reset()
+            prefs.clear()
+            DataEventBus.disconnect()
+            nav.navigate(AUTH_GRAPH) {
+                popUpTo(0) { inclusive = true }
+                launchSingleTop = true
+            }
+        }
+    }
 
     // Connect DataEventBus when a valid token is present; disconnect on logout.
     LaunchedEffect(prefs.authToken) {
