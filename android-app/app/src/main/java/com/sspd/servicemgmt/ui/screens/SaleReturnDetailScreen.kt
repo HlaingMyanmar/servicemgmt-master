@@ -1,4 +1,4 @@
-package com.sspd.servicemgmt.ui.screens
+﻿package com.sspd.servicemgmt.ui.screens
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -20,6 +20,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sspd.servicemgmt.api.SaleReturnDetailDTO
 import com.sspd.servicemgmt.ui.theme.*
+import com.sspd.servicemgmt.ui.components.AppLoading
 import com.sspd.servicemgmt.ui.viewmodel.SaleReturnDetailViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -37,11 +38,11 @@ fun SaleReturnDetailScreen(
             TopAppBar(
                 title = { Text(ret?.returnCode ?: "Return အသေးစိတ်", fontWeight = FontWeight.ExtraBold) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) { Icon(Icons.Outlined.ArrowBack, null, tint = Color.White) }
+                    IconButton(onClick = onBack) { Icon(Icons.Outlined.ArrowBack, "နောက်ပြန်", tint = Color.White) }
                 },
                 actions = {
-                    IconButton(onClick = { vm.load() }) { Icon(Icons.Outlined.Refresh, null, tint = Color.White) }
-                    IconButton(onClick = onEdit)        { Icon(Icons.Outlined.Edit,    null, tint = Color.White) }
+                    IconButton(onClick = { vm.load() }) { Icon(Icons.Outlined.Refresh, "ပြန်ဆောင်ရန်", tint = Color.White) }
+                    IconButton(onClick = onEdit)        { Icon(Icons.Outlined.Edit, "ပြင်ရန်", tint = Color.White) }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Danger, titleContentColor = Color.White)
             )
@@ -49,7 +50,7 @@ fun SaleReturnDetailScreen(
     ) { padding ->
         if (state.loading) {
             Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = Danger)
+                AppLoading()
             }
             return@Scaffold
         }
@@ -161,3 +162,4 @@ private fun RetDetailCard(detail: SaleReturnDetailDTO) {
         }
     }
 }
+

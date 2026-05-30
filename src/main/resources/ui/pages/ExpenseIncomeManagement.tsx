@@ -1,4 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
+import { useDataEvents } from '../hooks/useDataEvents';
 import {
   ArrowDownUp,
   ArrowLeft,
@@ -170,6 +171,7 @@ const ExpenseIncomeManagement: React.FC = () => {
   React.useEffect(() => {
     void loadAll();
   }, [loadAll]);
+  useDataEvents(['Expense', 'Income'], loadAll);
 
   const expenseAccounts = useMemo(
     () => accounts.filter(isManualExpenseAccount),

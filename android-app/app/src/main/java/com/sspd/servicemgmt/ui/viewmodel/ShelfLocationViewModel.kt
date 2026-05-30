@@ -19,7 +19,10 @@ class ShelfLocationViewModel(application: Application) : AndroidViewModel(applic
     private val _uiState = MutableStateFlow(UiState())
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
 
-    init { load() }
+    init {
+        load()
+        onDataEvent("Shelf") { load() }
+    }
 
     fun load() {
         viewModelScope.launch {

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useDataEvents } from '../hooks/useDataEvents';
 import { CalendarRange, ChevronDown, Filter, RefreshCw, Search } from 'lucide-react';
 import Swal from 'sweetalert2';
 import { accountingApiService } from '../services/accountingapiservice';
@@ -61,6 +62,7 @@ const JournalEntryManagement: React.FC = () => {
   useEffect(() => {
     void loadData();
   }, []);
+  useDataEvents(['Sale', 'Purchase', 'Expense', 'Income', 'Journal'], loadData);
 
   const getStaffName = (id?: number) => staffs.find((staff) => staff.id === id)?.name || '-';
 

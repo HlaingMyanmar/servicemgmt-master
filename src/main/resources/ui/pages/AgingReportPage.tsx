@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useDataEvents } from '../hooks/useDataEvents';
 import { financialReportService } from '../services/financialreportapiservice';
 import { AgingLineItem, AgingReportDTO } from '../types';
 
@@ -40,6 +41,7 @@ const AgingReportPage: React.FC<{ type: 'ar' | 'ap' }> = ({ type }) => {
   };
 
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [type]);
+  useDataEvents(['Sale', 'Purchase', 'Customer Payment'], load);
 
   // ── Filter / group lines ─────────────────────────────────────────
   const filteredLines = useMemo(() => {

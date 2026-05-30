@@ -138,7 +138,7 @@ fun BarcodeScannerView(
                 onClick = onClose,
                 modifier = Modifier.align(Alignment.TopStart).padding(16.dp)
             ) {
-                Icon(Icons.Outlined.Close, null, tint = Color.White, modifier = Modifier.size(28.dp))
+                Icon(Icons.Outlined.Close, "ပိတ်ရန်", tint = Color.White, modifier = Modifier.size(28.dp))
             }
 
             Text(

@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { useDataEvents } from '../hooks/useDataEvents';
 import { shelfLocationService } from '../services/shelfLocationApiService';
 import { ShelfLocationDTO } from '../types';
 import Swal from 'sweetalert2';
@@ -21,6 +22,7 @@ const ShelfLocationManagement: React.FC = () => {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+  useDataEvents(['Shelf'], load);
 
   const filtered = locations.filter(l =>
     l.code.toLowerCase().includes(search.toLowerCase()) ||

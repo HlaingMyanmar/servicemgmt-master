@@ -1,5 +1,6 @@
 package com.sspd.servicemgmt.ui.screens
 
+import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
@@ -26,6 +27,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sspd.servicemgmt.R
+import com.sspd.servicemgmt.api.BookingDTO
 import com.sspd.servicemgmt.navigation.LocalServerStatus
 import com.sspd.servicemgmt.navigation.Screen
 import com.sspd.servicemgmt.ui.theme.*
@@ -47,11 +49,26 @@ fun HomeScreen(
     val vm: HomeViewModel = viewModel()
     val state by vm.uiState.collectAsStateWithLifecycle()
 
+    // Version update check — runs once per session after login
+    val versionVm: com.sspd.servicemgmt.ui.viewmodel.VersionCheckViewModel = viewModel()
+    val versionState by versionVm.state.collectAsStateWithLifecycle()
+
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope       = rememberCoroutineScope()
 
     LaunchedEffect(state.isLoggedOut) { if (state.isLoggedOut) onLogout() }
-    LaunchedEffect(Unit) { while (true) { vm.loadStats(); delay(30_000) } }
+    LaunchedEffect(Unit) {
+        versionVm.check()                           // version check on first load
+        while (true) { vm.loadStats(); delay(30_000) }
+    }
+
+    // Show update dialog when a newer version is available
+    versionState.update?.let { update ->
+        com.sspd.servicemgmt.ui.components.UpdateDialog(
+            update    = update,
+            onDismiss = versionVm::dismiss
+        )
+    }
 
     val cal      = remember { Calendar.getInstance() }
     val hour     = remember { cal.get(Calendar.HOUR_OF_DAY) }
@@ -105,7 +122,7 @@ fun HomeScreen(
                         verticalAlignment     = Alignment.CenterVertically
                     ) {
                         IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                            Icon(Icons.Default.Menu, null, tint = Color.White, modifier = Modifier.size(26.dp))
+                            Icon(Icons.Default.Menu, "Menu ဖွင့်ရန်", tint = Color.White, modifier = Modifier.size(26.dp))
                         }
 
 
@@ -115,7 +132,7 @@ fun HomeScreen(
                         ) {
                             ServerStatusChip()
                             IconButton(onClick = { vm.loadStats() }) {
-                                Icon(Icons.Outlined.Refresh, null, tint = Color.White.copy(0.85f))
+                                Icon(Icons.Outlined.Refresh, "ပြန်ဆောင်ရန်", tint = Color.White.copy(0.85f))
                             }
                         }
                     }
@@ -240,6 +257,51 @@ fun HomeScreen(
                         color    = Violet,
                         bg       = VioletBg
                     ) { onNavigate(Screen.ServiceJobs.route) }
+                }
+
+                // ── Booking alerts ────────────────────────────────────────────
+                AnimatedVisibility(
+                    visible = state.bookingAlerts.isNotEmpty(),
+                    enter   = fadeIn() + expandVertically(),
+                    exit    = fadeOut() + shrinkVertically(),
+                ) {
+                    Column {
+                        Spacer(Modifier.height(20.dp))
+                        Row(
+                            modifier              = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment     = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment     = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Icon(
+                                    Icons.Outlined.NotificationsActive, null,
+                                    tint     = Color(0xFFD97706),
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Text(
+                                    "Appointment သတိပေးချက် (${state.bookingAlerts.size} ခု)",
+                                    fontSize   = 13.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color      = Color(0xFFD97706)
+                                )
+                            }
+                            TextButton(onClick = { vm.dismissAllAlerts() }) {
+                                Text("အားလုံးပိတ်", fontSize = 11.sp, color = TextMuted)
+                            }
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        state.bookingAlerts.forEach { booking ->
+                            BookingAlertCard(
+                                booking    = booking,
+                                onNavigate = { onNavigate(Screen.Bookings.route) },
+                                onDismiss  = { vm.dismissAlert(booking.id ?: return@BookingAlertCard) }
+                            )
+                            Spacer(Modifier.height(8.dp))
+                        }
+                    }
                 }
 
                 Spacer(Modifier.height(24.dp))
@@ -370,6 +432,90 @@ private fun ActionGridCard(
                 lineHeight = 16.sp,
                 overflow   = TextOverflow.Ellipsis
             )
+        }
+    }
+}
+
+// ── Booking alert card ────────────────────────────────────────────────────────
+
+@Composable
+private fun BookingAlertCard(
+    booking:    BookingDTO,
+    onNavigate: () -> Unit,
+    onDismiss:  () -> Unit,
+) {
+    val deviceLine = listOfNotNull(booking.brand, booking.model)
+        .joinToString(" ")
+        .ifEmpty { booking.deviceType }
+
+    Card(
+        shape     = RoundedCornerShape(14.dp),
+        colors    = CardDefaults.cardColors(containerColor = Color(0xFFFFFBEB)),
+        border    = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFDE68A)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        modifier  = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier            = Modifier.padding(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment   = Alignment.Top
+        ) {
+            // Bell icon
+            Box(
+                modifier         = Modifier
+                    .size(40.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Color(0xFFFEF3C7)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Outlined.NotificationsActive, null,
+                    tint     = Color(0xFFD97706),
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+
+            // Info
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    booking.customerName ?: "Customer",
+                    fontWeight = FontWeight.Bold,
+                    fontSize   = 13.sp,
+                    color      = Color(0xFF92400E)
+                )
+                if (!deviceLine.isNullOrBlank()) {
+                    Text(
+                        deviceLine,
+                        fontSize = 11.sp,
+                        color    = Color(0xFFB45309)
+                    )
+                }
+                Text(
+                    "Appointment: ${booking.appointmentDate?.take(16)?.replace("T", " ") ?: "-"}",
+                    fontSize = 11.sp,
+                    color    = Color(0xFF78716C)
+                )
+            }
+
+            // Buttons
+            Column(
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+                horizontalAlignment = Alignment.End
+            ) {
+                TextButton(
+                    onClick      = onNavigate,
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                ) {
+                    Text("ကြည့်", fontSize = 11.sp, color = Color(0xFF0369A1))
+                }
+                IconButton(onClick = onDismiss, modifier = Modifier.size(40.dp)) {
+                    Icon(
+                        Icons.Outlined.Close, "ပိတ်ရန်",
+                        tint     = Color(0xFF9CA3AF),
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
         }
     }
 }

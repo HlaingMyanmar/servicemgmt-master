@@ -30,7 +30,10 @@ class IncomeReportViewModel(application: Application) : AndroidViewModel(applica
     )
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
 
-    init { load() }
+    init {
+        load()
+        onDataEvent("Sale", "Income", "Expense", "Purchase") { load() }
+    }
 
     fun selectMode(mode: ReportMode) {
         when (mode) {

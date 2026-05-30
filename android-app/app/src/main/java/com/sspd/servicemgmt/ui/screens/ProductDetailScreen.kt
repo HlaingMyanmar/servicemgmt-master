@@ -1,4 +1,4 @@
-package com.sspd.servicemgmt.ui.screens
+﻿package com.sspd.servicemgmt.ui.screens
 
 import android.content.Context
 import android.content.Intent
@@ -43,6 +43,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sspd.servicemgmt.api.ProductSerialDTO
 import com.sspd.servicemgmt.ui.theme.*
+import com.sspd.servicemgmt.ui.components.AppLoading
 import com.sspd.servicemgmt.ui.viewmodel.ProductDetailViewModel
 import kotlinx.coroutines.launch
 import java.io.ByteArrayOutputStream
@@ -113,7 +114,7 @@ fun ProductDetailScreen(onBack: () -> Unit) {
             ) {
                 val bmp = remember(viewingPhoto) { decodeDataUri(viewingPhoto!!) }
                 if (bmp != null) {
-                    Image(bitmap = bmp.asImageBitmap(), contentDescription = null,
+                    Image(bitmap = bmp.asImageBitmap(), contentDescription = state.product?.name ?: "Product photo",
                         contentScale = ContentScale.Fit,
                         modifier = Modifier.fillMaxWidth(0.92f).fillMaxHeight(0.55f))
                 }
@@ -152,16 +153,16 @@ fun ProductDetailScreen(onBack: () -> Unit) {
                 TopAppBar(
                     title = { Text("ကုန်ပစ္စည်း အချက်အလက်", fontWeight = FontWeight.ExtraBold) },
                     navigationIcon = {
-                        IconButton(onClick = onBack) { Icon(Icons.Outlined.ArrowBack, null, tint = Color.White) }
+                        IconButton(onClick = onBack) { Icon(Icons.Outlined.ArrowBack, "နောက်ပြန်", tint = Color.White) }
                     },
                     actions = {
                         if (state.product?.hasSerial == true) {
                             IconButton(onClick = { vm.showScanner() }) {
-                                Icon(Icons.Outlined.QrCodeScanner, null, tint = Color.White)
+                                Icon(Icons.Outlined.QrCodeScanner, "ဘားကုဒ် ဖတ်ရန်", tint = Color.White)
                             }
                         }
                         IconButton(onClick = { vm.load() }) {
-                            Icon(Icons.Outlined.Refresh, null, tint = Color.White)
+                            Icon(Icons.Outlined.Refresh, "ပြန်ဆောင်ရန်", tint = Color.White)
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = Primary, titleContentColor = Color.White)
@@ -170,7 +171,7 @@ fun ProductDetailScreen(onBack: () -> Unit) {
         ) { padding ->
             if (state.loading) {
                 Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = Primary)
+                    AppLoading()
                 }
                 return@Scaffold
             }
@@ -214,7 +215,7 @@ fun ProductDetailScreen(onBack: () -> Unit) {
                             ) {
                                 if (state.uploadingProductPhoto) {
                                     Box(Modifier.fillMaxSize().background(ScreenBg), contentAlignment = Alignment.Center) {
-                                        CircularProgressIndicator(color = Primary)
+                                        AppLoading()
                                     }
                                 } else {
                                     val photoUri = p.photoBase64
@@ -591,3 +592,4 @@ private fun SerialCard(
 }
 
 private fun Long.fmt() = String.format("%,d", this)
+

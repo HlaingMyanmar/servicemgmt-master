@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useDataEvents } from '../hooks/useDataEvents';
 import { CheckCircle, XCircle, RefreshCw, BarChart2, TrendingUp, TrendingDown } from 'lucide-react';
 import { financialReportService } from '../services/financialreportapiservice';
 import { BalanceSheetDTO } from '../types';
@@ -13,6 +14,8 @@ const BalanceSheetReport: React.FC = () => {
   const [data, setData]       = useState<BalanceSheetDTO | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState('');
+
+  useDataEvents(['Sale', 'Purchase', 'Expense', 'Income', 'Journal'], fetchReport);
 
   const fetchReport = async () => {
     if (!asOf) return;

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useDataEvents } from '../hooks/useDataEvents';
 import { accountingApiService } from '../services/accountingapiservice';
 import { coaService } from '../services/coaapiservice';
 import { AccountBalanceDTO, ChartOfAccountDTO } from '../types';
@@ -33,6 +34,7 @@ const AccountBalanceManagement: React.FC = () => {
   useEffect(() => {
     fetchAll();
   }, [fetchAll]);
+  useDataEvents(['Sale', 'Purchase', 'Expense', 'Income', 'Payment'], fetchAll);
 
   const applyFilter = async () => {
     if (!filterAccountId || !filterYear.trim()) return;

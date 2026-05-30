@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { useDataEvents } from '../hooks/useDataEvents';
 import { bookingService, api } from '../services/api';
 import { shelfLocationService } from '../services/shelfLocationApiService';
 import { staffService } from '../services/staffapiservice';
@@ -234,6 +235,7 @@ export default function BookingManagement() {
   };
 
   useEffect(() => { load(); }, [page, search, dateFrom, dateTo]);
+  useDataEvents(['Booking'], load);
 
   useEffect(() => {
     api.get<any, any>('/v1/customers?size=999')

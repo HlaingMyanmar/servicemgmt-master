@@ -1,4 +1,4 @@
-package com.sspd.servicemgmt.ui.screens
+﻿package com.sspd.servicemgmt.ui.screens
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sspd.servicemgmt.ui.theme.*
+import com.sspd.servicemgmt.ui.components.AppLoading
 import com.sspd.servicemgmt.ui.viewmodel.ReportMode
 import com.sspd.servicemgmt.ui.viewmodel.ReportViewModel
 import java.text.SimpleDateFormat
@@ -77,8 +78,8 @@ fun ReportScreen(onBack: () -> Unit) {
         topBar = {
             TopAppBar(
                 title = { Text("ကိန်းဂဏာန်း", fontWeight = FontWeight.ExtraBold) },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Outlined.ArrowBack, null, tint = Color.White) } },
-                actions = { IconButton(onClick = { vm.load() }) { Icon(Icons.Outlined.Refresh, null, tint = Color.White) } },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Outlined.ArrowBack, "နောက်ပြန်", tint = Color.White) } },
+                actions = { IconButton(onClick = { vm.load() }) { Icon(Icons.Outlined.Refresh, "ပြန်ဆောင်ရန်", tint = Color.White) } },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Primary, titleContentColor = Color.White)
             )
         }
@@ -163,7 +164,7 @@ fun ReportScreen(onBack: () -> Unit) {
             if (state.loading) {
                 item {
                     Box(Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(color = Primary)
+                        AppLoading()
                     }
                 }
             } else {
@@ -395,9 +396,9 @@ private fun PeriodNavRow(label: String, onPrev: () -> Unit, onNext: () -> Unit) 
         border = BorderStroke(1.dp, BorderColor)
     ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-            IconButton(onClick = onPrev) { Icon(Icons.Outlined.ChevronLeft, null, tint = Primary) }
+            IconButton(onClick = onPrev) { Icon(Icons.Outlined.ChevronLeft, "ယခင်", tint = Primary) }
             Text(label, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = Primary)
-            IconButton(onClick = onNext) { Icon(Icons.Outlined.ChevronRight, null, tint = Primary) }
+            IconButton(onClick = onNext) { Icon(Icons.Outlined.ChevronRight, "နောက်", tint = Primary) }
         }
     }
 }
@@ -432,3 +433,4 @@ private fun dateToMs(dateStr: String): Long = try {
     sdf.timeZone = TimeZone.getTimeZone("UTC")
     sdf.parse(dateStr)?.time ?: 0L
 } catch (_: Exception) { 0L }
+

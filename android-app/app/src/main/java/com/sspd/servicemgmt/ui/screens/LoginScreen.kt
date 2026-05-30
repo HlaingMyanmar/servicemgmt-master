@@ -22,10 +22,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.res.painterResource
@@ -42,7 +40,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sspd.servicemgmt.R
 import com.sspd.servicemgmt.ui.theme.*
 import com.sspd.servicemgmt.ui.viewmodel.LoginViewModel
-import kotlin.math.sin
 import kotlin.math.sqrt
 import kotlin.random.Random
 
@@ -144,17 +141,6 @@ private fun TechBackground(modifier: Modifier = Modifier) {
         }
     }
 
-    // Robot circuit nodes — fixed positions at screen edges/corners
-    val robotNodes = remember {
-        listOf(
-            0.06f to 0.08f, 0.94f to 0.08f,
-            0.04f to 0.50f, 0.96f to 0.50f,
-            0.10f to 0.92f, 0.90f to 0.92f,
-            0.50f to 0.04f
-        )
-    }
-    val circuitPairs = remember { listOf(0 to 6, 1 to 6, 0 to 2, 1 to 3, 2 to 4, 3 to 5) }
-
     // Shared Paint for text (avoid allocation every frame)
     val paint = remember {
         android.graphics.Paint().apply {
@@ -199,10 +185,9 @@ private fun TechBackground(modifier: Modifier = Modifier) {
     }
 
     if (tick > Long.MIN_VALUE) Canvas(modifier = modifier) {
-        val w       = size.width
-        val h       = size.height
-        val d       = density
-        val timeSec = tick / 1000f
+        val w = size.width
+        val h = size.height
+        val d = density
 
         // ── Layer 1 : Network (nodes + edges) ────────────────────────────
         val maxDist = w * 0.20f
@@ -254,30 +239,6 @@ private fun TechBackground(modifier: Modifier = Modifier) {
             }
         }
 
-        // ── Layer 4 : Robot circuit nodes ────────────────────────────────
-        // L-shaped circuit lines between pairs
-        circuitPairs.forEach { (i, j) ->
-            val (ax, ay) = robotNodes[i]; val (bx, by) = robotNodes[j]
-            val lineAlpha = 0.14f
-            drawLine(Color.White.copy(lineAlpha), Offset(ax * w, ay * h), Offset(bx * w, ay * h), 1f)
-            drawLine(Color.White.copy(lineAlpha), Offset(bx * w, ay * h), Offset(bx * w, by * h), 1f)
-        }
-
-        // Pulsing square nodes
-        robotNodes.forEachIndexed { i, (nx, ny) ->
-            val pulse = (sin(timeSec * 1.3f + i * 1.05f) * 0.5f + 0.5f)
-            val a     = 0.15f + pulse * 0.32f
-            val cx    = nx * w; val cy = ny * h; val sz = 4.5f
-            // Square outline
-            drawRect(
-                color   = Color.White.copy(alpha = a),
-                topLeft = Offset(cx - sz, cy - sz),
-                size    = Size(sz * 2, sz * 2),
-                style   = Stroke(width = 1.5f)
-            )
-            // Inner pulsing dot
-            drawCircle(Color.White.copy(alpha = a), 1.5f + pulse * 1.8f, Offset(cx, cy))
-        }
     }
 }
 

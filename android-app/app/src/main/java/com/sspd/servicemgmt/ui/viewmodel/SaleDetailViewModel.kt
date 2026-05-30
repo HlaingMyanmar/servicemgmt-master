@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+
 class SaleDetailViewModel(
     application: Application,
     savedStateHandle: SavedStateHandle
@@ -28,7 +29,10 @@ class SaleDetailViewModel(
     private val _uiState = MutableStateFlow(SaleDetailUiState())
     val uiState: StateFlow<SaleDetailUiState> = _uiState.asStateFlow()
 
-    init { load() }
+    init {
+        load()
+        onDataEvent("Sale") { load() }
+    }
 
     fun load() {
         viewModelScope.launch {

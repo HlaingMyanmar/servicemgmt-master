@@ -1,4 +1,4 @@
-package com.sspd.servicemgmt.ui.screens
+﻿package com.sspd.servicemgmt.ui.screens
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -12,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -28,6 +29,8 @@ import com.sspd.servicemgmt.api.ServiceItemDTO
 import com.sspd.servicemgmt.api.ServiceJobDTO
 import com.sspd.servicemgmt.api.StaffDTO
 import com.sspd.servicemgmt.ui.theme.*
+import com.sspd.servicemgmt.ui.components.AppLoading
+import com.sspd.servicemgmt.ui.utils.rememberIsTablet
 import com.sspd.servicemgmt.ui.viewmodel.ServiceJobFormViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -37,14 +40,14 @@ fun ServiceJobFormScreen(onBack: () -> Unit, onSuccess: (ServiceJobDTO) -> Unit)
     val state by vm.uiState.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
 
-    var showStaffSheet    by remember { mutableStateOf(false) }
-    var showLineItemSheet by remember { mutableStateOf(-1) }
-    var showPartSheet     by remember { mutableStateOf(-1) }
-    var partSearchQuery   by remember { mutableStateOf("") }
+    var showStaffSheet    by rememberSaveable { mutableStateOf(false) }
+    var showLineItemSheet by rememberSaveable { mutableStateOf(-1) }
+    var showPartSheet     by rememberSaveable { mutableStateOf(-1) }
+    var partSearchQuery   by rememberSaveable { mutableStateOf("") }
     // date-time picker for estimatedCompletion (date step → time step)
-    var showDatePicker    by remember { mutableStateOf(false) }
-    var showTimePicker    by remember { mutableStateOf(false) }
-    var tempDateMillis    by remember { mutableStateOf<Long?>(null) }
+    var showDatePicker    by rememberSaveable { mutableStateOf(false) }
+    var showTimePicker    by rememberSaveable { mutableStateOf(false) }
+    var tempDateMillis    by rememberSaveable { mutableStateOf<Long?>(null) }
     val dpState           = rememberDatePickerState()
     val tpState           = rememberTimePickerState(is24Hour = true)
 
@@ -227,24 +230,25 @@ fun ServiceJobFormScreen(onBack: () -> Unit, onSuccess: (ServiceJobDTO) -> Unit)
         topBar = {
             TopAppBar(
                 title = { Text(if (vm.isEdit) "Job ပြင်ဆင်ရန်" else "Job အသစ်", fontWeight = FontWeight.ExtraBold) },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Outlined.ArrowBack, null, tint = Color.White) } },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Outlined.ArrowBack, "နောက်ပြန်", tint = Color.White) } },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Primary, titleContentColor = Color.White)
             )
         }
     ) { padding ->
         if (state.loading) {
             Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = Primary)
+                AppLoading()
             }
             return@Scaffold
         }
 
+        val isTablet = rememberIsTablet()
         Column(
             modifier = Modifier
                 .fillMaxSize().padding(padding).background(ScreenBg)
                 .imePadding()
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp),
+                .padding(horizontal = if (isTablet) 64.dp else 16.dp, vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             // ── ဖောက်သည် ──────────────────────────────────────────────────────
@@ -391,7 +395,7 @@ fun ServiceJobFormScreen(onBack: () -> Unit, onSuccess: (ServiceJobDTO) -> Unit)
                             shape = RoundedCornerShape(8.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = Warning)
                         ) {
-                            Icon(Icons.Outlined.QrCodeScanner, null, modifier = Modifier.size(14.dp))
+                            Icon(Icons.Outlined.QrCodeScanner, "ဘားကုဒ် ဖတ်ရန်", modifier = Modifier.size(14.dp))
                             Spacer(Modifier.width(4.dp))
                             Text("Scan", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
@@ -461,8 +465,8 @@ fun ServiceJobFormScreen(onBack: () -> Unit, onSuccess: (ServiceJobDTO) -> Unit)
                         }
                     }
                     if (hasDateTime) {
-                        IconButton(onClick = { vm.setEstimatedCompletion("") }, modifier = Modifier.size(24.dp)) {
-                            Icon(Icons.Outlined.Close, null, tint = Danger, modifier = Modifier.size(16.dp))
+                        IconButton(onClick = { vm.setEstimatedCompletion("") }, modifier = Modifier.size(40.dp)) {
+                            Icon(Icons.Outlined.Close, "ရက်ရှင်းရန်", tint = Danger, modifier = Modifier.size(16.dp))
                         }
                     } else {
                         Icon(Icons.Outlined.ChevronRight, null, tint = TextMuted, modifier = Modifier.size(18.dp))
@@ -549,8 +553,8 @@ private fun ServiceLineDraftCard(
                 Box(Modifier.size(24.dp).background(Primary.copy(0.12f), RoundedCornerShape(6.dp)), contentAlignment = Alignment.Center) {
                     Text("${index + 1}", fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, color = Primary)
                 }
-                IconButton(onClick = onRemove, modifier = Modifier.size(28.dp)) {
-                    Icon(Icons.Outlined.RemoveCircleOutline, null, tint = Danger, modifier = Modifier.size(16.dp))
+                IconButton(onClick = onRemove, modifier = Modifier.size(40.dp)) {
+                    Icon(Icons.Outlined.RemoveCircleOutline, "ဖယ်ရှားရန်", tint = Danger, modifier = Modifier.size(16.dp))
                 }
             }
             OutlinedCard(
@@ -599,7 +603,7 @@ private fun PartDraftCard(
     onSerialAdd:    (String) -> Unit,
     onSerialRemove: (String) -> Unit
 ) {
-    var serialInput by remember { mutableStateOf("") }
+    var serialInput by rememberSaveable { mutableStateOf("") }
     val isSerialTracked = part.product?.hasSerial == true
 
     Card(
@@ -614,8 +618,8 @@ private fun PartDraftCard(
                 Box(Modifier.size(24.dp).background(Warning.copy(0.15f), RoundedCornerShape(6.dp)), contentAlignment = Alignment.Center) {
                     Text("${index + 1}", fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, color = Warning)
                 }
-                IconButton(onClick = onRemove, modifier = Modifier.size(28.dp)) {
-                    Icon(Icons.Outlined.RemoveCircleOutline, null, tint = Danger, modifier = Modifier.size(16.dp))
+                IconButton(onClick = onRemove, modifier = Modifier.size(40.dp)) {
+                    Icon(Icons.Outlined.RemoveCircleOutline, "ဖယ်ရှားရန်", tint = Danger, modifier = Modifier.size(16.dp))
                 }
             }
 
@@ -704,8 +708,8 @@ private fun PartDraftCard(
                                             fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Success)
                                     }
                                     Spacer(Modifier.width(6.dp))
-                                    IconButton(onClick = { onSerialRemove(sn) }, modifier = Modifier.size(24.dp)) {
-                                        Icon(Icons.Outlined.Close, null, tint = Danger, modifier = Modifier.size(14.dp))
+                                    IconButton(onClick = { onSerialRemove(sn) }, modifier = Modifier.size(40.dp)) {
+                                        Icon(Icons.Outlined.Close, "ဖယ်ရှားရန်", tint = Danger, modifier = Modifier.size(14.dp))
                                     }
                                 }
                             }
@@ -735,7 +739,7 @@ private fun PartDraftCard(
                             border = BorderStroke(1.dp, Violet),
                             contentPadding = PaddingValues(vertical = 10.dp)
                         ) {
-                            Icon(Icons.Outlined.QrCodeScanner, null, tint = Violet, modifier = Modifier.size(16.dp))
+                            Icon(Icons.Outlined.QrCodeScanner, "ဘားကုဒ် ဖတ်ရန်", tint = Violet, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(6.dp))
                             Text("📷  Scan Serial Number", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Violet)
                         }
@@ -773,3 +777,4 @@ private fun JobTextField(
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
     )
 }
+

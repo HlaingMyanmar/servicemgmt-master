@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { useDataEvents } from '../../hooks/useDataEvents';
 import { summaryReportService } from '../../services/api';
 import { Wrench, BarChart2 } from 'lucide-react';
 
@@ -30,6 +31,7 @@ export default function ServiceSummaryReport() {
   }, [from, to]);
 
   useEffect(() => { load(); }, []);
+  useDataEvents(['Service Job', 'Booking'], load);
 
   return (
     <div className="p-4 md:p-6 space-y-4">

@@ -24,7 +24,10 @@ class SaleReturnDetailViewModel(
     private val _uiState = MutableStateFlow(UiState())
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
 
-    init { load() }
+    init {
+        load()
+        onDataEvent("Return") { load() }
+    }
 
     fun load() {
         viewModelScope.launch {

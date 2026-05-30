@@ -17,7 +17,7 @@ import {
 import { customerService } from '../services/customerapiservice';
 import { creditTermService } from '../services/credittermapiservice';
 import { saleApiService } from '../services/saleapiservice';
-import { useWebsocket } from '../hooks/useWebsocket';
+import { useDataEvents } from '../hooks/useDataEvents';
 import { CustomerCreditTermDTO, CustomerCreditTermHistoryDTO, CustomerDTO, SaleDTO } from '../types';
 
 type ModalTab = 'basic' | 'credit' | 'history';
@@ -107,9 +107,7 @@ const CustomerManagement: React.FC = () => {
     loadData();
   }, [loadData]);
 
-  useWebsocket('/topic/customer', () => {
-    loadData();
-  });
+  useDataEvents(['Customer', 'Sale'], loadData);
 
   const filteredCustomers = useMemo(() => {
     const needle = searchTerm.trim().toLowerCase();

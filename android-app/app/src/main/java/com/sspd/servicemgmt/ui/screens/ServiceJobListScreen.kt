@@ -1,4 +1,4 @@
-package com.sspd.servicemgmt.ui.screens
+﻿package com.sspd.servicemgmt.ui.screens
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sspd.servicemgmt.ui.theme.*
+import com.sspd.servicemgmt.ui.components.AppLoading
 import com.sspd.servicemgmt.ui.viewmodel.ServiceJobListViewModel
 import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
@@ -136,7 +137,7 @@ fun ServiceJobListScreen(
                 title = { Text("ဝန်ဆောင်မှု Jobs", fontWeight = FontWeight.ExtraBold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Outlined.ArrowBack, null, tint = Color.White)
+                        Icon(Icons.Outlined.ArrowBack, "နောက်ပြန်", tint = Color.White)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Primary, titleContentColor = Color.White)
@@ -222,7 +223,7 @@ fun ServiceJobListScreen(
 
             if (state.loading) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = Primary)
+                    AppLoading()
                 }
             } else if (filtered.isEmpty()) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -323,3 +324,4 @@ private fun Long.formatMillisToDate(): String =
     SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
         .apply { timeZone = TimeZone.getTimeZone("UTC") }
         .format(Date(this))
+

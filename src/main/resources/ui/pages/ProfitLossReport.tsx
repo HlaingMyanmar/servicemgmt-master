@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import { useDataEvents } from '../hooks/useDataEvents';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Cell, PieChart, Pie, Legend
@@ -69,6 +70,7 @@ const ProfitLossReport: React.FC = () => {
   };
 
   useEffect(() => { void fetchReport(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useDataEvents(['Sale', 'Purchase', 'Expense', 'Income', 'Return'], fetchReport);
 
   const isProfit = (data?.netProfit ?? 0) >= 0;
 

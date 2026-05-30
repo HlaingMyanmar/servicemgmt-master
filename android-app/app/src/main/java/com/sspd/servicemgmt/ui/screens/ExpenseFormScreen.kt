@@ -1,4 +1,4 @@
-package com.sspd.servicemgmt.ui.screens
+﻿package com.sspd.servicemgmt.ui.screens
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -12,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -23,6 +24,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sspd.servicemgmt.ui.theme.*
+import com.sspd.servicemgmt.ui.utils.rememberIsTablet
 import com.sspd.servicemgmt.ui.viewmodel.ExpenseFormViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -35,9 +37,9 @@ fun ExpenseFormScreen(onBack: () -> Unit, onSuccess: () -> Unit) {
     val accentBg = if (vm.isExpense) DangerBg else SuccessBg
     val title = if (vm.isExpense) "ကုန်ကျစရိတ် ထည့်ရန်" else "ဝင်ငွေ ထည့်ရန်"
 
-    var showPmSheet    by remember { mutableStateOf(false) }
-    var showStaffSheet by remember { mutableStateOf(false) }
-    var showDatePicker by remember { mutableStateOf(false) }
+    var showPmSheet    by rememberSaveable { mutableStateOf(false) }
+    var showStaffSheet by rememberSaveable { mutableStateOf(false) }
+    var showDatePicker by rememberSaveable { mutableStateOf(false) }
     val dpState        = rememberDatePickerState(
         initialSelectedDateMillis = run {
             try {
@@ -116,7 +118,7 @@ fun ExpenseFormScreen(onBack: () -> Unit, onSuccess: () -> Unit) {
         topBar = {
             TopAppBar(
                 title = { Text(title, fontWeight = FontWeight.ExtraBold) },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Outlined.ArrowBack, null, tint = Color.White) } },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Outlined.ArrowBack, "နောက်ပြန်", tint = Color.White) } },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = accent, titleContentColor = Color.White)
             )
         }
@@ -128,9 +130,12 @@ fun ExpenseFormScreen(onBack: () -> Unit, onSuccess: () -> Unit) {
             return@Scaffold
         }
 
+        val isTablet = rememberIsTablet()
         Column(
             modifier = Modifier.fillMaxSize().padding(padding).background(ScreenBg)
-                .verticalScroll(rememberScrollState()).padding(16.dp).imePadding(),
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = if (isTablet) 64.dp else 16.dp, vertical = 16.dp)
+                .imePadding(),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
 

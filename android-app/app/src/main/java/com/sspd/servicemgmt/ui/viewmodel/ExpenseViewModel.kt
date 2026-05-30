@@ -23,7 +23,10 @@ class ExpenseViewModel(application: Application) : AndroidViewModel(application)
     private val _uiState = MutableStateFlow(ExpenseUiState(fromDate = today(), toDate = today()))
     val uiState: StateFlow<ExpenseUiState> = _uiState.asStateFlow()
 
-    init { load() }
+    init {
+        load()
+        onDataEvent("Expense", "Income") { load() }
+    }
 
     fun load() {
         viewModelScope.launch {

@@ -8,6 +8,14 @@ data class ApiResponse<T>(
     val data: T? = null
 )
 
+data class AppVersionDTO(
+    val versionCode: Int     = 0,
+    val versionName: String  = "",
+    val forceUpdate: Boolean = false,
+    val changelog:   String  = "",
+    val downloadUrl: String  = ""
+)
+
 data class PagedResponse<T>(
     val content: List<T> = emptyList(),
     val currentPage: Int = 0,
@@ -508,6 +516,15 @@ data class ChatMessageDTO(
 )
 
 data class SendMessageRequest(val content: String)
+
+// ─── Real-time data events ────────────────────────────────────────────────────
+
+/** Emitted by the backend on /topic/data-events after every mutating service call. */
+data class DataEvent(
+    val entity:     String  = "",
+    val action:     String  = "",
+    val resourceId: String? = null,
+)
 
 // ─── Users (RBAC) ────────────────────────────────────────────────────────────
 

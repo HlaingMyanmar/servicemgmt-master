@@ -13,7 +13,7 @@ import {
   X
 } from 'lucide-react';
 import Swal from 'sweetalert2';
-import { useWebsocket } from '../hooks/useWebsocket';
+import { useDataEvents } from '../hooks/useDataEvents';
 import { productService } from '../services/productapiservice';
 import { productSerialService } from '../services/productserialapiservice';
 import { staffService } from '../services/staffapiservice';
@@ -180,9 +180,7 @@ const StockAdjustmentManagement: React.FC = () => {
     void loadRows(currentPage, pageSize, debouncedSearch);
   }, [loadRows, currentPage, pageSize, debouncedSearch]);
 
-  useWebsocket('/topic/stock-adjustment', useCallback(() => {
-    void loadRows(currentPage, pageSize, debouncedSearch);
-  }, [loadRows, currentPage, pageSize, debouncedSearch]));
+  useDataEvents(['Stock', 'Product'], () => void loadRows(currentPage, pageSize, debouncedSearch));
 
   const selectedProduct = useMemo(() => products.find((row) => row.id === productId) || null, [products, productId]);
   const serialProduct = selectedProduct ? selectedProduct.hasSerial !== false : false;

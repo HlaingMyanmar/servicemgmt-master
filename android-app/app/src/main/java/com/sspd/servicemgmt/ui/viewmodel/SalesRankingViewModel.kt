@@ -23,7 +23,10 @@ class SalesRankingViewModel(application: Application) : AndroidViewModel(applica
     private val _uiState = MutableStateFlow(SalesRankingUiState())
     val uiState: StateFlow<SalesRankingUiState> = _uiState.asStateFlow()
 
-    init { load() }
+    init {
+        load()
+        onDataEvent("Sale") { load() }
+    }
 
     fun load() {
         viewModelScope.launch {

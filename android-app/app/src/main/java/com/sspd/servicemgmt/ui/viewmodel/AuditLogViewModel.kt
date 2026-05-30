@@ -19,7 +19,11 @@ class AuditLogViewModel(application: Application) : AndroidViewModel(application
     private val _uiState = MutableStateFlow(AuditLogUiState())
     val uiState: StateFlow<AuditLogUiState> = _uiState.asStateFlow()
 
-    init { load() }
+    init {
+        load()
+        onDataEvent("Sale", "Service Job", "Booking", "Product", "Purchase",
+                    "Expense", "Income", "Stock", "Return") { load() }
+    }
 
     fun load() {
         viewModelScope.launch {

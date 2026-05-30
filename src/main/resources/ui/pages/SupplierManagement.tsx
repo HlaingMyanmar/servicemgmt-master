@@ -8,7 +8,7 @@ import {
   ChevronLeft, ChevronRight, ChevronDown, Save,
   AlertCircle, ClipboardList, RefreshCw
 } from 'lucide-react';
-import { useWebsocket } from '../hooks/useWebsocket';
+import { useDataEvents } from '../hooks/useDataEvents';
 import Swal from 'sweetalert2';
 
 const SupplierManagement: React.FC = () => {
@@ -48,7 +48,7 @@ const SupplierManagement: React.FC = () => {
     fetchPaginatedData();
   }, [fetchPaginatedData]);
 
-  useWebsocket('/topic/supplier', fetchPaginatedData);
+  useDataEvents(['Supplier', 'Purchase'], fetchPaginatedData);
 
   const handleOpenModal = (supplier?: SupplierDTO) => {
     if (supplier) {

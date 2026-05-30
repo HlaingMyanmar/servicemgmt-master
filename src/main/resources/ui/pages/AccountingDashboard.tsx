@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useDataEvents } from '../hooks/useDataEvents';
 import { accountingApiService } from '../services/accountingapiservice';
 import { coaService } from '../services/coaapiservice';
 import { staffService } from '../services/staffapiservice';
@@ -100,6 +101,7 @@ const AccountingDashboard: React.FC = () => {
     fetchData();
     fetchPL();
   }, []);
+  useDataEvents(['Sale', 'Purchase', 'Expense', 'Income', 'Payment', 'Journal'], () => { fetchData(); fetchPL(); });
 
   const accountById = useMemo(() => new Map(accounts.map(a => [a.id, a])), [accounts]);
   const balanceByAccountId = useMemo(() => new Map(balances.map(b => [b.accountId, b])), [balances]);

@@ -1,4 +1,4 @@
-package com.sspd.servicemgmt.ui.screens
+﻿package com.sspd.servicemgmt.ui.screens
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -27,6 +27,7 @@ import com.sspd.servicemgmt.api.PaymentMethodDTO
 import com.sspd.servicemgmt.api.ProductDTO
 import com.sspd.servicemgmt.api.StaffDTO
 import com.sspd.servicemgmt.ui.theme.*
+import com.sspd.servicemgmt.ui.components.AppLoading
 import com.sspd.servicemgmt.ui.viewmodel.CartItem
 import com.sspd.servicemgmt.ui.viewmodel.NewSaleViewModel
 
@@ -179,7 +180,7 @@ fun NewSaleScreen(
                 TopAppBar(
                     title = { Text("ရောင်းချမှု အသစ်", fontWeight = FontWeight.ExtraBold) },
                     navigationIcon = {
-                        IconButton(onClick = onBack) { Icon(Icons.Outlined.ArrowBack, null, tint = Color.White) }
+                        IconButton(onClick = onBack) { Icon(Icons.Outlined.ArrowBack, "နောက်ပြန်", tint = Color.White) }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = Primary, titleContentColor = Color.White)
                 )
@@ -187,7 +188,7 @@ fun NewSaleScreen(
         ) { padding ->
             if (state.loading) {
                 Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = Primary)
+                    AppLoading()
                 }
                 return@Scaffold
             }
@@ -499,19 +500,19 @@ private fun CartItemRow(
             Spacer(Modifier.width(8.dp))
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 // Remove button
-                IconButton(onClick = onRemove, modifier = Modifier.size(30.dp)
+                IconButton(onClick = onRemove, modifier = Modifier.size(40.dp)
                     .background(DangerBg, RoundedCornerShape(7.dp))) {
-                    Icon(Icons.Outlined.Close, null, tint = Danger, modifier = Modifier.size(14.dp))
+                    Icon(Icons.Outlined.Close, "ဖယ်ရှားရန်", tint = Danger, modifier = Modifier.size(14.dp))
                 }
                 // Qty controls (non-serial only)
                 if (item.product.hasSerial != true) {
                     Spacer(Modifier.height(8.dp))
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        IconButton(onClick = onQtyMinus, modifier = Modifier.size(28.dp).background(PrimaryLight, RoundedCornerShape(7.dp))) {
+                        IconButton(onClick = onQtyMinus, modifier = Modifier.size(36.dp).background(PrimaryLight, RoundedCornerShape(7.dp))) {
                             Text("−", fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, color = Primary)
                         }
                         Text("${item.qty}", fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, color = TextMain)
-                        IconButton(onClick = onQtyPlus, modifier = Modifier.size(28.dp).background(PrimaryLight, RoundedCornerShape(7.dp))) {
+                        IconButton(onClick = onQtyPlus, modifier = Modifier.size(36.dp).background(PrimaryLight, RoundedCornerShape(7.dp))) {
                             Text("+", fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, color = Primary)
                         }
                     }
@@ -549,8 +550,8 @@ private fun CartItemRow(
                                         fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Success)
                                 }
                                 Spacer(Modifier.width(6.dp))
-                                IconButton(onClick = { onSerialRemove(sn) }, modifier = Modifier.size(24.dp)) {
-                                    Icon(Icons.Outlined.Close, null, tint = Danger, modifier = Modifier.size(14.dp))
+                                IconButton(onClick = { onSerialRemove(sn) }, modifier = Modifier.size(40.dp)) {
+                                    Icon(Icons.Outlined.Close, "ဖယ်ရှားရန်", tint = Danger, modifier = Modifier.size(14.dp))
                                 }
                             }
                         }
@@ -597,7 +598,7 @@ private fun CartItemRow(
                         border = BorderStroke(1.dp, Primary),
                         contentPadding = PaddingValues(vertical = 10.dp)
                     ) {
-                        Icon(Icons.Outlined.QrCodeScanner, null, tint = Primary, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Outlined.QrCodeScanner, "ဘားကုဒ် ဖတ်ရန်", tint = Primary, modifier = Modifier.size(16.dp))
                         Spacer(Modifier.width(6.dp))
                         Text("📷  Scan Serial Number", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Primary)
                     }
@@ -727,3 +728,4 @@ private data class CreditBanner(
     val icon:  androidx.compose.ui.graphics.vector.ImageVector,
     val msg:   String
 )
+

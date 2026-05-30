@@ -6,6 +6,9 @@ import retrofit2.http.*
 
 interface ApiService {
 
+    @GET("app/version")
+    suspend fun getAppVersion(): Response<ApiResponse<AppVersionDTO>>
+
     @POST("auth/login")
     suspend fun login(@Body body: LoginRequest): Response<ApiResponse<AuthResponse>>
 

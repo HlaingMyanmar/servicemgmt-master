@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { useDataEvents } from '../../hooks/useDataEvents';
 import { summaryReportService } from '../../services/api';
 import { Truck, TrendingDown } from 'lucide-react';
 
@@ -21,6 +22,7 @@ export default function PurchaseSummaryReport() {
   }, [from, to]);
 
   useEffect(() => { load(); }, []);
+  useDataEvents(['Purchase', 'Purchase Return'], load);
 
   return (
     <div className="p-4 md:p-6 space-y-4">

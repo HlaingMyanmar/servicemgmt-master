@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useDataEvents } from '../hooks/useDataEvents';
 import { ArrowLeft, Eye, List, Plus, RefreshCw, RotateCcw, Save, Search, Trash2, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import Swal from 'sweetalert2';
@@ -156,6 +157,7 @@ const PurchaseReturnManagement: React.FC = () => {
   useEffect(() => {
     loadRows(currentPage, pageSize, debouncedSearch);
   }, [loadRows, currentPage, pageSize, debouncedSearch]);
+  useDataEvents(['Purchase Return', 'Purchase'], () => loadRows(currentPage, pageSize, debouncedSearch));
 
   useEffect(() => {
     if (purchaseId <= 0) {

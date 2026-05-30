@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { useDataEvents } from '../../hooks/useDataEvents';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   ResponsiveContainer, PieChart, Pie, Cell, ComposedChart, Line,
@@ -498,6 +499,11 @@ export default function DailyReport() {
   useEffect(() => { if (tab === 'daily')   loadDaily();   }, [tab, loadDaily]);
   useEffect(() => { if (tab === 'monthly') loadMonthly(); }, [tab, loadMonthly]);
   useEffect(() => { if (tab === 'yearly')  loadYearly();  }, [tab, loadYearly]);
+  useDataEvents(['Sale', 'Service Job', 'Expense', 'Income'], () => {
+    if (tab === 'daily') loadDaily();
+    else if (tab === 'monthly') loadMonthly();
+    else loadYearly();
+  });
 
   const tabs: { key: Tab; label: string; color: string }[] = [
     { key: 'daily',   label: 'Daily',   color: 'bg-indigo-600' },

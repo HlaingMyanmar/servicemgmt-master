@@ -1,4 +1,4 @@
-package com.sspd.servicemgmt.ui.screens
+﻿package com.sspd.servicemgmt.ui.screens
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -21,6 +21,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sspd.servicemgmt.api.BookingDetailItemDTO
 import com.sspd.servicemgmt.api.BookingDeviceDTO
 import com.sspd.servicemgmt.ui.theme.*
+import com.sspd.servicemgmt.ui.components.AppLoading
 import com.sspd.servicemgmt.ui.viewmodel.BookingDetailViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -43,15 +44,15 @@ fun BookingDetailScreen(onBack: () -> Unit, onJobCreated: () -> Unit = {}, onEdi
             TopAppBar(
                 title = { Text(state.booking?.invoiceNo ?: "Booking အသေးစိတ်", fontWeight = FontWeight.ExtraBold) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) { Icon(Icons.Outlined.ArrowBack, null, tint = Color.White) }
+                    IconButton(onClick = onBack) { Icon(Icons.Outlined.ArrowBack, "နောက်ပြန်", tint = Color.White) }
                 },
                 actions = {
                     val canEdit = state.booking?.status?.uppercase() !in listOf("CONVERTED", "COMPLETED", "CANCELLED")
                     if (canEdit) {
-                        IconButton(onClick = onEdit) { Icon(Icons.Outlined.Edit, null, tint = Color.White) }
+                        IconButton(onClick = onEdit) { Icon(Icons.Outlined.Edit, "ပြင်ရန်", tint = Color.White) }
                     }
-                    IconButton(onClick = onPrint) { Icon(Icons.Outlined.Print, null, tint = Color.White) }
-                    IconButton(onClick = { vm.load() }) { Icon(Icons.Outlined.Refresh, null, tint = Color.White) }
+                    IconButton(onClick = onPrint) { Icon(Icons.Outlined.Print, "ပရင့်", tint = Color.White) }
+                    IconButton(onClick = { vm.load() }) { Icon(Icons.Outlined.Refresh, "ပြန်ဆောင်ရန်", tint = Color.White) }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Primary, titleContentColor = Color.White)
             )
@@ -59,7 +60,7 @@ fun BookingDetailScreen(onBack: () -> Unit, onJobCreated: () -> Unit = {}, onEdi
     ) { padding ->
         if (state.loading) {
             Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = Primary)
+                AppLoading()
             }
             return@Scaffold
         }
@@ -304,3 +305,4 @@ private fun BookingServiceRow(detail: BookingDetailItemDTO) {
         }
     }
 }
+

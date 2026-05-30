@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useDataEvents } from '../hooks/useDataEvents';
 import { AuditLogDTO } from '../types';
 import { api } from '../services/api';
 import {
@@ -192,6 +193,7 @@ const AuditLogManagement: React.FC = () => {
   }, [page, actor, action, module, dateFrom, dateTo]);
 
   useEffect(() => { void fetchData(); }, [fetchData]);
+  useDataEvents(['Sale', 'Service Job', 'Booking', 'Product', 'Purchase', 'Expense', 'Income'], () => void fetchData());
 
   const clearFilters = () => { setActor(''); setAction(''); setModule(''); setDateFrom(''); setDateTo(''); setPage(0); };
   const hasFilters = actor || action || module || dateFrom || dateTo;

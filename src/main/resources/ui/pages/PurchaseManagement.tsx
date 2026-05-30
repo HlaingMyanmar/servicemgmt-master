@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useDataEvents } from '../hooks/useDataEvents';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { purchaseApiService, PurchasePage } from '../services/purchaseapiservice';
 import { purchaseReturnApiService } from '../services/purchasereturnapiservice';
@@ -122,6 +123,7 @@ const PurchaseManagement: React.FC = () => {
   useEffect(() => {
     fetchPurchases(purchasePage, purchasePageSize, debouncedSearch);
   }, [fetchPurchases, purchasePage, purchasePageSize, debouncedSearch]);
+  useDataEvents(['Purchase'], () => fetchPurchases(purchasePage, purchasePageSize, debouncedSearch));
 
   const generateSerialNumbers = (productCode: string, qty: number, startSeq = 1): string[] => {
     const d = new Date();

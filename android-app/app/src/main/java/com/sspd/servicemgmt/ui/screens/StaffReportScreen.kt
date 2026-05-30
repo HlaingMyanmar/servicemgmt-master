@@ -1,4 +1,4 @@
-package com.sspd.servicemgmt.ui.screens
+﻿package com.sspd.servicemgmt.ui.screens
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sspd.servicemgmt.ui.theme.*
+import com.sspd.servicemgmt.ui.components.AppLoading
 import com.sspd.servicemgmt.ui.viewmodel.StaffReportViewModel
 import kotlinx.coroutines.delay
 
@@ -57,7 +58,7 @@ fun StaffReportScreen(onBack: () -> Unit) {
                 title = { Text("ဝန်ထမ်းစွမ်းဆောင်ရည်", fontWeight = FontWeight.ExtraBold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Outlined.ArrowBack, null, tint = Color.White)
+                        Icon(Icons.Outlined.ArrowBack, "နောက်ပြန်", tint = Color.White)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -76,7 +77,7 @@ fun StaffReportScreen(onBack: () -> Unit) {
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     IconButton(onClick = { vm.prevMonth() }) {
-                        Icon(Icons.Outlined.ChevronLeft, null, tint = Primary)
+                        Icon(Icons.Outlined.ChevronLeft, "ယခင်", tint = Primary)
                     }
                     Text(displayMonth(state.month), fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
                     IconButton(onClick = { if (canNext) vm.nextMonth() }, enabled = canNext) {
@@ -94,7 +95,7 @@ fun StaffReportScreen(onBack: () -> Unit) {
 
             if (state.loading) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = Primary)
+                    AppLoading()
                 }
             } else if (state.items.isEmpty()) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -251,3 +252,4 @@ private fun StatBox(
         }
     }
 }
+

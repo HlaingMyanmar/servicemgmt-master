@@ -15,6 +15,7 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -46,6 +47,7 @@ import com.sspd.servicemgmt.ui.theme.TextMuted
 import com.sspd.servicemgmt.ui.viewmodel.ServerStatus
 import com.sspd.servicemgmt.ui.viewmodel.ServerStatusViewModel
 import com.sspd.servicemgmt.utils.PreferenceManager
+import com.sspd.servicemgmt.websocket.DataEventBus
 
 val LocalServerStatus = compositionLocalOf { ServerStatus.CHECKING }
 
@@ -189,6 +191,15 @@ fun AppNavigation() {
 
     val serverVm: ServerStatusViewModel = viewModel()
     val serverStatus by serverVm.status.collectAsStateWithLifecycle()
+
+    // Connect DataEventBus when a valid token is present; disconnect on logout.
+    LaunchedEffect(prefs.authToken) {
+        if (prefs.authToken.isNotEmpty()) {
+            DataEventBus.connect(ApiClient.wsNativeUrl, prefs.authToken)
+        } else {
+            DataEventBus.disconnect()
+        }
+    }
 
     val navBackStackEntry by nav.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route

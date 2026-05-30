@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useDataEvents } from '../hooks/useDataEvents';
 import { serviceTypeService, serviceItemService, subServiceTypeService, exportService } from '../services/api';
 import Swal from 'sweetalert2';
 
@@ -32,6 +33,7 @@ const ServiceManagement: React.FC = () => {
   const [savingItem, setSavingItem]   = useState(false);
 
   useEffect(() => { loadAll(); }, []);
+  useDataEvents(['Service'], loadAll);
 
   const loadAll = async () => {
     const [t, s] = await Promise.all([serviceTypeService.getAll(), serviceItemService.getAll()]);

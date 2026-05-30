@@ -34,7 +34,10 @@ class ReportViewModel(application: Application) : AndroidViewModel(application) 
     )
     val uiState: StateFlow<ReportUiState> = _uiState.asStateFlow()
 
-    init { load() }
+    init {
+        load()
+        onDataEvent("Sale", "Service Job", "Expense", "Income") { load() }
+    }
 
     fun selectMode(mode: ReportMode) {
         when (mode) {

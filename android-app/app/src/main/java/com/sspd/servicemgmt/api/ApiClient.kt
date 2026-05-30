@@ -1,5 +1,6 @@
 package com.sspd.servicemgmt.api
 
+import com.sspd.servicemgmt.BuildConfig
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -12,7 +13,7 @@ import javax.net.ssl.TrustManager
 import javax.net.ssl.X509TrustManager
 
 object ApiClient {
-    private var _baseUrl = "https://192.168.20.253:8080/api/v1/"
+    private var _baseUrl = BuildConfig.DEFAULT_BASE_URL.trimEnd('/') + "/api/v1/"
     private var retrofit: Retrofit? = null
 
     fun setBaseUrl(url: String) {
@@ -38,8 +39,14 @@ object ApiClient {
         return OkHttpClient.Builder()
             .sslSocketFactory(sslContext.socketFactory, trustAll[0] as X509TrustManager)
             .hostnameVerifier { _, _ -> true }
+            .addInterceptor { chain ->
+                val response = chain.proceed(chain.request())
+                if (response.code == 401) AuthEventBus.notifyTokenExpired()
+                response
+            }
             .addInterceptor(HttpLoggingInterceptor().apply {
-                level = HttpLoggingInterceptor.Level.BASIC
+                level = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.BASIC
+                        else HttpLoggingInterceptor.Level.NONE
             })
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
@@ -81,4 +88,31 @@ object ApiClient {
             .readTimeout(4, TimeUnit.SECONDS)
             .build()
     }
+
+    /** OkHttpClient for persistent WebSocket connections.
+     *  - readTimeout = 0  (no timeout — socket stays open)
+     *  - pingInterval = 30s  (OkHttp sends WebSocket PING frames to keep the connection alive)
+     */
+    fun wsClient(): OkHttpClient {
+        val trustAll = arrayOf<TrustManager>(object : X509TrustManager {
+            override fun checkClientTrusted(chain: Array<X509Certificate>, authType: String) {}
+            override fun checkServerTrusted(chain: Array<X509Certificate>, authType: String) {}
+            override fun getAcceptedIssuers(): Array<X509Certificate> = arrayOf()
+        })
+        val sslContext = SSLContext.getInstance("TLS").apply { init(null, trustAll, SecureRandom()) }
+        return OkHttpClient.Builder()
+            .sslSocketFactory(sslContext.socketFactory, trustAll[0] as X509TrustManager)
+            .hostnameVerifier { _, _ -> true }
+            .connectTimeout(15, TimeUnit.SECONDS)
+            .readTimeout(0, TimeUnit.MILLISECONDS)   // no read timeout for WebSocket
+            .pingInterval(30, TimeUnit.SECONDS)       // keep-alive ping every 30 s
+            .build()
+    }
+
+    /** wss:// URL for the backend's native STOMP WebSocket endpoint. */
+    val wsNativeUrl: String
+        get() = rawBaseUrl
+            .replace("https://", "wss://")
+            .replace("http://", "ws://")
+            .trimEnd('/') + "/ws-native"
 }

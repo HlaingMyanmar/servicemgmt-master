@@ -1,5 +1,6 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
+import { useDataEvents } from '../hooks/useDataEvents';
 import { useNavigate } from 'react-router-dom';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -133,6 +134,7 @@ const Dashboard: React.FC = () => {
   }, []);
 
   useEffect(() => { void fetchStats(); }, [fetchStats]);
+  useDataEvents(['Sale', 'Service Job', 'Booking', 'Stock'], fetchStats);
 
   const handleBackfill = async () => {
     setBackfilling(true);

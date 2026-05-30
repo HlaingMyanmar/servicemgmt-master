@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useDataEvents } from '../hooks/useDataEvents';
 import { accountingApiService } from '../services/accountingapiservice';
 import { paymentMethodService } from '../services/paymentmethodapiservice';
 import { PaymentTransactionDTO, PaymentMethodDTO } from '../types';
@@ -81,6 +82,7 @@ const PaymentTransactionManagement: React.FC = () => {
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+  useDataEvents(['Sale', 'Service Job', 'Purchase', 'Payment'], fetchData);
 
   const filtered = useMemo(() => {
     const kw  = search.trim().toLowerCase();

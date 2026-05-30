@@ -8,7 +8,7 @@ import { saleApiService } from '../services/saleapiservice';
 import { customerService } from '../services/customerapiservice';
 import { paymentMethodService } from '../services/paymentmethodapiservice';
 import { productService } from '../services/productapiservice';
-import { useWebsocket } from '../hooks/useWebsocket';
+import { useDataEvents } from '../hooks/useDataEvents';
 import { AppRoute, CustomerDTO, PaymentMethodDTO, ProductDTO, SaleDTO, SaleReturnDTO, SaleReturnDetailDTO } from '../types';
 
 type DetailForm = SaleReturnDetailDTO & { productSearch: string; serialNumbers: string[] };
@@ -173,9 +173,7 @@ const SaleReturnManagement: React.FC = () => {
     void loadRows(currentPage, pageSize, debouncedSearch);
   }, [loadRows, currentPage, pageSize, debouncedSearch]);
 
-  useWebsocket('/topic/sale-return', () => {
-    void loadRows(currentPage, pageSize, debouncedSearch);
-  });
+  useDataEvents(['Return', 'Sale'], () => void loadRows(currentPage, pageSize, debouncedSearch));
   useEffect(() => {
     if (saleId <= 0) {
       setSelectedSale(null);

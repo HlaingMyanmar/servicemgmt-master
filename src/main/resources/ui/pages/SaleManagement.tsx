@@ -32,6 +32,7 @@ import { customerPaymentService } from '../services/customerpaymentapiservice';
 import { InvoicePrintPreview } from '../print/components/InvoicePrintPreview';
 import BarcodeScannerCamera from '../components/BarcodeScannerCamera';
 import { useWebsocket } from '../hooks/useWebsocket';
+import { useDataEvents } from '../hooks/useDataEvents';
 import {
   AppRoute,
   CustomerCreditTermDTO,
@@ -235,6 +236,7 @@ const SaleManagement: React.FC = () => {
   useWebsocket('/topic/barcode-scan', useCallback((code: string) => {
     barcodeScanRef.current(code.trim());
   }, []));
+  useDataEvents(['Sale'], () => loadSales(salePage, salePageSize, debouncedSearch, dateFrom, dateTo));
 
   const termMap = useMemo(() => new Map(terms.map((t) => [t.customerId, t])), [terms]);
   const selectedCustomer = useMemo(() => customers.find((c) => c.id === customerId) || null, [customers, customerId]);

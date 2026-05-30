@@ -27,7 +27,10 @@ class ProductDetailViewModel(
     private val _uiState = MutableStateFlow(ProductDetailUiState())
     val uiState: StateFlow<ProductDetailUiState> = _uiState.asStateFlow()
 
-    init { load() }
+    init {
+        load()
+        onDataEvent("Product", "Stock", "Sale") { load() }
+    }
 
     fun load() {
         viewModelScope.launch {

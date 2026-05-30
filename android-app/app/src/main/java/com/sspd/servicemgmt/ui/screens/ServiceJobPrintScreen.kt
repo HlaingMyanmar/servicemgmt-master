@@ -1,4 +1,4 @@
-package com.sspd.servicemgmt.ui.screens
+﻿package com.sspd.servicemgmt.ui.screens
 
 import android.annotation.SuppressLint
 import android.content.Context
@@ -26,6 +26,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sspd.servicemgmt.api.ApiClient
 import com.sspd.servicemgmt.ui.theme.*
+import com.sspd.servicemgmt.ui.components.AppLoading
 import com.sspd.servicemgmt.ui.viewmodel.ServiceJobPrintViewModel
 
 private val JOB_PAPER_KEYS   = listOf("A4", "A5", "POS_58MM", "POS_80MM")
@@ -56,7 +57,7 @@ fun ServiceJobPrintScreen(onBack: () -> Unit) {
                 title = { Text("Service Job Print", fontWeight = FontWeight.ExtraBold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Outlined.ArrowBack, null, tint = Color.White)
+                        Icon(Icons.Outlined.ArrowBack, "နောက်ပြန်", tint = Color.White)
                     }
                 },
                 actions = {
@@ -85,7 +86,7 @@ fun ServiceJobPrintScreen(onBack: () -> Unit) {
                         onClick  = { webViewRef.value?.let { printJobWebView(context, it, vm.jobId) } },
                         enabled  = state.htmlContent != null && !state.loading && !webLoading
                     ) {
-                        Icon(Icons.Outlined.Print, null, tint = Color.White)
+                        Icon(Icons.Outlined.Print, "ပရင့်", tint = Color.White)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Primary, titleContentColor = Color.White)
@@ -105,7 +106,7 @@ fun ServiceJobPrintScreen(onBack: () -> Unit) {
                         Text(state.error ?: "ချိတ်ဆက်မှု မအောင်မြင်ပါ", color = TextMuted, fontSize = 14.sp)
                         Spacer(Modifier.height(14.dp))
                         OutlinedButton(onClick = { vm.loadHtml(paper) }) {
-                            Icon(Icons.Outlined.Refresh, null, modifier = Modifier.size(16.dp))
+                            Icon(Icons.Outlined.Refresh, "ပြန်ဆောင်ရန်", modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(6.dp))
                             Text("ထပ်မံ ကြိုးစားမည်")
                         }
@@ -121,7 +122,7 @@ fun ServiceJobPrintScreen(onBack: () -> Unit) {
                     )
                     if (state.loading || (state.htmlContent != null && webLoading)) {
                         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator(color = Primary)
+                            AppLoading()
                         }
                     }
                 }
@@ -175,3 +176,4 @@ private fun printJobWebView(context: Context, webView: WebView, jobId: Int) {
         PrintAttributes.Builder().setMediaSize(PrintAttributes.MediaSize.ISO_A4).build()
     )
 }
+

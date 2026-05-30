@@ -1,4 +1,4 @@
-package com.sspd.servicemgmt.ui.screens
+﻿package com.sspd.servicemgmt.ui.screens
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -21,6 +21,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sspd.servicemgmt.api.BookingDTO
 import com.sspd.servicemgmt.ui.theme.*
+import com.sspd.servicemgmt.ui.components.AppLoading
 import com.sspd.servicemgmt.ui.viewmodel.BookingListViewModel
 import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
@@ -87,7 +88,7 @@ fun BookingListScreen(
     state.deleteTarget?.let { target ->
         AlertDialog(
             onDismissRequest = { vm.cancelDelete() },
-            icon  = { Icon(Icons.Outlined.Delete, null, tint = Danger) },
+            icon  = { Icon(Icons.Outlined.Delete, "ဖျက်ရန်", tint = Danger) },
             title = { Text("Booking ဖျက်မည်", fontWeight = FontWeight.ExtraBold) },
             text  = {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -132,10 +133,10 @@ fun BookingListScreen(
             TopAppBar(
                 title = { Text("Booking များ", fontWeight = FontWeight.ExtraBold) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) { Icon(Icons.Outlined.ArrowBack, null, tint = Color.White) }
+                    IconButton(onClick = onBack) { Icon(Icons.Outlined.ArrowBack, "နောက်ပြန်", tint = Color.White) }
                 },
                 actions = {
-                    IconButton(onClick = { vm.load() }) { Icon(Icons.Outlined.Refresh, null, tint = Color.White) }
+                    IconButton(onClick = { vm.load() }) { Icon(Icons.Outlined.Refresh, "ပြန်ဆောင်ရန်", tint = Color.White) }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Primary, titleContentColor = Color.White)
             )
@@ -159,7 +160,7 @@ fun BookingListScreen(
                 leadingIcon   = { Icon(Icons.Outlined.Search, null) },
                 trailingIcon  = {
                     if (state.search.isNotBlank())
-                        IconButton(onClick = { vm.setSearch("") }) { Icon(Icons.Outlined.Clear, null, tint = TextMuted) }
+                        IconButton(onClick = { vm.setSearch("") }) { Icon(Icons.Outlined.Clear, "ရှင်းရန်", tint = TextMuted) }
                 },
                 singleLine = true, shape = RoundedCornerShape(12.dp)
             )
@@ -190,16 +191,16 @@ fun BookingListScreen(
                 if (state.fromDate != null || state.toDate != null) {
                     IconButton(
                         onClick  = { vm.clearDateFilter() },
-                        modifier = Modifier.size(32.dp)
+                        modifier = Modifier.size(40.dp)
                     ) {
-                        Icon(Icons.Outlined.Clear, null, tint = Danger, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Outlined.Clear, "ရှင်းရန်", tint = Danger, modifier = Modifier.size(16.dp))
                     }
                 }
             }
 
             if (state.loading) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = Primary)
+                    AppLoading()
                 }
             } else if (filtered.isEmpty()) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -306,7 +307,7 @@ private fun BookingCard(
                         onClick = onEdit,
                         colors  = ButtonDefaults.textButtonColors(contentColor = Primary)
                     ) {
-                        Icon(Icons.Outlined.Edit, null, modifier = Modifier.size(15.dp))
+                        Icon(Icons.Outlined.Edit, "ပြင်ရန်", modifier = Modifier.size(15.dp))
                         Spacer(Modifier.width(4.dp))
                         Text("ပြင်ဆင်", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
@@ -314,7 +315,7 @@ private fun BookingCard(
                         onClick = onDelete,
                         colors  = ButtonDefaults.textButtonColors(contentColor = Danger)
                     ) {
-                        Icon(Icons.Outlined.Delete, null, modifier = Modifier.size(15.dp))
+                        Icon(Icons.Outlined.Delete, "ဖျက်ရန်", modifier = Modifier.size(15.dp))
                         Spacer(Modifier.width(4.dp))
                         Text("ဖျက်မည်", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
@@ -355,3 +356,4 @@ private fun bookingDateToMillis(dateStr: String): Long {
         sdf.parse(dateStr)?.time ?: 0L
     } catch (_: Exception) { 0L }
 }
+

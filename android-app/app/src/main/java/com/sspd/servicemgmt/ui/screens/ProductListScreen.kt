@@ -1,4 +1,4 @@
-package com.sspd.servicemgmt.ui.screens
+﻿package com.sspd.servicemgmt.ui.screens
 
 import android.graphics.BitmapFactory
 import android.util.Base64
@@ -27,6 +27,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sspd.servicemgmt.api.ProductDTO
 import com.sspd.servicemgmt.ui.theme.*
+import com.sspd.servicemgmt.ui.components.AppLoading
 import com.sspd.servicemgmt.ui.viewmodel.ProductListViewModel
 import kotlinx.coroutines.delay
 
@@ -74,7 +75,7 @@ fun ProductListScreen(
                     title = { Text("ကုန်ပစ္စည်းများ", fontWeight = FontWeight.ExtraBold) },
                     navigationIcon = {
                         IconButton(onClick = onBack) {
-                            Icon(Icons.Outlined.ArrowBack, null, tint = Color.White)
+                            Icon(Icons.Outlined.ArrowBack, "နောက်ပြန်", tint = Color.White)
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
@@ -112,7 +113,7 @@ fun ProductListScreen(
                             }
                             if (state.search.isNotBlank()) {
                                 IconButton(onClick = { vm.setSearch("") }) {
-                                    Icon(Icons.Outlined.Clear, null, tint = TextMuted)
+                                    Icon(Icons.Outlined.Clear, "ရှင်းရန်", tint = TextMuted)
                                 }
                             }
                         }
@@ -123,7 +124,7 @@ fun ProductListScreen(
 
                 if (state.loading) {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(color = Primary)
+                        AppLoading()
                     }
                 } else if (filtered.isEmpty()) {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -293,4 +294,5 @@ fun UIPrevice(modifier: Modifier = Modifier) {
         }
     }
 }
+
 

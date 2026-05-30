@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { useDataEvents } from '../hooks/useDataEvents';
 import { salesRankingService } from '../services/api';
 import { Trophy, TrendingUp, BarChart2, Calendar, Package } from 'lucide-react';
 
@@ -36,6 +37,7 @@ export default function SalesRankingPage() {
     if (tab === 'products') loadProducts();
     else loadMonthly();
   }, [tab, loadProducts, loadMonthly]);
+  useDataEvents(['Sale'], () => { if (tab === 'products') loadProducts(); else loadMonthly(); });
 
   const maxQty = products[0]?.totalQty ?? 1;
   const maxMonthAmt = monthly[0] ? Math.max(...monthly.map(m => Number(m.totalAmount))) : 1;

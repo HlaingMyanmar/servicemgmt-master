@@ -6,9 +6,12 @@ import androidx.lifecycle.viewModelScope
 import com.sspd.servicemgmt.api.ApiClient
 import com.sspd.servicemgmt.api.ProductDTO
 import com.sspd.servicemgmt.utils.PreferenceManager
+import com.sspd.servicemgmt.websocket.DataEventBus
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -19,7 +22,19 @@ class ProductListViewModel(application: Application) : AndroidViewModel(applicat
     private val _uiState = MutableStateFlow(ProductListUiState())
     val uiState: StateFlow<ProductListUiState> = _uiState.asStateFlow()
 
-    init { load() }
+    init {
+        load()
+        viewModelScope.launch {
+            DataEventBus.events
+                .filter { e ->
+                    e.entity.contains("Product", ignoreCase = true) ||
+                    e.entity.contains("Stock",   ignoreCase = true) ||
+                    e.entity.contains("Sale",    ignoreCase = true)
+                }
+                .debounce(600)
+                .collect { load() }
+        }
+    }
 
     fun load() {
         viewModelScope.launch {

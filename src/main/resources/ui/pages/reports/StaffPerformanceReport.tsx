@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { useDataEvents } from '../../hooks/useDataEvents';
 import { summaryReportService } from '../../services/api';
 import { Users, TrendingUp, Wrench, XCircle, RefreshCw, AlertCircle } from 'lucide-react';
 
@@ -53,6 +54,7 @@ export default function StaffPerformanceReport() {
   }, [from, to]);
 
   useEffect(() => { load(); }, []);
+  useDataEvents(['Sale', 'Service Job'], load);
 
   function toggleSort(key: keyof StaffPerformanceDTO) {
     if (sortKey === key) setSortAsc(v => !v);

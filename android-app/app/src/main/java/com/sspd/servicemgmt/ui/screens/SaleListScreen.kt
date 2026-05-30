@@ -1,4 +1,4 @@
-package com.sspd.servicemgmt.ui.screens
+﻿package com.sspd.servicemgmt.ui.screens
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -24,6 +24,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sspd.servicemgmt.api.PaymentMethodDTO
 import com.sspd.servicemgmt.api.SaleDTO
 import com.sspd.servicemgmt.ui.theme.*
+import com.sspd.servicemgmt.ui.components.AppLoading
 import com.sspd.servicemgmt.ui.viewmodel.SaleListViewModel
 import com.sspd.servicemgmt.ui.viewmodel.SaleReturnListViewModel
 import kotlinx.coroutines.delay
@@ -183,7 +184,7 @@ fun SaleListScreen(
                 title = { Text("အရောင်းဆိုင်ရာ", fontWeight = FontWeight.ExtraBold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Outlined.ArrowBack, null, tint = Color.White)
+                        Icon(Icons.Outlined.ArrowBack, "နောက်ပြန်", tint = Color.White)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -279,7 +280,7 @@ fun SaleListScreen(
                         IconButton(onClick = {
                             if (selectedTab == 2) returnVm.setSearch("") else vm.setSearch("")
                         }) {
-                            Icon(Icons.Outlined.Clear, null, tint = TextMuted)
+                            Icon(Icons.Outlined.Clear, "ရှင်းရန်", tint = TextMuted)
                         }
                     }
                 },
@@ -318,7 +319,7 @@ fun SaleListScreen(
                         onClick  = { vm.clearDateFilter() },
                         modifier = Modifier.size(32.dp)
                     ) {
-                        Icon(Icons.Outlined.Clear, null, tint = Danger, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Outlined.Clear, "ရှင်းရန်", tint = Danger, modifier = Modifier.size(16.dp))
                     }
                 }
             }
@@ -356,7 +357,7 @@ fun SaleListScreen(
                         onClick  = { returnVm.clearDateFilter() },
                         modifier = Modifier.size(32.dp)
                     ) {
-                        Icon(Icons.Outlined.Clear, null, tint = Danger, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Outlined.Clear, "ရှင်းရန်", tint = Danger, modifier = Modifier.size(16.dp))
                     }
                 }
             }
@@ -453,7 +454,7 @@ fun SaleListScreen(
             } else {
                 if (state.loading) {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(color = Primary)
+                        AppLoading()
                     }
                 } else {
                     val displayList = if (selectedTab == 0) saleList else dueList
@@ -784,3 +785,4 @@ private fun dateToMillis(dateStr: String): Long {
         sdf.parse(dateStr)?.time ?: 0L
     } catch (_: Exception) { 0L }
 }
+

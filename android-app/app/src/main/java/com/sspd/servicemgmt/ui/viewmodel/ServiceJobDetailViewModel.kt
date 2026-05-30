@@ -28,7 +28,10 @@ class ServiceJobDetailViewModel(
     private val _uiState = MutableStateFlow(UiState())
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
 
-    init { load() }
+    init {
+        load()
+        onDataEvent("Service Job") { load() }
+    }
 
     fun load() {
         viewModelScope.launch {

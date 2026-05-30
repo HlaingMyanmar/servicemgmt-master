@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useDataEvents } from '../hooks/useDataEvents';
 import { CheckCircle, XCircle, RefreshCw, Scale, Database } from 'lucide-react';
 import { financialReportService } from '../services/financialreportapiservice';
 import { adminService } from '../services/api';
@@ -26,6 +27,8 @@ const TrialBalanceReport: React.FC = () => {
   const [error, setError]         = useState('');
   const [backfilling, setBackfilling] = useState(false);
   const [backfillMsg, setBackfillMsg] = useState('');
+
+  useDataEvents(['Sale', 'Purchase', 'Expense', 'Income', 'Journal'], fetchReport);
 
   const fetchReport = async () => {
     if (!asOf) return;

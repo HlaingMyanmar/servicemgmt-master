@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useDataEvents } from '../hooks/useDataEvents';
 import { Printer, FileEdit, AlertTriangle } from 'lucide-react';
 import { serviceJobService, serviceItemService } from '../services/api';
 import { staffService } from '../services/staffapiservice';
@@ -163,6 +164,7 @@ export default function ServiceJobManagement() {
   };
 
   useEffect(() => { load(); }, [page, search, dateFrom, dateTo]);
+  useDataEvents(['Service Job', 'Booking'], load);
 
   useEffect(() => {
     staffService.getAllActive()

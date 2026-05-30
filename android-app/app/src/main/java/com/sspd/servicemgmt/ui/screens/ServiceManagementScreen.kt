@@ -1,4 +1,4 @@
-package com.sspd.servicemgmt.ui.screens
+﻿package com.sspd.servicemgmt.ui.screens
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -25,6 +25,7 @@ import com.sspd.servicemgmt.api.ServiceItemDTO
 import com.sspd.servicemgmt.api.ServiceTypeDTO
 import com.sspd.servicemgmt.api.SubServiceTypeDTO
 import com.sspd.servicemgmt.ui.theme.*
+import com.sspd.servicemgmt.ui.components.AppLoading
 import com.sspd.servicemgmt.ui.viewmodel.ServiceManagementViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -125,10 +126,10 @@ fun ServiceManagementScreen(onBack: () -> Unit) {
             TopAppBar(
                 title = { Text("ဝန်ဆောင်မှုများ", fontWeight = FontWeight.ExtraBold) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) { Icon(Icons.Outlined.ArrowBack, null, tint = Color.White) }
+                    IconButton(onClick = onBack) { Icon(Icons.Outlined.ArrowBack, "နောက်ပြန်", tint = Color.White) }
                 },
                 actions = {
-                    IconButton(onClick = { vm.load() }) { Icon(Icons.Outlined.Refresh, null, tint = Color.White) }
+                    IconButton(onClick = { vm.load() }) { Icon(Icons.Outlined.Refresh, "ပြန်ဆောင်ရန်", tint = Color.White) }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Primary, titleContentColor = Color.White)
             )
@@ -192,14 +193,14 @@ fun ServiceManagementScreen(onBack: () -> Unit) {
                 leadingIcon = { Icon(Icons.Outlined.Search, null) },
                 trailingIcon = {
                     if (state.search.isNotBlank())
-                        IconButton(onClick = { vm.setSearch("") }) { Icon(Icons.Outlined.Clear, null, tint = TextMuted) }
+                        IconButton(onClick = { vm.setSearch("") }) { Icon(Icons.Outlined.Clear, "ရှင်းရန်", tint = TextMuted) }
                 },
                 singleLine = true, shape = RoundedCornerShape(12.dp)
             )
 
             if (state.loading) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = Primary)
+                    AppLoading()
                 }
             } else when (selectedTab) {
                 0 -> TypesList(
@@ -264,10 +265,10 @@ private fun TypesList(
                         }
                         ActiveBadge(type.isActive)
                         IconButton(onClick = { onEdit(type) }) {
-                            Icon(Icons.Outlined.Edit, null, tint = Primary, modifier = Modifier.size(18.dp))
+                            Icon(Icons.Outlined.Edit, "ပြင်ရန်", tint = Primary, modifier = Modifier.size(18.dp))
                         }
                         IconButton(onClick = { onDelete(type) }) {
-                            Icon(Icons.Outlined.Delete, null, tint = Danger, modifier = Modifier.size(18.dp))
+                            Icon(Icons.Outlined.Delete, "ဖျက်ရန်", tint = Danger, modifier = Modifier.size(18.dp))
                         }
                     }
                     // Sub-categories chip
@@ -353,10 +354,10 @@ private fun ItemsList(
                         ActiveBadge(item.isActive)
                     }
                     IconButton(onClick = { onEdit(item) }) {
-                        Icon(Icons.Outlined.Edit, null, tint = Primary, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Outlined.Edit, "ပြင်ရန်", tint = Primary, modifier = Modifier.size(18.dp))
                     }
                     IconButton(onClick = { onDelete(item) }) {
-                        Icon(Icons.Outlined.Delete, null, tint = Danger, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Outlined.Delete, "ဖျက်ရန်", tint = Danger, modifier = Modifier.size(18.dp))
                     }
                 }
             }
@@ -589,7 +590,7 @@ private fun DeleteConfirmDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        icon  = { Icon(Icons.Outlined.Delete, null, tint = Danger) },
+        icon  = { Icon(Icons.Outlined.Delete, "ဖျက်ရန်", tint = Danger) },
         title = { Text(title, fontWeight = FontWeight.ExtraBold) },
         text  = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -786,11 +787,11 @@ private fun SubTypesSheet(
                                 Text(sub.description, fontSize = 11.sp, color = TextMuted)
                         }
                         ActiveBadge(sub.isActive)
-                        IconButton(onClick = { onEditSub(sub) }, modifier = Modifier.size(36.dp)) {
-                            Icon(Icons.Outlined.Edit, null, tint = Primary, modifier = Modifier.size(17.dp))
+                        IconButton(onClick = { onEditSub(sub) }, modifier = Modifier.size(40.dp)) {
+                            Icon(Icons.Outlined.Edit, "ပြင်ရန်", tint = Primary, modifier = Modifier.size(17.dp))
                         }
-                        IconButton(onClick = { onDeleteSub(sub) }, modifier = Modifier.size(36.dp)) {
-                            Icon(Icons.Outlined.Delete, null, tint = Danger, modifier = Modifier.size(17.dp))
+                        IconButton(onClick = { onDeleteSub(sub) }, modifier = Modifier.size(40.dp)) {
+                            Icon(Icons.Outlined.Delete, "ဖျက်ရန်", tint = Danger, modifier = Modifier.size(17.dp))
                         }
                     }
                     HorizontalDivider(color = BorderColor.copy(0.5f))
@@ -859,3 +860,4 @@ private fun SubTypeDialog(
         dismissButton = { TextButton(onClick = onDismiss, enabled = !saving) { Text("မလုပ်တော့ပါ") } }
     )
 }
+

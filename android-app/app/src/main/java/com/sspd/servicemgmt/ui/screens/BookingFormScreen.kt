@@ -1,4 +1,4 @@
-package com.sspd.servicemgmt.ui.screens
+﻿package com.sspd.servicemgmt.ui.screens
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -12,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -24,6 +25,8 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sspd.servicemgmt.ui.theme.*
+import com.sspd.servicemgmt.ui.components.AppLoading
+import com.sspd.servicemgmt.ui.utils.rememberIsTablet
 import com.sspd.servicemgmt.ui.viewmodel.BookingFormViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -32,7 +35,7 @@ fun BookingFormScreen(onBack: () -> Unit, onSuccess: () -> Unit) {
     val vm: BookingFormViewModel = viewModel()
     val state by vm.uiState.collectAsStateWithLifecycle()
 
-    var showShelfSheet by remember { mutableStateOf(false) }
+    var showShelfSheet by rememberSaveable { mutableStateOf(false) }
 
     if (showShelfSheet) {
         ModalBottomSheet(onDismissRequest = { showShelfSheet = false }) {
@@ -86,7 +89,7 @@ fun BookingFormScreen(onBack: () -> Unit, onSuccess: () -> Unit) {
                     )
                 },
                 navigationIcon = {
-                    IconButton(onClick = onBack) { Icon(Icons.Outlined.ArrowBack, null, tint = Color.White) }
+                    IconButton(onClick = onBack) { Icon(Icons.Outlined.ArrowBack, "နောက်ပြန်", tint = Color.White) }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Primary, titleContentColor = Color.White)
             )
@@ -95,19 +98,20 @@ fun BookingFormScreen(onBack: () -> Unit, onSuccess: () -> Unit) {
 
         if (state.loading) {
             Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = Primary)
+                AppLoading()
             }
             return@Scaffold
         }
 
+        val isTablet = rememberIsTablet()
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
                 .background(ScreenBg)
-                .imePadding()                        // keyboard ကွယ်တာ fix
+                .imePadding()
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp),
+                .padding(horizontal = if (isTablet) 64.dp else 16.dp, vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
 
@@ -332,8 +336,8 @@ private fun DeviceCard(
                     )
                 }
                 if (canRemove) {
-                    IconButton(onClick = onRemove, modifier = Modifier.size(32.dp)) {
-                        Icon(Icons.Outlined.RemoveCircleOutline, null, tint = Danger, modifier = Modifier.size(18.dp))
+                    IconButton(onClick = onRemove, modifier = Modifier.size(40.dp)) {
+                        Icon(Icons.Outlined.RemoveCircleOutline, "ဖယ်ရှားရန်", tint = Danger, modifier = Modifier.size(18.dp))
                     }
                 }
             }
@@ -451,3 +455,4 @@ private fun DeviceField(
         textStyle       = LocalTextStyle.current.copy(fontSize = 13.sp)
     )
 }
+

@@ -1,4 +1,4 @@
-package com.sspd.servicemgmt.ui.screens
+﻿package com.sspd.servicemgmt.ui.screens
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sspd.servicemgmt.ui.theme.*
+import com.sspd.servicemgmt.ui.components.AppLoading
 import com.sspd.servicemgmt.ui.viewmodel.ExpenseViewModel
 import kotlinx.coroutines.delay
 
@@ -92,10 +93,10 @@ fun ExpenseScreen(
             TopAppBar(
                 title = { Text("ဝင်ငွေ / ကုန်ကျစရိတ်", fontWeight = FontWeight.ExtraBold) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) { Icon(Icons.Outlined.ArrowBack, null, tint = Color.White) }
+                    IconButton(onClick = onBack) { Icon(Icons.Outlined.ArrowBack, "နောက်ပြန်", tint = Color.White) }
                 },
                 actions = {
-                    IconButton(onClick = { vm.load() }) { Icon(Icons.Outlined.Refresh, null, tint = Color.White) }
+                    IconButton(onClick = { vm.load() }) { Icon(Icons.Outlined.Refresh, "ပြန်ဆောင်ရန်", tint = Color.White) }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Primary, titleContentColor = Color.White)
             )
@@ -171,7 +172,7 @@ fun ExpenseScreen(
                         onClick  = { vm.clearDateFilter() },
                         modifier = Modifier.size(32.dp)
                     ) {
-                        Icon(Icons.Outlined.Clear, null, tint = Danger, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Outlined.Clear, "ရှင်းရန်", tint = Danger, modifier = Modifier.size(16.dp))
                     }
                 }
             }
@@ -205,7 +206,7 @@ fun ExpenseScreen(
             // ── List ─────────────────────────────────────────────────────────
             if (state.loading) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = Primary)
+                    AppLoading()
                 }
             } else if (selectedTab == 0) {
                 if (expenses.isEmpty()) {
@@ -328,3 +329,4 @@ private fun dateToMs(dateStr: String): Long {
         sdf.parse(dateStr)?.time ?: 0L
     } catch (_: Exception) { 0L }
 }
+

@@ -20,7 +20,10 @@ class StaffReportViewModel(application: Application) : AndroidViewModel(applicat
     private val _uiState = MutableStateFlow(StaffReportUiState(month = nowYM()))
     val uiState: StateFlow<StaffReportUiState> = _uiState.asStateFlow()
 
-    init { load() }
+    init {
+        load()
+        onDataEvent("Sale", "Service Job") { load() }
+    }
 
     fun load() {
         viewModelScope.launch {

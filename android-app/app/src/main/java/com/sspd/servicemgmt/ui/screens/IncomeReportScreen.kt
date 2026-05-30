@@ -30,6 +30,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sspd.servicemgmt.api.MonthlyDataDTO
 import com.sspd.servicemgmt.api.PeriodSummaryDTO
+import com.sspd.servicemgmt.ui.components.AppLoading
 import com.sspd.servicemgmt.ui.theme.*
 import com.sspd.servicemgmt.ui.viewmodel.IncomeReportViewModel
 import com.sspd.servicemgmt.ui.viewmodel.ReportMode
@@ -73,8 +74,8 @@ fun IncomeReportScreen(onBack: () -> Unit) {
         topBar = {
             TopAppBar(
                 title = { Text("ဝင်ငွေ / အမြတ် စာရင်း", fontWeight = FontWeight.ExtraBold) },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Outlined.ArrowBack, null, tint = Color.White) } },
-                actions = { IconButton(onClick = { if (state.mode == ReportMode.YEARLY) vm.selectMode(ReportMode.YEARLY) else vm.load() }) { Icon(Icons.Outlined.Refresh, null, tint = Color.White) } },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Outlined.ArrowBack, "နောက်ပြန်", tint = Color.White) } },
+                actions = { IconButton(onClick = { if (state.mode == ReportMode.YEARLY) vm.selectMode(ReportMode.YEARLY) else vm.load() }) { Icon(Icons.Outlined.Refresh, "ပြန်ဆောင်ရန်", tint = Color.White) } },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF059669), titleContentColor = Color.White)
             )
         }
@@ -120,7 +121,7 @@ fun IncomeReportScreen(onBack: () -> Unit) {
             if (state.loading) {
                 item {
                     Box(Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(color = Color(0xFF059669))
+                        AppLoading()
                     }
                 }
             } else if (state.mode == ReportMode.YEARLY) {
@@ -461,9 +462,9 @@ private fun MiniStatCard(modifier: Modifier, label: String, amount: Double, colo
 private fun IrPeriodNavRow(label: String, onPrev: () -> Unit, onNext: () -> Unit) {
     Card(shape = RoundedCornerShape(10.dp), colors = CardDefaults.cardColors(containerColor = CardBg), border = BorderStroke(1.dp, BorderColor)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-            IconButton(onClick = onPrev) { Icon(Icons.Outlined.ChevronLeft, null, tint = Color(0xFF059669)) }
+            IconButton(onClick = onPrev) { Icon(Icons.Outlined.ChevronLeft, "ယခင်", tint = Color(0xFF059669)) }
             Text(label, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFF059669))
-            IconButton(onClick = onNext) { Icon(Icons.Outlined.ChevronRight, null, tint = Color(0xFF059669)) }
+            IconButton(onClick = onNext) { Icon(Icons.Outlined.ChevronRight, "နောက်", tint = Color(0xFF059669)) }
         }
     }
 }

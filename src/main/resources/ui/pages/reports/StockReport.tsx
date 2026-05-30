@@ -1,4 +1,5 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useCallback, useEffect, useState, useMemo } from 'react';
+import { useDataEvents } from '../../hooks/useDataEvents';
 import { productService } from '../../services/productapiservice';
 import { ProductDTO } from '../../types';
 import { Package, AlertTriangle, BarChart2 } from 'lucide-react';
@@ -10,9 +11,12 @@ export default function StockReport() {
   const [loading,  setLoading]  = useState(true);
   const [search,   setSearch]   = useState('');
 
-  useEffect(() => {
+  const loadProducts = useCallback(() => {
     productService.getAll().then(data => setProducts(data)).catch(() => {}).finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => { loadProducts(); }, [loadProducts]);
+  useDataEvents(['Product', 'Stock', 'Sale'], loadProducts);
 
   const stats = useMemo(() => {
     const total    = products.length;

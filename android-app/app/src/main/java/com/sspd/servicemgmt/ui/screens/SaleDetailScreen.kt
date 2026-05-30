@@ -1,4 +1,4 @@
-package com.sspd.servicemgmt.ui.screens
+﻿package com.sspd.servicemgmt.ui.screens
 
 import android.content.Context
 import android.content.Intent
@@ -30,6 +30,7 @@ import com.sspd.servicemgmt.api.PaymentTransactionDTO
 import com.sspd.servicemgmt.api.SaleDTO
 import com.sspd.servicemgmt.api.SaleItemDTO
 import com.sspd.servicemgmt.ui.theme.*
+import com.sspd.servicemgmt.ui.components.AppLoading
 import com.sspd.servicemgmt.ui.viewmodel.SaleDetailViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -70,20 +71,20 @@ fun SaleDetailScreen(onBack: () -> Unit, onPrint: () -> Unit = {}) {
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Outlined.ArrowBack, null, tint = Color.White)
+                        Icon(Icons.Outlined.ArrowBack, "နောက်ပြန်", tint = Color.White)
                     }
                 },
                 actions = {
                     state.sale?.let { sale ->
                         IconButton(onClick = { shareSale(context, sale) }) {
-                            Icon(Icons.Outlined.Share, null, tint = Color.White)
+                            Icon(Icons.Outlined.Share, "မျှဝေရန်", tint = Color.White)
                         }
                     }
                     IconButton(onClick = onPrint) {
-                        Icon(Icons.Outlined.Print, null, tint = Color.White)
+                        Icon(Icons.Outlined.Print, "ပရင့်", tint = Color.White)
                     }
                     IconButton(onClick = { vm.load() }) {
-                        Icon(Icons.Outlined.Refresh, null, tint = Color.White)
+                        Icon(Icons.Outlined.Refresh, "ပြန်ဆောင်ရန်", tint = Color.White)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -94,7 +95,7 @@ fun SaleDetailScreen(onBack: () -> Unit, onPrint: () -> Unit = {}) {
     ) { padding ->
         if (state.loading) {
             Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = Primary)
+                AppLoading()
             }
             return@Scaffold
         }
@@ -561,3 +562,4 @@ private fun shareSale(context: Context, sale: SaleDTO) {
 }
 
 private fun Double?.fmtD() = String.format("%,.0f", this ?: 0.0)
+

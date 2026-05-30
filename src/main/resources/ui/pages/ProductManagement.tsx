@@ -17,7 +17,7 @@ import {
   ClipboardList, Eye, Info, LayoutList, Wallet,
   Settings2, AlertTriangle, ArrowLeft, TrendingDown
 } from 'lucide-react';
-import { useWebsocket } from '../hooks/useWebsocket';
+import { useDataEvents } from '../hooks/useDataEvents';
 import Swal from 'sweetalert2';
 import BarcodeLabel from '../components/BarcodeLabel';
 import BarcodeScannerCamera from '../components/BarcodeScannerCamera';
@@ -238,8 +238,7 @@ const ProductManagement: React.FC = () => {
     fetchData();
   }, [fetchData]);
 
-  useWebsocket('/topic/product', fetchData);
-  useWebsocket('/topic/productSerial', fetchSerials);
+  useDataEvents(['Product', 'Stock', 'Sale'], fetchData);
 
   const getCategoryOptions = useCallback((nodes: CategoryDTO[], level = 0): CategoryOption[] => {
     return nodes.reduce((acc: CategoryOption[], node) => {

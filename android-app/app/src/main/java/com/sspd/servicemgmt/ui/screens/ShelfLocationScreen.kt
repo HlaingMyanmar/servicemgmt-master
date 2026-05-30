@@ -1,4 +1,4 @@
-package com.sspd.servicemgmt.ui.screens
+﻿package com.sspd.servicemgmt.ui.screens
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -20,6 +20,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sspd.servicemgmt.api.ShelfLocationDTO
 import com.sspd.servicemgmt.ui.theme.*
+import com.sspd.servicemgmt.ui.components.AppLoading
 import com.sspd.servicemgmt.ui.viewmodel.ShelfLocationViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -55,10 +56,10 @@ fun ShelfLocationScreen(onBack: () -> Unit) {
             TopAppBar(
                 title = { Text("ကန့်တည်နေရာများ", fontWeight = FontWeight.ExtraBold) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) { Icon(Icons.Outlined.ArrowBack, null, tint = Color.White) }
+                    IconButton(onClick = onBack) { Icon(Icons.Outlined.ArrowBack, "နောက်ပြန်", tint = Color.White) }
                 },
                 actions = {
-                    IconButton(onClick = { vm.load() }) { Icon(Icons.Outlined.Refresh, null, tint = Color.White) }
+                    IconButton(onClick = { vm.load() }) { Icon(Icons.Outlined.Refresh, "ပြန်ဆောင်ရန်", tint = Color.White) }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Primary, titleContentColor = Color.White)
             )
@@ -83,14 +84,14 @@ fun ShelfLocationScreen(onBack: () -> Unit) {
                 leadingIcon   = { Icon(Icons.Outlined.Search, null) },
                 trailingIcon  = {
                     if (state.search.isNotBlank())
-                        IconButton(onClick = { vm.setSearch("") }) { Icon(Icons.Outlined.Clear, null, tint = TextMuted) }
+                        IconButton(onClick = { vm.setSearch("") }) { Icon(Icons.Outlined.Clear, "ရှင်းရန်", tint = TextMuted) }
                 },
                 singleLine = true, shape = RoundedCornerShape(12.dp)
             )
 
             if (state.loading) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = Primary)
+                    AppLoading()
                 }
             } else if (filtered.isEmpty()) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -177,7 +178,7 @@ fun ShelfLocationScreen(onBack: () -> Unit) {
                                     )
                                 }
                                 IconButton(onClick = { vm.openEditDialog(loc) }) {
-                                    Icon(Icons.Outlined.Edit, null, tint = Primary, modifier = Modifier.size(18.dp))
+                                    Icon(Icons.Outlined.Edit, "ပြင်ရန်", tint = Primary, modifier = Modifier.size(18.dp))
                                 }
                             }
                         }
@@ -315,3 +316,4 @@ private fun ShelfLocationDialog(
         }
     )
 }
+

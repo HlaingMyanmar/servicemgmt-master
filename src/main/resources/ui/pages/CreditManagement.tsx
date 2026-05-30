@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useDataEvents } from '../hooks/useDataEvents';
 import Swal from 'sweetalert2';
 import { Ban, CheckCircle2, CreditCard, Loader2, RefreshCw, Save, Search } from 'lucide-react';
 import { creditAlertService } from '../services/creditalertapiservice';
@@ -85,6 +86,7 @@ const CreditManagement: React.FC = () => {
   }, []);
 
   useEffect(() => { loadAll(); }, [loadAll]);
+  useDataEvents(['Sale', 'Customer Payment', 'Customer'], loadAll);
 
   const selected = useMemo(() => customers.find((c) => c.id === selectedCustomerId) || null, [customers, selectedCustomerId]);
   const termByCustomer = useMemo(() => new Map(terms.map((t) => [t.customerId, t])), [terms]);

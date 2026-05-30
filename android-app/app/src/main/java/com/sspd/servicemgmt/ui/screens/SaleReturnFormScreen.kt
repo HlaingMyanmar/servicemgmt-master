@@ -1,4 +1,4 @@
-package com.sspd.servicemgmt.ui.screens
+﻿package com.sspd.servicemgmt.ui.screens
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -12,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -23,6 +24,8 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sspd.servicemgmt.ui.theme.*
+import com.sspd.servicemgmt.ui.components.AppLoading
+import com.sspd.servicemgmt.ui.utils.rememberIsTablet
 import com.sspd.servicemgmt.ui.viewmodel.SaleReturnFormViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -31,7 +34,7 @@ fun SaleReturnFormScreen(onBack: () -> Unit, onSuccess: () -> Unit) {
     val vm: SaleReturnFormViewModel = viewModel()
     val state by vm.uiState.collectAsStateWithLifecycle()
 
-    var showPmSheet by remember { mutableStateOf(false) }
+    var showPmSheet by rememberSaveable { mutableStateOf(false) }
 
     // Payment method sheet
     if (showPmSheet) {
@@ -58,21 +61,24 @@ fun SaleReturnFormScreen(onBack: () -> Unit, onSuccess: () -> Unit) {
         topBar = {
             TopAppBar(
                 title = { Text(if (vm.isEdit) "Return ပြင်ဆင်ရန်" else "Return အသစ်", fontWeight = FontWeight.ExtraBold) },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Outlined.ArrowBack, null, tint = Color.White) } },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Outlined.ArrowBack, "နောက်ပြန်", tint = Color.White) } },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Danger, titleContentColor = Color.White)
             )
         }
     ) { padding ->
         if (state.loading) {
             Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = Danger)
+                AppLoading()
             }
             return@Scaffold
         }
 
+        val isTablet = rememberIsTablet()
         Column(
             modifier = Modifier.fillMaxSize().padding(padding).background(ScreenBg)
-                .verticalScroll(rememberScrollState()).padding(16.dp).imePadding(),
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = if (isTablet) 64.dp else 16.dp, vertical = 16.dp)
+                .imePadding(),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             // ── Sale ရွေးပါ ──────────────────────────────────────────────────
@@ -122,11 +128,11 @@ fun SaleReturnFormScreen(onBack: () -> Unit, onSuccess: () -> Unit) {
                                 }
                                 // Qty stepper
                                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    IconButton(onClick = { vm.setItemQty(i, item.qty - 1) }, modifier = Modifier.size(32.dp).background(if (item.qty > 0) DangerBg else ScreenBg, RoundedCornerShape(8.dp))) {
+                                    IconButton(onClick = { vm.setItemQty(i, item.qty - 1) }, modifier = Modifier.size(40.dp).background(if (item.qty > 0) DangerBg else ScreenBg, RoundedCornerShape(8.dp))) {
                                         Text("−", fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, color = if (item.qty > 0) Danger else TextMuted)
                                     }
                                     Text("${item.qty}", fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, color = if (item.qty > 0) Danger else TextMuted, modifier = Modifier.widthIn(min = 28.dp))
-                                    IconButton(onClick = { vm.setItemQty(i, item.qty + 1) }, modifier = Modifier.size(32.dp).background(if (item.qty < item.maxQty) DangerBg else ScreenBg, RoundedCornerShape(8.dp))) {
+                                    IconButton(onClick = { vm.setItemQty(i, item.qty + 1) }, modifier = Modifier.size(40.dp).background(if (item.qty < item.maxQty) DangerBg else ScreenBg, RoundedCornerShape(8.dp))) {
                                         Text("+", fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, color = if (item.qty < item.maxQty) Danger else TextMuted)
                                     }
                                 }
@@ -269,3 +275,4 @@ private fun SectionHeader(icon: androidx.compose.ui.graphics.vector.ImageVector,
         HorizontalDivider(modifier = Modifier.weight(1f), color = BorderColor)
     }
 }
+

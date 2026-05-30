@@ -8,10 +8,13 @@ import com.sspd.servicemgmt.api.PaymentMethodDTO
 import com.sspd.servicemgmt.api.SaleDTO
 import com.sspd.servicemgmt.api.SalePaymentRequest
 import com.sspd.servicemgmt.utils.PreferenceManager
+import com.sspd.servicemgmt.websocket.DataEventBus
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -24,7 +27,16 @@ class SaleListViewModel(application: Application) : AndroidViewModel(application
     private val _uiState = MutableStateFlow(SaleListUiState(fromDate = today(), toDate = today()))
     val uiState: StateFlow<SaleListUiState> = _uiState.asStateFlow()
 
-    init { load() }
+    init {
+        load()
+        viewModelScope.launch {
+            DataEventBus.events
+                .filter { it.entity.contains("Sale", ignoreCase = true)
+                       && !it.entity.contains("Return", ignoreCase = true) }
+                .debounce(600)
+                .collect { load() }
+        }
+    }
 
     fun load() {
         viewModelScope.launch {
