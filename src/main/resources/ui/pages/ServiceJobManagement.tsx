@@ -543,12 +543,6 @@ export default function ServiceJobManagement() {
                             ✓ ပေးပို့ပြီး
                           </button>
                         )}
-                        {canDelete && (
-                          <button onClick={() => handleDelete(j.id)} title="ဖျက်ရန်"
-                            className="px-2 py-1 text-xs border rounded-lg text-slate-500 hover:text-red-600 hover:bg-red-50 transition-colors">
-                            🗑
-                          </button>
-                        )}
                       </div>
                     </td>
                   </tr>
