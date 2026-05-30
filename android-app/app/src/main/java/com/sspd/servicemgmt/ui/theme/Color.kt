@@ -2,7 +2,7 @@ package com.sspd.servicemgmt.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-val Primary      = Color(0xFF2563EB)
+val Primary      = Color(0xFF2563EB)   // Blue
 val PrimaryLight = Color(0xFFEFF6FF)
 val Success      = Color(0xFF16A34A)
 val SuccessBg    = Color(0xFFF0FDF4)

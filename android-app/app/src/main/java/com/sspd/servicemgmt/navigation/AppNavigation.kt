@@ -1,12 +1,15 @@
 package com.sspd.servicemgmt.navigation
 
-import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -15,7 +18,11 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -42,7 +49,10 @@ import com.sspd.servicemgmt.utils.PreferenceManager
 
 val LocalServerStatus = compositionLocalOf { ServerStatus.CHECKING }
 
-private const val ANIM_MS = 220
+// EaseOutExpo — snappy deceleration, feels responsive
+private val ExpoOut  = CubicBezierEasing(0.16f, 1f, 0.3f, 1f)
+private const val ANIM_MS   = 280   // push/pop slide
+private const val FADE_MS   = 180   // tab cross-fade
 
 private data class BottomNavItem(
     val route: String,
@@ -60,28 +70,115 @@ private val bottomNavItems = listOf(
 
 private val bottomNavRoutes = bottomNavItems.map { it.route }.toSet()
 
+// ── Custom bottom nav with raised centre Booking button ───────────────────────
+@Composable
+private fun CustomBottomNav(
+    items:        List<BottomNavItem>,
+    currentRoute: String?,
+    onNavigate:   (String) -> Unit
+) {
+    val centerItem  = items[2]          // Booking
+    val leftItems   = items.subList(0, 2)
+    val rightItems  = items.subList(3, 5)
+    val centerSel   = currentRoute == centerItem.route
+
+    Box(modifier = Modifier.fillMaxWidth()) {
+
+        // ── Bar background ────────────────────────────────────────────────
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Spacer(Modifier.height(28.dp))          // room for the raised button
+            HorizontalDivider(color = Color(0xFFE2E8F0), thickness = 0.5.dp)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color.White)
+                    .navigationBarsPadding()
+                    .height(58.dp),
+                horizontalArrangement = Arrangement.SpaceAround,
+                verticalAlignment     = Alignment.CenterVertically
+            ) {
+                leftItems.forEach { item ->
+                    FlatNavItem(item, currentRoute == item.route) { onNavigate(item.route) }
+                }
+                // Centre placeholder — same visual weight as one icon column
+                Spacer(Modifier.width(64.dp))
+                rightItems.forEach { item ->
+                    FlatNavItem(item, currentRoute == item.route) { onNavigate(item.route) }
+                }
+            }
+        }
+
+        // ── Raised centre button ──────────────────────────────────────────
+        Column(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = 0.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(56.dp)
+                    .shadow(10.dp, CircleShape)
+                    .clip(CircleShape)
+                    .background(if (centerSel) Primary else Color(0xFF1D4ED8))
+                    .clickable { onNavigate(centerItem.route) },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    centerItem.icon,
+                    contentDescription = centerItem.label,
+                    tint     = Color.White,
+                    modifier = Modifier.size(28.dp)
+                )
+            }
+            Spacer(Modifier.height(2.dp))
+            Text(
+                centerItem.label,
+                fontSize   = 10.sp,
+                fontWeight = if (centerSel) FontWeight.ExtraBold else FontWeight.Normal,
+                color      = if (centerSel) Primary else TextMuted
+            )
+        }
+    }
+}
+
+@Composable
+private fun FlatNavItem(item: BottomNavItem, selected: Boolean, onClick: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .clip(androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
+            .clickable { onClick() }
+            .padding(horizontal = 14.dp, vertical = 6.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(2.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(if (selected) 34.dp else 30.dp)
+                .clip(androidx.compose.foundation.shape.RoundedCornerShape(10.dp))
+                .background(if (selected) Primary.copy(0.10f) else Color.Transparent),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                item.icon,
+                contentDescription = item.label,
+                tint     = if (selected) Primary else TextMuted,
+                modifier = Modifier.size(if (selected) 22.dp else 20.dp)
+            )
+        }
+        Text(
+            item.label,
+            fontSize   = 10.sp,
+            fontWeight = if (selected) FontWeight.ExtraBold else FontWeight.Normal,
+            color      = if (selected) Primary else TextMuted
+        )
+    }
+}
+
 private fun NavGraphBuilder.screen(
     route: String,
     content: @Composable (NavBackStackEntry) -> Unit
-) {
-    composable(
-        route = route,
-        enterTransition = {
-            slideInHorizontally(initialOffsetX = { it }, animationSpec = tween(ANIM_MS, easing = FastOutSlowInEasing))
-        },
-        exitTransition = {
-            slideOutHorizontally(targetOffsetX = { -it / 4 }, animationSpec = tween(ANIM_MS, easing = FastOutSlowInEasing)) +
-            fadeOut(tween(ANIM_MS - 40))
-        },
-        popEnterTransition = {
-            slideInHorizontally(initialOffsetX = { -it / 4 }, animationSpec = tween(ANIM_MS, easing = FastOutSlowInEasing)) +
-            fadeIn(tween(ANIM_MS - 40))
-        },
-        popExitTransition = {
-            slideOutHorizontally(targetOffsetX = { it }, animationSpec = tween(ANIM_MS, easing = FastOutSlowInEasing))
-        }
-    ) { entry -> content(entry) }
-}
+) = composable(route = route) { entry -> content(entry) }
 
 @Composable
 fun AppNavigation() {
@@ -110,42 +207,48 @@ fun AppNavigation() {
         Scaffold(
             bottomBar = {
                 if (showBottomBar) {
-                    NavigationBar(
-                        containerColor = androidx.compose.ui.graphics.Color.White,
-                        tonalElevation = 0.dp
-                    ) {
-                        bottomNavItems.forEach { item ->
-                            val selected = currentRoute == item.route
-                            NavigationBarItem(
-                                selected = selected,
-                                onClick  = { navigateTab(item.route) },
-                                icon = {
-                                    Icon(item.icon, contentDescription = item.label)
-                                },
-                                label = {
-                                    Text(
-                                        item.label,
-                                        fontSize   = 10.sp,
-                                        fontWeight = if (selected) FontWeight.ExtraBold else FontWeight.Normal
-                                    )
-                                },
-                                colors = NavigationBarItemDefaults.colors(
-                                    selectedIconColor   = Primary,
-                                    selectedTextColor   = Primary,
-                                    indicatorColor      = Primary.copy(alpha = 0.12f),
-                                    unselectedIconColor = TextMuted,
-                                    unselectedTextColor = TextMuted
-                                )
-                            )
-                        }
-                    }
+                    CustomBottomNav(
+                        items       = bottomNavItems,
+                        currentRoute = currentRoute,
+                        onNavigate  = { navigateTab(it) }
+                    )
                 }
             }
         ) { innerPadding ->
             NavHost(
                 navController    = nav,
                 startDestination = start,
-                modifier         = Modifier.padding(innerPadding)
+                modifier         = Modifier.padding(innerPadding),
+                enterTransition = {
+                    val isTab = initialState.destination.route in bottomNavRoutes &&
+                                targetState.destination.route in bottomNavRoutes
+                    if (isTab) fadeIn(tween(FADE_MS))
+                    else slideInHorizontally(
+                             animationSpec  = tween(ANIM_MS, easing = ExpoOut),
+                             initialOffsetX = { (it * 0.08f).toInt() }
+                         ) + fadeIn(tween(ANIM_MS, easing = ExpoOut))
+                },
+                exitTransition = {
+                    val isTab = initialState.destination.route in bottomNavRoutes &&
+                                targetState.destination.route in bottomNavRoutes
+                    if (isTab) fadeOut(tween(FADE_MS))
+                    else slideOutHorizontally(
+                             animationSpec = tween(ANIM_MS, easing = ExpoOut),
+                             targetOffsetX = { -(it * 0.08f).toInt() }
+                         ) + fadeOut(tween(ANIM_MS / 2))
+                },
+                popEnterTransition = {
+                    slideInHorizontally(
+                        animationSpec  = tween(ANIM_MS, easing = ExpoOut),
+                        initialOffsetX = { -(it * 0.08f).toInt() }
+                    ) + fadeIn(tween(ANIM_MS, easing = ExpoOut))
+                },
+                popExitTransition = {
+                    slideOutHorizontally(
+                        animationSpec = tween(ANIM_MS, easing = ExpoOut),
+                        targetOffsetX = { (it * 0.08f).toInt() }
+                    ) + fadeOut(tween(ANIM_MS / 2))
+                }
             ) {
 
                 // ── Auth Graph ──────────────────────────────────────────────
@@ -199,10 +302,6 @@ fun AppNavigation() {
                     composable(
                         route = Screen.SaleDetail.route,
                         arguments = listOf(navArgument("saleId") { type = NavType.IntType }),
-                        enterTransition    = { slideInHorizontally(initialOffsetX = { it }, animationSpec = tween(ANIM_MS, easing = FastOutSlowInEasing)) },
-                        exitTransition     = { slideOutHorizontally(targetOffsetX = { -it / 4 }, animationSpec = tween(ANIM_MS, easing = FastOutSlowInEasing)) + fadeOut(tween(ANIM_MS - 40)) },
-                        popEnterTransition = { slideInHorizontally(initialOffsetX = { -it / 4 }, animationSpec = tween(ANIM_MS, easing = FastOutSlowInEasing)) + fadeIn(tween(ANIM_MS - 40)) },
-                        popExitTransition  = { slideOutHorizontally(targetOffsetX = { it }, animationSpec = tween(ANIM_MS, easing = FastOutSlowInEasing)) }
                     ) { entry ->
                         val saleId = entry.arguments?.getInt("saleId") ?: 0
                         SaleDetailScreen(
@@ -213,10 +312,6 @@ fun AppNavigation() {
                     composable(
                         route = Screen.SalePrint.route,
                         arguments = listOf(navArgument("saleId") { type = NavType.IntType }),
-                        enterTransition    = { slideInHorizontally(initialOffsetX = { it }, animationSpec = tween(ANIM_MS, easing = FastOutSlowInEasing)) },
-                        exitTransition     = { slideOutHorizontally(targetOffsetX = { -it / 4 }, animationSpec = tween(ANIM_MS, easing = FastOutSlowInEasing)) + fadeOut(tween(ANIM_MS - 40)) },
-                        popEnterTransition = { slideInHorizontally(initialOffsetX = { -it / 4 }, animationSpec = tween(ANIM_MS, easing = FastOutSlowInEasing)) + fadeIn(tween(ANIM_MS - 40)) },
-                        popExitTransition  = { slideOutHorizontally(targetOffsetX = { it }, animationSpec = tween(ANIM_MS, easing = FastOutSlowInEasing)) }
                     ) { entry ->
                         val saleId = entry.arguments?.getInt("saleId") ?: 0
                         SalePrintScreen(saleId = saleId, onBack = { nav.popBackStack() })
@@ -236,10 +331,6 @@ fun AppNavigation() {
                             navArgument("productId") { type = NavType.IntType },
                             navArgument("serialNumber") { type = NavType.StringType; nullable = true; defaultValue = null }
                         ),
-                        enterTransition    = { slideInHorizontally(initialOffsetX = { it }, animationSpec = tween(ANIM_MS, easing = FastOutSlowInEasing)) },
-                        exitTransition     = { slideOutHorizontally(targetOffsetX = { -it / 4 }, animationSpec = tween(ANIM_MS, easing = FastOutSlowInEasing)) + fadeOut(tween(ANIM_MS - 40)) },
-                        popEnterTransition = { slideInHorizontally(initialOffsetX = { -it / 4 }, animationSpec = tween(ANIM_MS, easing = FastOutSlowInEasing)) + fadeIn(tween(ANIM_MS - 40)) },
-                        popExitTransition  = { slideOutHorizontally(targetOffsetX = { it }, animationSpec = tween(ANIM_MS, easing = FastOutSlowInEasing)) }
                     ) {
                         ProductDetailScreen(onBack = { nav.popBackStack() })
                     }
@@ -266,10 +357,6 @@ fun AppNavigation() {
                     composable(
                         route = Screen.EditBooking.route,
                         arguments = listOf(navArgument("bookingId") { type = NavType.IntType }),
-                        enterTransition    = { slideInHorizontally(initialOffsetX = { it }, animationSpec = tween(ANIM_MS, easing = FastOutSlowInEasing)) },
-                        exitTransition     = { slideOutHorizontally(targetOffsetX = { -it / 4 }, animationSpec = tween(ANIM_MS, easing = FastOutSlowInEasing)) + fadeOut(tween(ANIM_MS - 40)) },
-                        popEnterTransition = { slideInHorizontally(initialOffsetX = { -it / 4 }, animationSpec = tween(ANIM_MS, easing = FastOutSlowInEasing)) + fadeIn(tween(ANIM_MS - 40)) },
-                        popExitTransition  = { slideOutHorizontally(targetOffsetX = { it }, animationSpec = tween(ANIM_MS, easing = FastOutSlowInEasing)) }
                     ) {
                         BookingFormScreen(
                             onBack    = { nav.popBackStack() },
@@ -279,10 +366,6 @@ fun AppNavigation() {
                     composable(
                         route = Screen.BookingDetail.route,
                         arguments = listOf(navArgument("bookingId") { type = NavType.IntType }),
-                        enterTransition    = { slideInHorizontally(initialOffsetX = { it }, animationSpec = tween(ANIM_MS, easing = FastOutSlowInEasing)) },
-                        exitTransition     = { slideOutHorizontally(targetOffsetX = { -it / 4 }, animationSpec = tween(ANIM_MS, easing = FastOutSlowInEasing)) + fadeOut(tween(ANIM_MS - 40)) },
-                        popEnterTransition = { slideInHorizontally(initialOffsetX = { -it / 4 }, animationSpec = tween(ANIM_MS, easing = FastOutSlowInEasing)) + fadeIn(tween(ANIM_MS - 40)) },
-                        popExitTransition  = { slideOutHorizontally(targetOffsetX = { it }, animationSpec = tween(ANIM_MS, easing = FastOutSlowInEasing)) }
                     ) { entry ->
                         val bookingId = entry.arguments?.getInt("bookingId") ?: -1
                         BookingDetailScreen(
@@ -295,10 +378,6 @@ fun AppNavigation() {
                     composable(
                         route = Screen.BookingPrint.route,
                         arguments = listOf(navArgument("bookingId") { type = NavType.IntType }),
-                        enterTransition    = { slideInHorizontally(initialOffsetX = { it }, animationSpec = tween(ANIM_MS, easing = FastOutSlowInEasing)) },
-                        exitTransition     = { slideOutHorizontally(targetOffsetX = { -it / 4 }, animationSpec = tween(ANIM_MS, easing = FastOutSlowInEasing)) + fadeOut(tween(ANIM_MS - 40)) },
-                        popEnterTransition = { slideInHorizontally(initialOffsetX = { -it / 4 }, animationSpec = tween(ANIM_MS, easing = FastOutSlowInEasing)) + fadeIn(tween(ANIM_MS - 40)) },
-                        popExitTransition  = { slideOutHorizontally(targetOffsetX = { it }, animationSpec = tween(ANIM_MS, easing = FastOutSlowInEasing)) }
                     ) {
                         BookingPrintScreen(onBack = { nav.popBackStack() })
                     }
@@ -324,10 +403,6 @@ fun AppNavigation() {
                     composable(
                         route = Screen.EditServiceJob.route,
                         arguments = listOf(navArgument("jobId") { type = NavType.IntType }),
-                        enterTransition    = { slideInHorizontally(initialOffsetX = { it }, animationSpec = tween(ANIM_MS, easing = FastOutSlowInEasing)) },
-                        exitTransition     = { slideOutHorizontally(targetOffsetX = { -it / 4 }, animationSpec = tween(ANIM_MS, easing = FastOutSlowInEasing)) + fadeOut(tween(ANIM_MS - 40)) },
-                        popEnterTransition = { slideInHorizontally(initialOffsetX = { -it / 4 }, animationSpec = tween(ANIM_MS, easing = FastOutSlowInEasing)) + fadeIn(tween(ANIM_MS - 40)) },
-                        popExitTransition  = { slideOutHorizontally(targetOffsetX = { it }, animationSpec = tween(ANIM_MS, easing = FastOutSlowInEasing)) }
                     ) {
                         ServiceJobFormScreen(
                             onBack    = { nav.popBackStack() },
@@ -337,10 +412,6 @@ fun AppNavigation() {
                     composable(
                         route = Screen.ServiceJobDetail.route,
                         arguments = listOf(navArgument("jobId") { type = NavType.IntType }),
-                        enterTransition    = { slideInHorizontally(initialOffsetX = { it }, animationSpec = tween(ANIM_MS, easing = FastOutSlowInEasing)) },
-                        exitTransition     = { slideOutHorizontally(targetOffsetX = { -it / 4 }, animationSpec = tween(ANIM_MS, easing = FastOutSlowInEasing)) + fadeOut(tween(ANIM_MS - 40)) },
-                        popEnterTransition = { slideInHorizontally(initialOffsetX = { -it / 4 }, animationSpec = tween(ANIM_MS, easing = FastOutSlowInEasing)) + fadeIn(tween(ANIM_MS - 40)) },
-                        popExitTransition  = { slideOutHorizontally(targetOffsetX = { it }, animationSpec = tween(ANIM_MS, easing = FastOutSlowInEasing)) }
                     ) { entry ->
                         val jobId = entry.arguments?.getInt("jobId") ?: 0
                         ServiceJobDetailScreen(
@@ -355,10 +426,6 @@ fun AppNavigation() {
                     composable(
                         route = Screen.ServiceJobPrint.route,
                         arguments = listOf(navArgument("jobId") { type = NavType.IntType }),
-                        enterTransition    = { slideInHorizontally(initialOffsetX = { it }, animationSpec = tween(ANIM_MS, easing = FastOutSlowInEasing)) },
-                        exitTransition     = { slideOutHorizontally(targetOffsetX = { -it / 4 }, animationSpec = tween(ANIM_MS, easing = FastOutSlowInEasing)) + fadeOut(tween(ANIM_MS - 40)) },
-                        popEnterTransition = { slideInHorizontally(initialOffsetX = { -it / 4 }, animationSpec = tween(ANIM_MS, easing = FastOutSlowInEasing)) + fadeIn(tween(ANIM_MS - 40)) },
-                        popExitTransition  = { slideOutHorizontally(targetOffsetX = { it }, animationSpec = tween(ANIM_MS, easing = FastOutSlowInEasing)) }
                     ) {
                         ServiceJobPrintScreen(onBack = { nav.popBackStack() })
                     }
@@ -384,10 +451,6 @@ fun AppNavigation() {
                     composable(
                         route = Screen.EditSaleReturn.route,
                         arguments = listOf(navArgument("returnId") { type = NavType.IntType }),
-                        enterTransition    = { slideInHorizontally(initialOffsetX = { it }, animationSpec = tween(ANIM_MS, easing = FastOutSlowInEasing)) },
-                        exitTransition     = { slideOutHorizontally(targetOffsetX = { -it / 4 }, animationSpec = tween(ANIM_MS, easing = FastOutSlowInEasing)) + fadeOut(tween(ANIM_MS - 40)) },
-                        popEnterTransition = { slideInHorizontally(initialOffsetX = { -it / 4 }, animationSpec = tween(ANIM_MS, easing = FastOutSlowInEasing)) + fadeIn(tween(ANIM_MS - 40)) },
-                        popExitTransition  = { slideOutHorizontally(targetOffsetX = { it }, animationSpec = tween(ANIM_MS, easing = FastOutSlowInEasing)) }
                     ) {
                         SaleReturnFormScreen(
                             onBack    = { nav.popBackStack() },
@@ -397,10 +460,6 @@ fun AppNavigation() {
                     composable(
                         route = Screen.SaleReturnDetail.route,
                         arguments = listOf(navArgument("returnId") { type = NavType.IntType }),
-                        enterTransition    = { slideInHorizontally(initialOffsetX = { it }, animationSpec = tween(ANIM_MS, easing = FastOutSlowInEasing)) },
-                        exitTransition     = { slideOutHorizontally(targetOffsetX = { -it / 4 }, animationSpec = tween(ANIM_MS, easing = FastOutSlowInEasing)) + fadeOut(tween(ANIM_MS - 40)) },
-                        popEnterTransition = { slideInHorizontally(initialOffsetX = { -it / 4 }, animationSpec = tween(ANIM_MS, easing = FastOutSlowInEasing)) + fadeIn(tween(ANIM_MS - 40)) },
-                        popExitTransition  = { slideOutHorizontally(targetOffsetX = { it }, animationSpec = tween(ANIM_MS, easing = FastOutSlowInEasing)) }
                     ) { entry ->
                         val returnId = entry.arguments?.getInt("returnId") ?: 0
                         SaleReturnDetailScreen(
@@ -422,10 +481,6 @@ fun AppNavigation() {
                     composable(
                         route = Screen.NewExpenseEntry.route,
                         arguments = listOf(navArgument("type") { type = NavType.StringType; defaultValue = "EXPENSE" }),
-                        enterTransition    = { slideInHorizontally(initialOffsetX = { it }, animationSpec = tween(ANIM_MS, easing = FastOutSlowInEasing)) },
-                        exitTransition     = { slideOutHorizontally(targetOffsetX = { -it / 4 }, animationSpec = tween(ANIM_MS, easing = FastOutSlowInEasing)) + fadeOut(tween(ANIM_MS - 40)) },
-                        popEnterTransition = { slideInHorizontally(initialOffsetX = { -it / 4 }, animationSpec = tween(ANIM_MS, easing = FastOutSlowInEasing)) + fadeIn(tween(ANIM_MS - 40)) },
-                        popExitTransition  = { slideOutHorizontally(targetOffsetX = { it }, animationSpec = tween(ANIM_MS, easing = FastOutSlowInEasing)) }
                     ) {
                         ExpenseFormScreen(
                             onBack    = { nav.popBackStack() },

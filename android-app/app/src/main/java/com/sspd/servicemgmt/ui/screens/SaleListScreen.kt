@@ -404,7 +404,7 @@ fun SaleListScreen(
                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        items(returnList) { ret ->
+                        items(returnList, key = { it.id ?: it.returnCode.hashCode() }) { ret ->
                             Card(
                                 shape    = RoundedCornerShape(12.dp),
                                 colors   = CardDefaults.cardColors(containerColor = CardBg),
@@ -502,7 +502,7 @@ fun SaleListScreen(
                                 }
                             }
 
-                            items(displayList) { sale ->
+                            items(displayList, key = { it.id ?: it.saleCode.hashCode() }) { sale ->
                                 SaleCard(
                                     sale        = sale,
                                     showDueOnly = selectedTab == 1,
