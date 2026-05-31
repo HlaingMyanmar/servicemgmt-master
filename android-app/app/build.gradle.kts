@@ -24,7 +24,7 @@ android {
         vectorDrawables { useSupportLibrary = true }
 
         // Default server — override per-buildType below if needed
-        buildConfigField("String", "DEFAULT_BASE_URL", "\"https://192.168.20.197:8080\"")
+        buildConfigField("String", "DEFAULT_BASE_URL", "\"https://192.168.20.253:8080\"")
     }
 
     signingConfigs {
@@ -84,6 +84,7 @@ dependencies {
     implementation(composeBom)
 
     implementation("androidx.core:core-ktx:1.13.0")
+    implementation("androidx.core:core-splashscreen:1.0.1")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.7.0")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")

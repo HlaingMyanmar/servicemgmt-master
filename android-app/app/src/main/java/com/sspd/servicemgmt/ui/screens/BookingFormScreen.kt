@@ -37,6 +37,59 @@ fun BookingFormScreen(onBack: () -> Unit, onSuccess: () -> Unit) {
 
     var showShelfSheet by rememberSaveable { mutableStateOf(false) }
 
+    // ── New Customer Dialog ───────────────────────────────────────────────────
+    if (state.showNewCustomerDialog) {
+        AlertDialog(
+            onDismissRequest = { vm.dismissNewCustomerDialog() },
+            icon  = { Icon(Icons.Outlined.PersonAdd, null, tint = Primary) },
+            title = { Text("ဖောက်သည်အသစ် ထည့်ရန်", fontWeight = FontWeight.ExtraBold) },
+            text  = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    OutlinedTextField(
+                        value         = state.newCustomerName,
+                        onValueChange = { vm.setNewCustomerName(it) },
+                        label         = { Text("အမည် *") },
+                        leadingIcon   = { Icon(Icons.Outlined.Person, null) },
+                        singleLine    = true,
+                        shape         = RoundedCornerShape(10.dp),
+                        modifier      = Modifier.fillMaxWidth(),
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
+                    )
+                    OutlinedTextField(
+                        value         = state.newCustomerPhone,
+                        onValueChange = { vm.setNewCustomerPhone(it) },
+                        label         = { Text("ဖုန်းနံပါတ်") },
+                        leadingIcon   = { Icon(Icons.Outlined.Phone, null) },
+                        singleLine    = true,
+                        shape         = RoundedCornerShape(10.dp),
+                        modifier      = Modifier.fillMaxWidth(),
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Phone,
+                            imeAction    = ImeAction.Done
+                        )
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick  = { vm.createCustomer() },
+                    enabled  = state.newCustomerName.isNotBlank() && !state.creatingCustomer,
+                    colors   = ButtonDefaults.buttonColors(containerColor = Primary)
+                ) {
+                    if (state.creatingCustomer)
+                        CircularProgressIndicator(color = Color.White, modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                    else
+                        Text("သိမ်းဆည်းမည်", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { vm.dismissNewCustomerDialog() }, enabled = !state.creatingCustomer) {
+                    Text("ပယ်ဖျက်")
+                }
+            }
+        )
+    }
+
     if (showShelfSheet) {
         ModalBottomSheet(onDismissRequest = { showShelfSheet = false }) {
             Column(Modifier.padding(16.dp)) {
@@ -138,7 +191,7 @@ fun BookingFormScreen(onBack: () -> Unit, onSuccess: () -> Unit) {
                     state.customers.filter { it.name.contains(state.customerQuery, true) }.take(5)
                 else emptyList()
 
-                if (suggestions.isNotEmpty() && state.selectedCustomer == null) {
+                if (state.customerQuery.isNotBlank() && state.selectedCustomer == null) {
                     Card(
                         shape  = RoundedCornerShape(0.dp, 0.dp, 12.dp, 12.dp),
                         colors = CardDefaults.cardColors(containerColor = CardBg),
@@ -161,6 +214,21 @@ fun BookingFormScreen(onBack: () -> Unit, onSuccess: () -> Unit) {
                                 }
                             }
                             HorizontalDivider(color = BorderColor)
+                        }
+                        // ── New Customer option ───────────────────────────────
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { vm.showNewCustomerDialog() }
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalAlignment     = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Outlined.PersonAdd, null, tint = Primary, modifier = Modifier.size(16.dp))
+                            Text(
+                                "\"${state.customerQuery}\" ကို ဖောက်သည်အသစ် အဖြစ် ထည့်မည်",
+                                fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Primary
+                            )
                         }
                     }
                 }

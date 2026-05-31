@@ -40,7 +40,11 @@ class LoginViewModel(application: Application) : AndroidViewModel(application) {
                     val msg  = res.body()?.message
                     _uiState.update { it.copy(
                         loading = false,
-                        error   = if (msg != null) "[$code] $msg" else "HTTP $code — Login မအောင်မြင်ပါ"
+                        error   = when {
+                            code == 401          -> msg ?: "Username သို့မဟုတ် Password မှားနေပါသည်"
+                            msg != null          -> msg
+                            else                 -> "HTTP $code — Login မအောင်မြင်ပါ"
+                        }
                     ) }
                 }
             } catch (e: Exception) {
@@ -54,6 +58,10 @@ class LoginViewModel(application: Application) : AndroidViewModel(application) {
                 ) }
             }
         }
+    }
+
+    fun clearError() {
+        _uiState.update { it.copy(error = "") }
     }
 
     data class LoginUiState(

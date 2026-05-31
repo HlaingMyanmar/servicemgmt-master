@@ -541,7 +541,6 @@ const SaleManagement: React.FC = () => {
 
   const validateSale = () => {
     if (customerId <= 0) return 'Customer is required.';
-    if (staffId <= 0) return 'Staff is required.';
     if (details.length === 0) return 'Sale detail is required.';
 
     const usedSerials = new Set<string>();
@@ -815,7 +814,7 @@ const SaleManagement: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1.5">Staff <span className="text-rose-500">*</span></label>
+              <label className="block text-xs font-semibold text-slate-600 mb-1.5">Staff</label>
               <select value={staffId} onChange={(e) => setStaffId(Number(e.target.value) || 0)} className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:border-indigo-400">
                 <option value={0}>- Select staff -</option>
                 {staffs.map((s) => <option key={s.id} value={s.id}>{s.name} ({s.role})</option>)}
@@ -1258,7 +1257,7 @@ const SaleManagement: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1.5">Staff <span className="text-rose-500">*</span></label>
+                <label className="block text-xs font-semibold text-slate-600 mb-1.5">Staff</label>
                 <select value={staffId} onChange={(e) => setStaffId(Number(e.target.value) || 0)} className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:border-indigo-400">
                   <option value={0}>— Select staff —</option>
                   {staffs.map((s) => <option key={s.id} value={s.id}>{s.name} ({s.role})</option>)}

@@ -128,14 +128,11 @@ public class SaleService {
         if (dto.getCustomerId() == null) {
             throw new RuntimeException("Customer is required");
         }
-        if (dto.getStaffId() == null) {
-            throw new RuntimeException("Staff is required");
-        }
-
         Customer customer = customerRepository.findById(dto.getCustomerId())
                 .orElseThrow(() -> new ResourceNotFoundException("Customer not found"));
-        Staff staff = staffRepository.findById(dto.getStaffId())
-                .orElseThrow(() -> new ResourceNotFoundException("Staff not found"));
+        Staff staff = dto.getStaffId() != null
+                ? staffRepository.findById(dto.getStaffId()).orElseThrow(() -> new ResourceNotFoundException("Staff not found"))
+                : null;
 
         Sale sale = new Sale();
         sale.setCustomer(customer);

@@ -240,9 +240,8 @@ class NewSaleViewModel(application: Application) : AndroidViewModel(application)
     fun submit(onSuccess: (SaleDTO) -> Unit, onError: (String) -> Unit) {
         val state    = _uiState.value
         val customer = state.selectedCustomer
-        if (customer == null)            { onError("Customer ရွေးပါ"); return }
-        if (state.selectedStaff == null) { onError("Staff ရွေးပါ"); return }
-        if (state.cart.isEmpty())        { onError("Item တစ်ခုမျှ မထည့်ရသေးပါ"); return }
+        if (customer == null)     { onError("Customer ရွေးပါ"); return }
+        if (state.cart.isEmpty()) { onError("Item တစ်ခုမျှ မထည့်ရသေးပါ"); return }
 
         // Compute totals once (Long for validation, Double for API body)
         val grossL    = state.cart.sumOf { it.unitPrice * it.qty.toLong() }
@@ -296,7 +295,7 @@ class NewSaleViewModel(application: Application) : AndroidViewModel(application)
 
         val body = SaleDTO(
             customerId      = state.selectedCustomer.id,
-            staffId         = state.selectedStaff.id,
+            staffId         = state.selectedStaff?.id,
             totalAmount     = gross,
             discountAmount  = overallD,
             netAmount       = net,

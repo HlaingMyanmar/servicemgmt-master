@@ -2,12 +2,12 @@ package org.sspd.servicemgmt.authoption;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.sspd.servicemgmt.exceptionhandler.ResourceNotFoundException;
 import org.sspd.servicemgmt.jwt.CustomUserDetailsService;
 import org.sspd.servicemgmt.jwt.JwtService;
 import org.sspd.servicemgmt.rbacoptions.useroptions.model.User;
@@ -39,7 +39,7 @@ public class AuthService {
         // ၂. Token version increment — ဒီအတွက် ရှေ့က session တွေ invalid ဖြစ်သွားမယ်
         User user = userRepository.findByUsernameOrEmail(
                         request.getUsernameOremail(), request.getUsernameOremail())
-                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+                .orElseThrow(() -> new BadCredentialsException("Username သို့မဟုတ် Password မှားနေပါသည်"));
         int newVersion = (user.getTokenVersion() == null ? 0 : user.getTokenVersion()) + 1;
         user.setTokenVersion(newVersion);
         userRepository.save(user);

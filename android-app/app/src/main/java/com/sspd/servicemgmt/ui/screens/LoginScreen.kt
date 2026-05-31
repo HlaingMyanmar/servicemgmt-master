@@ -63,6 +63,20 @@ fun LoginScreen(onSuccess: () -> Unit) {
         if (state.loginSuccess) onSuccess()
     }
 
+    if (state.error.isNotEmpty()) {
+        AlertDialog(
+            onDismissRequest = { vm.clearError() },
+            icon = { Icon(Icons.Outlined.ErrorOutline, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+            title = { Text("Login မအောင်မြင်ပါ", fontWeight = FontWeight.Bold) },
+            text  = { Text(state.error) },
+            confirmButton = {
+                TextButton(onClick = { vm.clearError() }) {
+                    Text("OK", fontWeight = FontWeight.Bold)
+                }
+            }
+        )
+    }
+
     Box(modifier = Modifier.fillMaxSize().background(Primary)) {
 
         TechBackground(modifier = Modifier.fillMaxSize())
@@ -84,7 +98,6 @@ fun LoginScreen(onSuccess: () -> Unit) {
                 password          = password,
                 pwVisible         = pwVisible,
                 loading           = state.loading,
-                error             = state.error,
                 onUsernameChange  = { username = it },
                 onPasswordChange  = { password = it },
                 onTogglePwVisible = { pwVisible = !pwVisible },
@@ -305,7 +318,6 @@ private fun LoginCard(
     password:          String,
     pwVisible:         Boolean,
     loading:           Boolean,
-    error:             String,
     onUsernameChange:  (String) -> Unit,
     onPasswordChange:  (String) -> Unit,
     onTogglePwVisible: () -> Unit,
@@ -363,15 +375,6 @@ private fun LoginCard(
                 shape                = RoundedCornerShape(12.dp)
             )
 
-            if (error.isNotEmpty()) {
-                Spacer(Modifier.height(10.dp))
-                Text(
-                    error, color = Danger, fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    textAlign  = TextAlign.Center,
-                    modifier   = Modifier.fillMaxWidth()
-                )
-            }
             Spacer(Modifier.height(20.dp))
 
             Button(

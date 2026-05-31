@@ -92,6 +92,42 @@ class BookingFormViewModel(
     fun setCustomerQuery(q: String) = _uiState.update { it.copy(customerQuery = q, selectedCustomer = null) }
     fun selectCustomer(c: CustomerDTO) = _uiState.update { it.copy(selectedCustomer = c, customerQuery = c.name) }
 
+    fun showNewCustomerDialog() = _uiState.update {
+        it.copy(showNewCustomerDialog = true, newCustomerName = it.customerQuery, newCustomerPhone = "")
+    }
+    fun dismissNewCustomerDialog() = _uiState.update { it.copy(showNewCustomerDialog = false) }
+    fun setNewCustomerName(v: String)  = _uiState.update { it.copy(newCustomerName = v) }
+    fun setNewCustomerPhone(v: String) = _uiState.update { it.copy(newCustomerPhone = v) }
+
+    fun createCustomer() {
+        val s = _uiState.value
+        if (s.newCustomerName.isBlank()) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(creatingCustomer = true) }
+            try {
+                val token = ApiClient.bearer(prefs.authToken)
+                val res = ApiClient.service.createCustomer(
+                    token,
+                    CustomerDTO(name = s.newCustomerName.trim(), phone = s.newCustomerPhone.ifBlank { null })
+                )
+                val created = res.body()?.data
+                if (res.isSuccessful && created != null) {
+                    _uiState.update { it.copy(
+                        customers            = it.customers + created,
+                        selectedCustomer     = created,
+                        customerQuery        = created.name,
+                        showNewCustomerDialog = false,
+                        creatingCustomer     = false
+                    ) }
+                } else {
+                    _uiState.update { it.copy(creatingCustomer = false, saveError = res.body()?.message ?: "ဖောက်သည် မသိမ်းနိုင်ပါ") }
+                }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(creatingCustomer = false, saveError = e.message ?: "ချိတ်ဆက်မှု ချို့ယွင်း") }
+            }
+        }
+    }
+
     // ── Devices ───────────────────────────────────────────────────────────────
     fun addDevice() = _uiState.update { it.copy(devices = it.devices + DeviceDraft()) }
 
@@ -182,16 +218,20 @@ class BookingFormViewModel(
     )
 
     data class UiState(
-        val customers:        List<CustomerDTO>      = emptyList(),
-        val shelfLocations:   List<ShelfLocationDTO> = emptyList(),
-        val loading:          Boolean                = true,
-        val saving:           Boolean                = false,
-        val saveError:        String?                = null,
-        val customerQuery:    String                 = "",
-        val selectedCustomer: CustomerDTO?           = null,
-        val devices:          List<DeviceDraft>      = listOf(DeviceDraft()),
-        val selectedShelf:    ShelfLocationDTO?      = null,
-        val totalAmount:      String                 = "",
-        val remark:           String                 = ""
+        val customers:             List<CustomerDTO>      = emptyList(),
+        val shelfLocations:        List<ShelfLocationDTO> = emptyList(),
+        val loading:               Boolean                = true,
+        val saving:                Boolean                = false,
+        val saveError:             String?                = null,
+        val customerQuery:         String                 = "",
+        val selectedCustomer:      CustomerDTO?           = null,
+        val devices:               List<DeviceDraft>      = listOf(DeviceDraft()),
+        val selectedShelf:         ShelfLocationDTO?      = null,
+        val totalAmount:           String                 = "",
+        val remark:                String                 = "",
+        val showNewCustomerDialog: Boolean                = false,
+        val newCustomerName:       String                 = "",
+        val newCustomerPhone:      String                 = "",
+        val creatingCustomer:      Boolean                = false
     )
 }

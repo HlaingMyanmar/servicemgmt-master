@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sspd.servicemgmt.ui.theme.*
+import com.sspd.servicemgmt.ui.components.AppLoading
 import com.sspd.servicemgmt.ui.utils.rememberIsTablet
 import com.sspd.servicemgmt.ui.viewmodel.ExpenseFormViewModel
 
@@ -125,7 +126,7 @@ fun ExpenseFormScreen(onBack: () -> Unit, onSuccess: () -> Unit) {
     ) { padding ->
         if (state.loading) {
             Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = accent)
+                AppLoading()
             }
             return@Scaffold
         }

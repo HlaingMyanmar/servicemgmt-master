@@ -9,7 +9,5 @@
     <exclude domain="sharedpref" path="." />
     <!-- Exclude all databases -->
     <exclude domain="database" path="." />
-    <!-- Exclude cache -->
-    <exclude domain="cache" path="." />
-    <exclude domain="external" path="." />
+<exclude domain="external" path="." />
 </full-backup-content>
