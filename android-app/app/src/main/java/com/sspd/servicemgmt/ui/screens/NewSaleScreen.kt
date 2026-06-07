@@ -168,9 +168,84 @@ fun NewSaleScreen(
             items    = state.products,
             label    = { it.name },
             subLabel = { it.productCode },
-            onSelect = { vm.addToCart(it); vm.dismissProductPicker() },
+            onSelect = { vm.selectProductForSale(it) },
             onDismiss = { vm.dismissProductPicker() }
         )
+    }
+
+    state.serialSelectProduct?.let { serialProduct ->
+        val serialError = state.serialSelectError
+        ModalBottomSheet(
+            onDismissRequest = { vm.dismissSerialSelector() },
+            modifier = Modifier.fillMaxHeight(0.82f)
+        ) {
+            Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                Text("Serial number ရွေးပါ", fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = TextMain)
+                Spacer(Modifier.height(4.dp))
+                Text(serialProduct.name, fontSize = 12.sp, color = TextMuted)
+                Spacer(Modifier.height(12.dp))
+
+                when {
+                    state.serialSelectLoading -> {
+                        Box(Modifier.fillMaxWidth().height(140.dp), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(color = Primary)
+                        }
+                    }
+                    serialError != null -> {
+                        Surface(color = DangerBg, shape = RoundedCornerShape(12.dp)) {
+                            Row(
+                                Modifier.fillMaxWidth().padding(12.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Outlined.ErrorOutline, null, tint = Danger, modifier = Modifier.size(18.dp))
+                                Text(serialError, fontSize = 13.sp, color = Danger, modifier = Modifier.weight(1f))
+                            }
+                        }
+                    }
+                    else -> {
+                        LazyColumn(Modifier.fillMaxWidth().heightIn(max = 420.dp)) {
+                            items(state.serialSelectOptions) { serial ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable { vm.selectSerialForSale(serial) }
+                                        .padding(vertical = 12.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Box(
+                                        Modifier.size(36.dp).background(VioletBg, RoundedCornerShape(10.dp)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(Icons.Outlined.QrCode2, null, tint = Violet, modifier = Modifier.size(18.dp))
+                                    }
+                                    Column(Modifier.weight(1f)) {
+                                        Text(serial.serialNumber, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, color = TextMain)
+                                        val sub = listOfNotNull(
+                                            serial.condition?.takeIf { it.isNotBlank() },
+                                            serial.warrantyEndDate?.take(10)?.let { "အာမခံ: $it" }
+                                        ).joinToString(" • ")
+                                        if (sub.isNotBlank()) Text(sub, fontSize = 11.sp, color = TextMuted)
+                                    }
+                                    Surface(color = SuccessBg, shape = RoundedCornerShape(8.dp)) {
+                                        Text("ရွေးမည်", modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Success)
+                                    }
+                                }
+                                HorizontalDivider(color = BorderColor)
+                            }
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(10.dp))
+                TextButton(
+                    onClick = { vm.dismissSerialSelector() },
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("မရွေးတော့ပါ", color = TextMuted) }
+                Spacer(Modifier.height(24.dp))
+            }
+        }
     }
 
     Box(Modifier.fillMaxSize()) {
@@ -728,4 +803,3 @@ private data class CreditBanner(
     val icon:  androidx.compose.ui.graphics.vector.ImageVector,
     val msg:   String
 )
-

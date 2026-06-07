@@ -11,7 +11,7 @@
 
 :root {
   /* ── Shared ─────────────────────────────────────────── */
-  --inv-font:             "DejaVu Sans", Arial, Helvetica, sans-serif;
+  --inv-font:             "Pyidaungsu", "Noto Sans Myanmar", "Myanmar Text", "Padauk", "DejaVu Sans", Arial, Helvetica, sans-serif;
   --inv-color-ink:        #1a1a1a;
   --inv-color-sub:        #555555;
   --inv-color-muted:      #777777;

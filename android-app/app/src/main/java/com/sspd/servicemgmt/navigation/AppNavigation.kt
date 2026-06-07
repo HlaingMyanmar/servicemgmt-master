@@ -6,6 +6,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -43,7 +44,10 @@ import androidx.navigation.navArgument
 import com.sspd.servicemgmt.api.ApiClient
 import com.sspd.servicemgmt.api.AuthEventBus
 import com.sspd.servicemgmt.ui.screens.*
+import com.sspd.servicemgmt.ui.theme.BorderColor
+import com.sspd.servicemgmt.ui.theme.CardBg
 import com.sspd.servicemgmt.ui.theme.Primary
+import com.sspd.servicemgmt.ui.theme.PrimaryLight
 import com.sspd.servicemgmt.ui.theme.TextMuted
 import com.sspd.servicemgmt.ui.viewmodel.ServerStatus
 import com.sspd.servicemgmt.ui.viewmodel.ServerStatusViewModel
@@ -66,8 +70,8 @@ private data class BottomNavItem(
 private val bottomNavItems = listOf(
     BottomNavItem(Screen.Home.route,        Icons.Default.Home,         "ပင်မ"),
     BottomNavItem(Screen.Sales.route,       Icons.Default.Receipt,      "ရောင်းချ"),
-    BottomNavItem(Screen.Bookings.route,    Icons.Default.CalendarMonth,"Booking"),
-    BottomNavItem(Screen.ServiceJobs.route, Icons.Default.Build,        "Job"),
+    BottomNavItem(Screen.Bookings.route,    Icons.Default.CalendarMonth,"လက်ခံ"),
+    BottomNavItem(Screen.ServiceJobs.route, Icons.Default.Build,        "ပြင်ဆင်"),
     BottomNavItem(Screen.Products.route,    Icons.Default.Inventory2,   "ကုန်ပစ္စည်း")
 )
 
@@ -96,7 +100,7 @@ private fun CustomBottomNav(
                     .fillMaxWidth()
                     .background(Color.White)
                     .navigationBarsPadding()
-                    .height(58.dp),
+                    .height(64.dp),
                 horizontalArrangement = Arrangement.SpaceAround,
                 verticalAlignment     = Alignment.CenterVertically
             ) {
@@ -151,7 +155,9 @@ private fun FlatNavItem(item: BottomNavItem, selected: Boolean, onClick: () -> U
         modifier = Modifier
             .clip(androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
             .clickable { onClick() }
-            .padding(horizontal = 14.dp, vertical = 6.dp),
+            .padding(horizontal = 10.dp, vertical = 6.dp)
+            .widthIn(min = 54.dp)
+            .heightIn(min = 52.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(2.dp)
     ) {
@@ -171,7 +177,7 @@ private fun FlatNavItem(item: BottomNavItem, selected: Boolean, onClick: () -> U
         }
         Text(
             item.label,
-            fontSize   = 10.sp,
+            fontSize   = 11.sp,
             fontWeight = if (selected) FontWeight.ExtraBold else FontWeight.Normal,
             color      = if (selected) Primary else TextMuted
         )
@@ -348,7 +354,38 @@ fun AppNavigation() {
                         ProductListScreen(
                             onBack         = { nav.popBackStack() },
                             onProductClick = { id -> nav.navigate(Screen.ProductDetail.createRoute(id)) },
-                            onScanNavigate = { id, serial -> nav.navigate(Screen.ProductDetail.createRoute(id, serial)) }
+                            onScanNavigate = { id, serial -> nav.navigate(Screen.ProductDetail.createRoute(id, serial)) },
+                            onNewProduct   = { nav.navigate(Screen.NewProduct.route) }
+                        )
+                    }
+                    screen(Screen.NewProduct.route) {
+                        ProductFormScreen(
+                            onBack = { nav.popBackStack() },
+                            onSaved = { id ->
+                                nav.navigate(Screen.ProductDetail.createRoute(id)) {
+                                    popUpTo(Screen.NewProduct.route) { inclusive = true }
+                                }
+                            },
+                            onDeleted = { nav.navigate(Screen.Products.route) }
+                        )
+                    }
+                    composable(
+                        route = Screen.EditProduct.route,
+                        arguments = listOf(navArgument("productId") { type = NavType.IntType })
+                    ) {
+                        ProductFormScreen(
+                            onBack = { nav.popBackStack() },
+                            onSaved = { id ->
+                                nav.navigate(Screen.ProductDetail.createRoute(id)) {
+                                    popUpTo(Screen.EditProduct.route) { inclusive = true }
+                                }
+                            },
+                            onDeleted = {
+                                nav.navigate(Screen.Products.route) {
+                                    popUpTo(Screen.Products.route) { inclusive = false }
+                                    launchSingleTop = true
+                                }
+                            }
                         )
                     }
                     composable(
@@ -358,7 +395,11 @@ fun AppNavigation() {
                             navArgument("serialNumber") { type = NavType.StringType; nullable = true; defaultValue = null }
                         ),
                     ) {
-                        ProductDetailScreen(onBack = { nav.popBackStack() })
+                        val productId = it.arguments?.getInt("productId") ?: 0
+                        ProductDetailScreen(
+                            onBack = { nav.popBackStack() },
+                            onEdit = { nav.navigate(Screen.EditProduct.createRoute(productId)) }
+                        )
                     }
 
                     // ── Bookings ────────────────────────────────────────────
@@ -495,7 +536,9 @@ fun AppNavigation() {
                     }
 
                     // ── Other screens ───────────────────────────────────────
-                    screen(Screen.ServiceMgmt.route)    { ServiceManagementScreen { nav.popBackStack() } }
+                    screen(Screen.Customers.route)      { CustomerManagementScreen { nav.popBackStack() } }
+                    screen(Screen.CreditDesk.route)     { CreditOperationsScreen    { nav.popBackStack() } }
+                    screen(Screen.ServiceMgmt.route)    { ServiceManagementScreen   { nav.popBackStack() } }
                     screen(Screen.ShelfLocations.route) { ShelfLocationScreen     { nav.popBackStack() } }
                     screen(Screen.StaffReport.route)    { StaffReportScreen       { nav.popBackStack() } }
                     screen(Screen.Expenses.route) {

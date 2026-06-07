@@ -10,7 +10,7 @@ export interface VoucherData {
   staffName?: string;
   paymentMethodName?: string;
   paymentStatus?: string;
-  items: { name: string; qty: number; unitPrice: number; subtotal: number; serialNumbers?: string[]; warrantyMonths?: number; warrantyExpiryDate?: string }[];
+  items: { name: string; qty: number; unitPrice: number; subtotal: number; serialNumbers?: string[]; serialWarranties?: Record<string, string>; warrantyMonths?: number; warrantyExpiryDate?: string }[];
   totalAmount?: number;
   discountAmount?: number;
   netAmount?: number;
@@ -38,12 +38,9 @@ const COMPANY_CONTACT = 'Phone: 09-252425319';
 
 const fmtWarranty = (item: VoucherData['items'][0]) => {
   const m = Number(item.warrantyMonths) || 0;
-  const expiry = item.warrantyExpiryDate;
-  if (m <= 0 && !expiry) return '';
-  const parts: string[] = [];
-  if (m > 0) parts.push(`${m} Month${m > 1 ? 's' : ''}`);
-  if (expiry) parts.push(`Exp: ${fmtDate(expiry)}`);
-  return parts.join(' · ');
+  if (m <= 0) return '';
+  if (m % 12 === 0) { const y = m / 12; return `${y} နှစ်`; }
+  return `${m} လ`;
 };
 
 function buildPosHtml(d: VoucherData): string {
@@ -54,8 +51,13 @@ function buildPosHtml(d: VoucherData): string {
         <td>${i + 1}</td>
         <td>
           <div>${esc(item.name)}</div>
-          ${item.serialNumbers?.length ? `<div class="muted">SN: ${esc(item.serialNumbers.join(', '))}</div>` : ''}
-          ${war ? `<div class="muted" style="color:#0891b2;">&#128737; ${esc(war)}</div>` : ''}
+          ${item.serialWarranties
+            ? (item.serialNumbers ?? []).map(sn => {
+                const w = item.serialWarranties![sn];
+                return `<div class="muted">S/N: ${esc(sn)}${w ? ` &#128737; ${esc(w)}` : ''}</div>`;
+              }).join('')
+            : (item.serialNumbers?.length ? `<div class="muted">S/N: ${esc(item.serialNumbers.join(', '))}</div>` : '')}
+          ${!item.serialWarranties && war ? `<div class="muted" style="color:#0891b2;">&#128737; ${esc(war)}</div>` : ''}
         </td>
         <td class="num">${item.qty}</td>
         <td class="num">${money(item.unitPrice)}</td>
@@ -123,8 +125,13 @@ function buildStandardHtml(d: VoucherData, paper: 'A4' | 'A5'): string {
         <td class="center">${i + 1}</td>
         <td>
           <div>${esc(item.name)}</div>
-          ${item.serialNumbers?.length ? `<div class="item-sn">S/N: ${esc(item.serialNumbers.join(', '))}</div>` : ''}
-          ${war ? `<div class="item-sn" style="color:#0891b2;">&#128737; ${esc(war)}</div>` : ''}
+          ${item.serialWarranties
+            ? (item.serialNumbers ?? []).map(sn => {
+                const w = item.serialWarranties![sn];
+                return `<div class="item-sn">S/N: ${esc(sn)}${w ? ` &nbsp;&#128737; ${esc(w)}` : ''}</div>`;
+              }).join('')
+            : (item.serialNumbers?.length ? `<div class="item-sn">S/N: ${esc(item.serialNumbers.join(', '))}</div>` : '')}
+          ${!item.serialWarranties && war ? `<div class="item-sn" style="color:#0891b2;">&#128737; ${esc(war)}</div>` : ''}
         </td>
         <td class="num">${item.qty}</td>
         <td class="num">${money(item.unitPrice)}</td>

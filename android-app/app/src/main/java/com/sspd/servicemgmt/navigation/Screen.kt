@@ -7,6 +7,8 @@ sealed class Screen(val route: String) {
     object Home         : Screen("home")
     object Sales        : Screen("sales")
     object Products     : Screen("products")
+    object Customers    : Screen("customers")
+    object CreditDesk   : Screen("credit_desk")
     object ServiceJobs  : Screen("service_jobs")
     object Bookings     : Screen("bookings")
     object StaffReport  : Screen("staff_report")
@@ -20,6 +22,10 @@ sealed class Screen(val route: String) {
         fun createRoute(id: Int, serial: String? = null) =
             if (serial != null) "product_detail/$id?serial=${Uri.encode(serial)}"
             else "product_detail/$id"
+    }
+    object NewProduct     : Screen("new_product")
+    object EditProduct    : Screen("edit_product/{productId}") {
+        fun createRoute(id: Int) = "edit_product/$id"
     }
     object SaleDetail     : Screen("sale_detail/{saleId}") {
         fun createRoute(id: Int) = "sale_detail/$id"

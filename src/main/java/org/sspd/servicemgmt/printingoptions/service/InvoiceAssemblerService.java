@@ -141,7 +141,7 @@ public class InvoiceAssemblerService {
                         .unitPrice(fmt(d.getUnitPrice()))
                         .subtotal(fmt(d.getSubtotal()))
                         .discount("0")
-                        .warrantyLabel("")
+                        .warrantyLabel(fmtWarrantyLabel(d.getWarrantyMonths(), d.getWarrantyExpiryDate()))
                         .build());
             }
         }
@@ -259,7 +259,7 @@ public class InvoiceAssemblerService {
                         .unitPrice(fmt(l.getPrice()))
                         .subtotal(fmt(l.getSubtotal()))
                         .discount("0")
-                        .warrantyLabel("")
+                        .warrantyLabel(fmtWarrantyLabel(l.getWarrantyMonths(), null))
                         .build());
             }
         }
@@ -378,8 +378,7 @@ public class InvoiceAssemblerService {
                         .unitPrice(fmt(d.getUnitCost()))
                         .subtotal(fmt(d.getSubtotal()))
                         .discount("0")
-                        .warrantyLabel(d.getWarrantyMonths() != null && d.getWarrantyMonths() > 0
-                                ? d.getWarrantyMonths() + " mo" : "")
+                        .warrantyLabel(fmtWarrantyLabel(d.getWarrantyMonths(), null))
                         .build());
             }
         }
@@ -454,6 +453,23 @@ public class InvoiceAssemblerService {
     private String safe(String s) { return s != null ? s : ""; }
 
     private String safe(String s, String fallback) { return (s != null && !s.isBlank()) ? s : fallback; }
+
+    /** Converts warranty months → "N Year(s)" / "N Month(s)", optionally appending expiry. */
+    private String fmtWarrantyLabel(Integer months, java.time.LocalDate expiryDate) {
+        int m = months != null ? months : 0;
+        String duration = "";
+        if (m > 0) {
+            if (m % 12 == 0) {
+                int y = m / 12;
+                duration = y + (y == 1 ? " Year" : " Years");
+            } else {
+                duration = m + (m == 1 ? " Month" : " Months");
+            }
+        }
+        if (duration.isEmpty()) return "";
+        if (expiryDate != null) return duration + " (exp: " + expiryDate.format(D_FMT) + ")";
+        return duration;
+    }
 
     private String buildQrContent(PrintInvoiceData d) {
         StringBuilder sb = new StringBuilder();

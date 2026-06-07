@@ -18,6 +18,49 @@ interface ApiService {
     @GET("products")
     suspend fun getProducts(@Header("Authorization") auth: String): Response<ApiResponse<List<ProductDTO>>>
 
+    @GET("products/low-stock")
+    suspend fun getLowStockProducts(@Header("Authorization") auth: String): Response<ApiResponse<List<ProductDTO>>>
+
+    @POST("products")
+    suspend fun createProduct(
+        @Header("Authorization") auth: String,
+        @Body body: ProductDTO
+    ): Response<ApiResponse<ProductDTO>>
+
+    @PUT("products/{id}")
+    suspend fun updateProduct(
+        @Header("Authorization") auth: String,
+        @Path("id") id: Int,
+        @Body body: ProductDTO
+    ): Response<ApiResponse<ProductDTO>>
+
+    @DELETE("products/{id}")
+    suspend fun deleteProduct(
+        @Header("Authorization") auth: String,
+        @Path("id") id: Int
+    ): Response<ApiResponse<Void>>
+
+    @GET("brands")
+    suspend fun getBrands(@Header("Authorization") auth: String): Response<ApiResponse<List<BrandDTO>>>
+
+    @POST("brands")
+    suspend fun createBrand(
+        @Header("Authorization") auth: String,
+        @Body body: BrandDTO
+    ): Response<ApiResponse<BrandDTO>>
+
+    @GET("category/tree")
+    suspend fun getCategoryTree(@Header("Authorization") auth: String): Response<ApiResponse<List<CategoryDTO>>>
+
+    @POST("category")
+    suspend fun createCategory(
+        @Header("Authorization") auth: String,
+        @Body body: CategoryDTO
+    ): Response<ApiResponse<CategoryDTO>>
+
+    @GET("units")
+    suspend fun getUnits(@Header("Authorization") auth: String): Response<ApiResponse<List<UnitDTO>>>
+
     @GET("sales")
     suspend fun getSales(
         @Header("Authorization") auth: String,
@@ -89,6 +132,22 @@ interface ApiService {
         @Body body: CustomerDTO
     ): Response<ApiResponse<CustomerDTO>>
 
+    @PUT("customers/{id}")
+    suspend fun updateCustomer(
+        @Header("Authorization") auth: String,
+        @Path("id") id: Int,
+        @Body body: CustomerDTO
+    ): Response<ApiResponse<CustomerDTO>>
+
+    @DELETE("customers/{id}")
+    suspend fun deleteCustomer(
+        @Header("Authorization") auth: String,
+        @Path("id") id: Int
+    ): Response<ApiResponse<Void>>
+
+    @GET("credit-terms")
+    suspend fun getCreditTerms(@Header("Authorization") auth: String): Response<ApiResponse<List<CustomerCreditTermDTO>>>
+
     @GET("staffs/active")
     suspend fun getActiveStaff(@Header("Authorization") auth: String): Response<ApiResponse<List<StaffDTO>>>
 
@@ -99,6 +158,18 @@ interface ApiService {
     suspend fun getCreditTerm(
         @Header("Authorization") auth: String,
         @Path("customerId") customerId: Int
+    ): Response<ApiResponse<CustomerCreditTermDTO>>
+
+    @POST("credit-terms")
+    suspend fun createCreditTerm(
+        @Header("Authorization") auth: String,
+        @Body body: CustomerCreditTermDTO
+    ): Response<ApiResponse<CustomerCreditTermDTO>>
+
+    @PUT("credit-terms")
+    suspend fun updateCreditTerm(
+        @Header("Authorization") auth: String,
+        @Body body: CustomerCreditTermDTO
     ): Response<ApiResponse<CustomerCreditTermDTO>>
 
     // ── Service Types ─────────────────────────────────────────────────────────
@@ -368,6 +439,28 @@ interface ApiService {
         @Header("Authorization") auth: String,
         @Path("productId") productId: Int
     ): Response<ApiResponse<List<ProductSerialDTO>>>
+
+    @GET("product-serials")
+    suspend fun getAllProductSerials(@Header("Authorization") auth: String): Response<ApiResponse<List<ProductSerialDTO>>>
+
+    @POST("product-serials")
+    suspend fun createProductSerial(
+        @Header("Authorization") auth: String,
+        @Body body: ProductSerialDTO
+    ): Response<ApiResponse<ProductSerialDTO>>
+
+    @DELETE("product-serials/{id}")
+    suspend fun deleteProductSerial(
+        @Header("Authorization") auth: String,
+        @Path("id") id: Int
+    ): Response<ApiResponse<Void>>
+
+    @POST("products/{id}/assign-serials")
+    suspend fun assignProductSerials(
+        @Header("Authorization") auth: String,
+        @Path("id") id: Int,
+        @Body body: AssignSerialsRequest
+    ): Response<ApiResponse<ProductDTO>>
 
     @GET("product-serials/by-serial/{serialNumber}")
     suspend fun findProductBySerial(

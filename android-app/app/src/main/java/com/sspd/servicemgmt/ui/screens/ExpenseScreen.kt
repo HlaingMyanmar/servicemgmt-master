@@ -51,9 +51,9 @@ fun ExpenseScreen(
                 TextButton(onClick = {
                     dpState.selectedDateMillis?.let { vm.setFromDate(msToDate(it)) }
                     showFromPicker = false
-                }) { Text("OK") }
+                }) { Text("အိုကေ") }
             },
-            dismissButton = { TextButton(onClick = { showFromPicker = false }) { Text("Cancel") } }
+            dismissButton = { TextButton(onClick = { showFromPicker = false }) { Text("မလုပ်တော့ပါ") } }
         ) { DatePicker(state = dpState) }
     }
 
@@ -67,9 +67,9 @@ fun ExpenseScreen(
                 TextButton(onClick = {
                     dpState.selectedDateMillis?.let { vm.setToDate(msToDate(it)) }
                     showToPicker = false
-                }) { Text("OK") }
+                }) { Text("အိုကေ") }
             },
-            dismissButton = { TextButton(onClick = { showToPicker = false }) { Text("Cancel") } }
+            dismissButton = { TextButton(onClick = { showToPicker = false }) { Text("မလုပ်တော့ပါ") } }
         ) { DatePicker(state = dpState) }
     }
 

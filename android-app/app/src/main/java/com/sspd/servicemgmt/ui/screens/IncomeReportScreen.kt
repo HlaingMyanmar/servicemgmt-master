@@ -57,16 +57,16 @@ fun IncomeReportScreen(onBack: () -> Unit) {
         val dpState = rememberDatePickerState(initialSelectedDateMillis = state.fromDate?.let { irDateToMs(it) })
         DatePickerDialog(
             onDismissRequest = { showFromPicker = false },
-            confirmButton = { TextButton(onClick = { dpState.selectedDateMillis?.let { vm.setFromDate(irMsToDate(it)) }; showFromPicker = false }) { Text("OK") } },
-            dismissButton = { TextButton(onClick = { showFromPicker = false }) { Text("Cancel") } }
+            confirmButton = { TextButton(onClick = { dpState.selectedDateMillis?.let { vm.setFromDate(irMsToDate(it)) }; showFromPicker = false }) { Text("အိုကေ") } },
+            dismissButton = { TextButton(onClick = { showFromPicker = false }) { Text("မလုပ်တော့ပါ") } }
         ) { DatePicker(state = dpState) }
     }
     if (showToPicker) {
         val dpState = rememberDatePickerState(initialSelectedDateMillis = state.toDate?.let { irDateToMs(it) })
         DatePickerDialog(
             onDismissRequest = { showToPicker = false },
-            confirmButton = { TextButton(onClick = { dpState.selectedDateMillis?.let { vm.setToDate(irMsToDate(it)) }; showToPicker = false }) { Text("OK") } },
-            dismissButton = { TextButton(onClick = { showToPicker = false }) { Text("Cancel") } }
+            confirmButton = { TextButton(onClick = { dpState.selectedDateMillis?.let { vm.setToDate(irMsToDate(it)) }; showToPicker = false }) { Text("အိုကေ") } },
+            dismissButton = { TextButton(onClick = { showToPicker = false }) { Text("မလုပ်တော့ပါ") } }
         ) { DatePicker(state = dpState) }
     }
 

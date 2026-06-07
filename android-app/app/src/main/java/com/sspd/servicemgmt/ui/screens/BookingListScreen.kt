@@ -58,9 +58,9 @@ fun BookingListScreen(
                 TextButton(onClick = {
                     dpState.selectedDateMillis?.let { vm.setFromDate(bookingMillisToDate(it)) }
                     showFromPicker = false
-                }) { Text("OK") }
+                }) { Text("အိုကေ") }
             },
-            dismissButton = { TextButton(onClick = { showFromPicker = false }) { Text("Cancel") } }
+            dismissButton = { TextButton(onClick = { showFromPicker = false }) { Text("မလုပ်တော့ပါ") } }
         ) { DatePicker(state = dpState) }
     }
 
@@ -74,9 +74,9 @@ fun BookingListScreen(
                 TextButton(onClick = {
                     dpState.selectedDateMillis?.let { vm.setToDate(bookingMillisToDate(it)) }
                     showToPicker = false
-                }) { Text("OK") }
+                }) { Text("အိုကေ") }
             },
-            dismissButton = { TextButton(onClick = { showToPicker = false }) { Text("Cancel") } }
+            dismissButton = { TextButton(onClick = { showToPicker = false }) { Text("မလုပ်တော့ပါ") } }
         ) { DatePicker(state = dpState) }
     }
 
@@ -89,10 +89,10 @@ fun BookingListScreen(
         AlertDialog(
             onDismissRequest = { vm.cancelDelete() },
             icon  = { Icon(Icons.Outlined.Delete, "ဖျက်ရန်", tint = Danger) },
-            title = { Text("Booking ဖျက်မည်", fontWeight = FontWeight.ExtraBold) },
+            title = { Text("လက်ခံမှု ဖျက်မည်", fontWeight = FontWeight.ExtraBold) },
             text  = {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("အောက်ပါ Booking ကို ဖျက်မည်မှာ သေချာပါသလား?")
+                    Text("အောက်ပါ လက်ခံမှုကို ဖျက်မည်မှာ သေချာပါသလား?")
                     Surface(color = DangerBg, shape = RoundedCornerShape(8.dp)) {
                         Column(Modifier.fillMaxWidth().padding(12.dp)) {
                             Text(target.invoiceNo ?: "#${target.id}", fontWeight = FontWeight.ExtraBold, color = Danger)
@@ -131,7 +131,7 @@ fun BookingListScreen(
         snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
             TopAppBar(
-                title = { Text("Booking များ", fontWeight = FontWeight.ExtraBold) },
+                title = { Text("လက်ခံမှုများ", fontWeight = FontWeight.ExtraBold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) { Icon(Icons.Outlined.ArrowBack, "နောက်ပြန်", tint = Color.White) }
                 },
@@ -147,7 +147,7 @@ fun BookingListScreen(
                 containerColor = Primary,
                 contentColor   = Color.White,
                 icon           = { Icon(Icons.Outlined.Add, null) },
-                text           = { Text("Booking အသစ်", fontWeight = FontWeight.Bold) }
+                text           = { Text("လက်ခံမှု အသစ်", fontWeight = FontWeight.Bold) }
             )
         }
     ) { padding ->
@@ -156,7 +156,7 @@ fun BookingListScreen(
                 value         = state.search,
                 onValueChange = { vm.setSearch(it) },
                 modifier      = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
-                placeholder   = { Text("Booking ရှာဖွေရန်...") },
+                placeholder   = { Text("လက်ခံမှု ရှာဖွေရန်...") },
                 leadingIcon   = { Icon(Icons.Outlined.Search, null) },
                 trailingIcon  = {
                     if (state.search.isNotBlank())
@@ -207,12 +207,12 @@ fun BookingListScreen(
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Icon(Icons.Outlined.CalendarMonth, null, tint = TextMuted, modifier = Modifier.size(48.dp))
                         Spacer(Modifier.height(8.dp))
-                        Text("Booking မရှိပါ", color = TextMuted)
+                        Text("လက်ခံမှု မရှိပါ", color = TextMuted)
                         Spacer(Modifier.height(12.dp))
                         OutlinedButton(onClick = onNewBooking) {
                             Icon(Icons.Outlined.Add, null, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(4.dp))
-                            Text("Booking အသစ် ဖန်တီးရန်")
+                            Text("လက်ခံမှု အသစ် ဖန်တီးရန်")
                         }
                     }
                 }
@@ -331,7 +331,7 @@ private fun BookingStatusBadge(status: String?) {
         "PENDING"     -> Triple(WarningBg,    Warning, "စောင့်ဆိုင်း")
         "IN_STORAGE"  -> Triple(VioletBg,     Violet,  "သိမ်းထားပြီး")
         "IN_PROGRESS" -> Triple(VioletBg,     Violet,  "လုပ်ဆဲ")
-        "CONVERTED"   -> Triple(SuccessBg,    Success, "Job ပြောင်းပြီး")
+        "CONVERTED"   -> Triple(SuccessBg,    Success, "အလုပ်ပြောင်းပြီး")
         "COMPLETED"   -> Triple(SuccessBg,    Success, "ပြီးဆုံး")
         "DELIVERED"   -> Triple(PrimaryLight, Primary, "ပြန်ပေး")
         "CANCELLED"   -> Triple(DangerBg,     Danger,  "ပယ်ဖျက်")
@@ -356,4 +356,3 @@ private fun bookingDateToMillis(dateStr: String): Long {
         sdf.parse(dateStr)?.time ?: 0L
     } catch (_: Exception) { 0L }
 }
-

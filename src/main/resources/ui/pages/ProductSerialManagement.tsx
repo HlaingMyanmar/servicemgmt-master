@@ -31,6 +31,10 @@ const ProductSerialManagement: React.FC = () => {
     photoBase64: undefined
   });
   const [saving, setSaving] = useState(false);
+
+  // Warranty duration state
+  const [wValue, setWValue] = useState(0);
+  const [wUnit, setWUnit] = useState<'ရက်' | 'လ' | 'နှစ်'>('လ');
   const [viewPhotoUrl, setViewPhotoUrl] = useState<string | null>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
 
@@ -70,6 +74,18 @@ const ProductSerialManagement: React.FC = () => {
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedSerials = filteredSerials.slice(startIndex, startIndex + itemsPerPage);
 
+  const monthsToDisplay = (months: number): { value: number; unit: 'ရက်' | 'လ' | 'နှစ်' } => {
+    if (months <= 0) return { value: 0, unit: 'လ' };
+    if (months % 12 === 0) return { value: months / 12, unit: 'နှစ်' };
+    return { value: months, unit: 'လ' };
+  };
+
+  const toMonths = (value: number, unit: 'ရက်' | 'လ' | 'နှစ်'): number => {
+    if (unit === 'ရက်') return Math.round(value / 30);
+    if (unit === 'နှစ်') return value * 12;
+    return value;
+  };
+
   const handleOpenModal = (serial?: ProductSerialDTO) => {
     if (serial) {
       setEditingSerial(serial);
@@ -82,6 +98,9 @@ const ProductSerialManagement: React.FC = () => {
         condition: serial.condition ?? '',
         photoBase64: serial.photoBase64
       });
+      const d = monthsToDisplay(serial.warrantyMonths ?? 0);
+      setWValue(d.value);
+      setWUnit(d.unit);
     } else {
       setEditingSerial(null);
       setFormData({
@@ -93,6 +112,8 @@ const ProductSerialManagement: React.FC = () => {
         condition: '',
         photoBase64: undefined
       });
+      setWValue(0);
+      setWUnit('လ');
     }
     setIsModalOpen(true);
   };
@@ -118,18 +139,20 @@ const ProductSerialManagement: React.FC = () => {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData.productId) {
       Swal.fire('Required', 'Please select a target product', 'warning');
       return;
     }
 
+    const payload = { ...formData, warrantyMonths: toMonths(wValue, wUnit) };
+
     setSaving(true);
     try {
       if (editingSerial) {
-        await productSerialService.update(editingSerial.id, formData);
+        await productSerialService.update(editingSerial.id, payload);
       } else {
-        await productSerialService.create(formData as Omit<ProductSerialDTO, 'id'>);
+        await productSerialService.create(payload as Omit<ProductSerialDTO, 'id'>);
       }
       setIsModalOpen(false);
       fetchData();
@@ -254,7 +277,14 @@ const ProductSerialManagement: React.FC = () => {
                   </td>
                   <td className="px-4 py-4">
                     <div className="text-xs text-slate-600 space-y-0.5">
-                      <div><span className="font-semibold">{serial.warrantyMonths ?? 0}</span> month(s)</div>
+                      <div className="font-semibold">
+                        {(() => {
+                          const m = serial.warrantyMonths ?? 0;
+                          if (m <= 0) return '-';
+                          if (m % 12 === 0) return `${m / 12} နှစ်`;
+                          return `${m} လ`;
+                        })()}
+                      </div>
                       <div className="text-[10px] text-slate-400">
                         {serial.warrantyStartDate || '-'} → {serial.warrantyEndDate || '-'}
                       </div>
@@ -444,26 +474,42 @@ const ProductSerialManagement: React.FC = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Warranty Months</label>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">အာမခံကာလ</label>
+                <div className="flex gap-2">
                   <input
                     type="number"
                     min={0}
-                    value={formData.warrantyMonths ?? 0}
-                    onChange={(e) => setFormData(prev => ({ ...prev, warrantyMonths: Number(e.target.value) || 0 }))}
-                    className="w-full px-3 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-[12px] font-bold outline-none focus:border-indigo-500 focus:bg-white transition-all shadow-sm"
+                    value={wValue}
+                    onChange={e => setWValue(Math.max(0, Number(e.target.value) || 0))}
+                    className="flex-1 px-3 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-[12px] font-bold outline-none focus:border-indigo-500 focus:bg-white transition-all shadow-sm"
+                    placeholder="0"
                   />
+                  <select
+                    value={wUnit}
+                    onChange={e => setWUnit(e.target.value as 'ရက်' | 'လ' | 'နှစ်')}
+                    className="px-3 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-[12px] font-bold outline-none focus:border-indigo-500 focus:bg-white transition-all shadow-sm"
+                  >
+                    <option value="ရက်">ရက်</option>
+                    <option value="လ">လ</option>
+                    <option value="နှစ်">နှစ်</option>
+                  </select>
                 </div>
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Warranty Start</label>
-                  <input
-                    type="date"
-                    value={formData.warrantyStartDate ? String(formData.warrantyStartDate).slice(0, 10) : ''}
-                    onChange={(e) => setFormData(prev => ({ ...prev, warrantyStartDate: e.target.value || undefined }))}
-                    className="w-full px-3 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-[12px] font-bold outline-none focus:border-indigo-500 focus:bg-white transition-all shadow-sm"
-                  />
-                </div>
+                {wValue > 0 && (
+                  <p className="text-[10px] text-indigo-500 font-semibold ml-1">
+                    = {toMonths(wValue, wUnit)} လ (တွက်ချက်မှု)
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Warranty Start</label>
+                <input
+                  type="date"
+                  value={formData.warrantyStartDate ? String(formData.warrantyStartDate).slice(0, 10) : ''}
+                  onChange={(e) => setFormData(prev => ({ ...prev, warrantyStartDate: e.target.value || undefined }))}
+                  className="w-full px-3 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-[12px] font-bold outline-none focus:border-indigo-500 focus:bg-white transition-all shadow-sm"
+                />
               </div>
 
               {/* Condition */}

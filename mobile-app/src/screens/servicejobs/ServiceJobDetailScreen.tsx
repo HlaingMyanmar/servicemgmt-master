@@ -13,9 +13,12 @@ import {
   ServiceItemDTO, SettleJobDTO, PaymentMethodDTO, ProductDTO, ProductSerialDTO,
   CustomerDTO, StaffDTO,
 } from '../../types';
+
+type SnWarrantyMap = Record<string, ProductSerialDTO>;
 import { C } from '../../theme';
 import { useAuth } from '../../context/AuthContext';
 import ScannerModal from '../../components/ScannerModal';
+import { fmtSerialWarranty } from '../../utils/warrantyFormat';
 
 const STATUSES = ['RECEIVED', 'INSPECTING', 'IN_PROGRESS', 'COMPLETED', 'DELIVERED', 'CANCELLED'];
 const STATUS_COL: Record<string, { bg: string; text: string }> = {
@@ -696,14 +699,14 @@ function EditPartsModal({ visible, job, onClose, onSaved }: {
 }
 
 // ── Voucher HTML builder ───────────────────────────────────────────────────────
-function buildVoucherHtml(job: ServiceJobDTO): string {
+function buildVoucherHtml(job: ServiceJobDTO, snWarMap: SnWarrantyMap = {}): string {
   const esc = (v?: string | number | null) =>
     String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const money = (v?: number | null) =>
     Number(v || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   const lines = (job.lines ?? []).map((l, i) => {
-    const warTxt = (l.warrantyMonths ?? 0) > 0 ? `${l.warrantyMonths} Month${(l.warrantyMonths ?? 0) > 1 ? 's' : ''} Warranty` : '';
+    const _dur = fmtSerialWarranty(l.warrantyMonths); const warTxt = _dur ? `${_dur} အာမခံ` : '';
     return `
       <tr>
         <td class="center">${i + 1}</td>
@@ -729,15 +732,25 @@ function buildVoucherHtml(job: ServiceJobDTO): string {
     return 'background:#f1f5f9;color:#475569';
   };
 
-  const parts = (job.productParts ?? []).map((p, i) => `
+  const parts = (job.productParts ?? []).map((p, i) => {
+    const snHtml = (p.serialNumbers ?? []).map(sn => {
+      const info = snWarMap[sn];
+      const wLabel = info ? fmtSerialWarranty(info.warrantyMonths) : '';
+      return `<div style="font-size:10px;color:#1d4ed8;margin-top:1px;">S/N: ${esc(sn)}${wLabel ? ` &nbsp;&#128737; ${esc(wLabel)}` : ''}</div>`;
+    }).join('');
+    return `
     <tr>
       <td class="center">${i + 1}</td>
-      <td>${esc(p.productName ?? '-')}</td>
+      <td>
+        <div>${esc(p.productName ?? '-')}</div>
+        ${snHtml}
+      </td>
       <td class="center"><span style="display:inline-block;padding:1px 7px;border-radius:20px;font-size:10px;font-weight:600;${condStyle(p.productType)}">${esc(condLabel(p.productType))}</span></td>
       <td class="num">${p.qty}</td>
       <td class="num">${money(p.unitPrice)}</td>
       <td class="num">${money(p.unitPrice * p.qty)}</td>
-    </tr>`).join('') || '<tr><td colspan="6" class="center muted">No parts used</td></tr>';
+    </tr>`;
+  }).join('') || '<tr><td colspan="6" class="center muted">No parts used</td></tr>';
 
   const finalCost = Number(job.finalCost) || 0;
   const discount  = Number(job.discountAmount) || 0;
@@ -875,18 +888,31 @@ const sm = StyleSheet.create({
 export default function ServiceJobDetailScreen({ route, navigation }: any) {
   const { jobId } = route.params;
   const { hasPermission } = useAuth();
-  const [job,          setJob]       = useState<ServiceJobDTO | null>(null);
-  const [loading,      setLoading]   = useState(true);
-  const [updating,     setUpdating]  = useState(false);
-  const [printing,     setPrinting]  = useState(false);
-  const [showSettle,   setSettle]    = useState(false);
-  const [showEditJob,  setEditJob]   = useState(false);
-  const [showEditLines, setEditLines] = useState(false);
-  const [showEditParts, setEditParts] = useState(false);
+  const [job,              setJob]             = useState<ServiceJobDTO | null>(null);
+  const [loading,          setLoading]         = useState(true);
+  const [updating,         setUpdating]        = useState(false);
+  const [printing,         setPrinting]        = useState(false);
+  const [showSettle,       setSettle]          = useState(false);
+  const [showEditJob,      setEditJob]         = useState(false);
+  const [showEditLines,    setEditLines]       = useState(false);
+  const [showEditParts,    setEditParts]       = useState(false);
+  const [serialWarrantyMap, setSerialWarrantyMap] = useState<SnWarrantyMap>({});
+
+  const loadSerialWarranties = (j: ServiceJobDTO) => {
+    const allSerials = (j.productParts ?? []).flatMap(p => p.serialNumbers ?? []);
+    if (allSerials.length === 0) return;
+    api.post<ApiResponse<ProductSerialDTO[]>>('/product-serials/by-serials', allSerials)
+      .then(sr => {
+        const m: SnWarrantyMap = {};
+        (sr.data ?? []).forEach(s => { m[s.serialNumber] = s; });
+        setSerialWarrantyMap(m);
+      })
+      .catch(() => {});
+  };
 
   useEffect(() => {
     api.get<ApiResponse<ServiceJobDTO>>(`/service-jobs/${jobId}`)
-      .then(r => setJob(r.data))
+      .then(r => { setJob(r.data); loadSerialWarranties(r.data); })
       .catch(() => Alert.alert('Error', 'Cannot load job'))
       .finally(() => setLoading(false));
   }, [jobId]);
@@ -923,7 +949,7 @@ export default function ServiceJobDetailScreen({ route, navigation }: any) {
     if (!job) return;
     setPrinting(true);
     try {
-      const html = buildVoucherHtml(job);
+      const html = buildVoucherHtml(job, serialWarrantyMap);
       const { uri } = await Print.printToFileAsync({ html });
       await Sharing.shareAsync(uri, { mimeType: 'application/pdf', dialogTitle: 'Print / Save PDF' });
     } catch (e: any) {
@@ -1052,7 +1078,7 @@ export default function ServiceJobDetailScreen({ route, navigation }: any) {
                   <Text style={st.lineName}>{l.serviceItemName ?? l.subServiceTypeName ?? l.serviceTypeName ?? l.description ?? '-'}</Text>
                   {l.description && <Text style={st.lineSub}>{l.description}</Text>}
                   {(l.warrantyMonths ?? 0) > 0 && (
-                    <Text style={st.lineWarranty}>🛡 {l.warrantyMonths} Month{(l.warrantyMonths ?? 0) > 1 ? 's' : ''} Warranty</Text>
+                    <Text style={st.lineWarranty}>🛡 {fmtSerialWarranty(l.warrantyMonths)} အာမခံ</Text>
                   )}
                 </View>
                 {(l.price ?? l.cost) ? <Text style={st.lineCost}>{Number(l.price ?? l.cost).toLocaleString()} Ks</Text> : null}
@@ -1078,9 +1104,16 @@ export default function ServiceJobDetailScreen({ route, navigation }: any) {
                 <View style={{ flex: 1 }}>
                   <Text style={st.lineName}>{p.productName ?? '-'}</Text>
                   <Text style={st.lineSub}>Qty: {p.qty}  ·  {Number(p.unitPrice).toLocaleString()} Ks each</Text>
-                  {(p.serialNumbers ?? []).length > 0 && (
-                    <Text style={[st.lineSub, { color: C.primary }]}>S/N: {p.serialNumbers.join(', ')}</Text>
-                  )}
+                  {(p.serialNumbers ?? []).map(sn => {
+                    const info = serialWarrantyMap[sn];
+                    const wLabel = info ? fmtSerialWarranty(info.warrantyMonths) : '';
+                    return (
+                      <View key={sn} style={{ marginTop: 1 }}>
+                        <Text style={[st.lineSub, { color: C.primary }]}>S/N: {sn}</Text>
+                        {wLabel ? <Text style={[st.lineSub, { color: '#0891B2' }]}>🛡 {wLabel}</Text> : null}
+                      </View>
+                    );
+                  })}
                 </View>
                 <Text style={st.lineCost}>{(Number(p.unitPrice) * p.qty).toLocaleString()} Ks</Text>
               </View>

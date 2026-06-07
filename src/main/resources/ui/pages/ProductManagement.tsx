@@ -15,7 +15,7 @@ import {
   Save, Hash, Send, Barcode, Camera,
   CheckCircle2, AlertCircle, Filter, RotateCcw,
   ClipboardList, Eye, Info, LayoutList, Wallet,
-  Settings2, AlertTriangle, ArrowLeft, TrendingDown
+  Settings2, AlertTriangle, ArrowLeft, TrendingDown, Shield
 } from 'lucide-react';
 import { useDataEvents } from '../hooks/useDataEvents';
 import Swal from 'sweetalert2';
@@ -54,11 +54,24 @@ const formatWarranty = (product?: Partial<ProductDTO> | null) => {
   const terms = String(product.warrantyTerms || '').trim();
   if (terms) return terms;
   const months = Number(product.warrantyMonths || 0);
-  return months > 0 ? `${months} mo` : '-';
+  if (months <= 0) return '-';
+  if (months % 12 === 0) return `${months / 12} နှစ်`;
+  return `${months} လ`;
+};
+
+const getCanDelete = (): boolean => {
+  try {
+    const raw = sessionStorage.getItem('sspd_user');
+    if (!raw) return false;
+    const u = JSON.parse(raw);
+    if ((u.roles || []).some((r: string) => r === 'ADMINISTRATOR' || r === 'ROLE_ADMINISTRATOR')) return true;
+    return (u.permissions || []).includes('CAN_ACCESS_PRODUCT_DELETE');
+  } catch { return false; }
 };
 
 const ProductManagement: React.FC = () => {
   const navigate = useNavigate();
+  const canDelete = getCanDelete();
   const [products, setProducts] = useState<ProductDTO[]>([]);
   const [lowStockProducts, setLowStockProducts] = useState<ProductDTO[]>([]);
   const [brands, setBrands] = useState<BrandDTO[]>([]);
@@ -94,7 +107,15 @@ const ProductManagement: React.FC = () => {
   const [assignSerialsInputs, setAssignSerialsInputs] = useState<string[]>([]);
   const [assignSerialsWarranty, setAssignSerialsWarranty] = useState<number>(0);
   const [assignSerialsSaving, setAssignSerialsSaving] = useState(false);
-  
+
+  // Warranty quick-edit modal (qty products)
+  const [isWarrantyModalOpen, setIsWarrantyModalOpen] = useState(false);
+  const [warrantyProduct, setWarrantyProduct] = useState<ProductDTO | null>(null);
+  const [warrantyValue, setWarrantyValue] = useState(0);
+  const [warrantyUnit, setWarrantyUnit] = useState<'ရက်' | 'လ' | 'နှစ်'>('လ');
+  const [warrantyNote, setWarrantyNote] = useState('');
+  const [warrantySaving, setWarrantySaving] = useState(false);
+
   const [formData, setFormData] = useState<Partial<ProductDTO>>({
     name: '',
     hasSerial: true,
@@ -498,6 +519,75 @@ const ProductManagement: React.FC = () => {
       Swal.fire('Error', error.message, 'error');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDeleteProduct = async (product: ProductDTO) => {
+    const result = await Swal.fire({
+      title: `"${product.name}" ကိုဖျက်မည်လား?`,
+      text: 'ဤ Product နှင့် ချိတ်ဆက်ထားသော Serial နံပါတ်များလည်း ပါဝင်ဖျက်မည်။ ပြန်မရနိုင်ပါ။',
+      icon: 'warning',
+      showCancelButton: true,
+      cancelButtonText: 'မလုပ်တော့',
+      confirmButtonColor: '#ef4444',
+      confirmButtonText: 'ဖျက်ရန်'
+    });
+    if (result.isConfirmed) {
+      try {
+        await productService.delete(product.id);
+        await fetchData();
+        Swal.fire({ icon: 'success', title: 'ဖျက်ပြီးပြီ', toast: true, position: 'top-end', showConfirmButton: false, timer: 1800 });
+      } catch (error: any) {
+        Swal.fire('Error', error?.message || 'ဖျက်မရပါ', 'error');
+      }
+    }
+  };
+
+  const parseWarrantyDisplay = (terms?: string, months?: number): { value: number; unit: 'ရက်' | 'လ' | 'နှစ်'; note: string } => {
+    const t = (terms || '').trim();
+    const m = /^(\d+)\s*(ရက်|နှစ်|လ)(.*)$/.exec(t);
+    if (m) return { value: Number(m[1]), unit: m[2] as 'ရက်' | 'လ' | 'နှစ်', note: m[3].trim() };
+    if (months && months > 0) {
+      if (months % 12 === 0) return { value: months / 12, unit: 'နှစ်', note: '' };
+      return { value: months, unit: 'လ', note: '' };
+    }
+    return { value: 0, unit: 'လ', note: '' };
+  };
+
+  const toWarrantyMonths = (value: number, unit: 'ရက်' | 'လ' | 'နှစ်'): number => {
+    if (unit === 'ရက်') return Math.round(value / 30);
+    if (unit === 'နှစ်') return value * 12;
+    return value;
+  };
+
+  const handleOpenWarrantyEdit = (product: ProductDTO) => {
+    const parsed = parseWarrantyDisplay(product.warrantyTerms, product.warrantyMonths);
+    setWarrantyProduct(product);
+    setWarrantyValue(parsed.value);
+    setWarrantyUnit(parsed.unit);
+    setWarrantyNote(parsed.note);
+    setIsWarrantyModalOpen(true);
+  };
+
+  const handleSaveWarranty = async () => {
+    if (!warrantyProduct || warrantySaving) return;
+    setWarrantySaving(true);
+    try {
+      const displayStr = warrantyValue > 0
+        ? `${warrantyValue} ${warrantyUnit}${warrantyNote ? ' ' + warrantyNote : ''}`
+        : '';
+      await productService.update(warrantyProduct.id, {
+        ...warrantyProduct,
+        warrantyMonths: toWarrantyMonths(warrantyValue, warrantyUnit),
+        warrantyTerms: displayStr,
+      });
+      setIsWarrantyModalOpen(false);
+      await fetchData();
+      Swal.fire({ icon: 'success', title: 'အာမခံ မွမ်းမံပြီး', toast: true, position: 'top-end', showConfirmButton: false, timer: 1800 });
+    } catch (err: any) {
+      Swal.fire('Error', err?.message || 'မွမ်းမံမရပါ', 'error');
+    } finally {
+      setWarrantySaving(false);
     }
   };
 
@@ -1392,7 +1482,11 @@ const ProductManagement: React.FC = () => {
                                                 <Hash size={14} />
                                               </button>
                                             )}
+                                            <button onClick={() => handleOpenWarrantyEdit(p)} title="အာမခံ ပြင်ဆင်" className="p-1.5 bg-emerald-50 text-emerald-700 border border-emerald-100 hover:bg-emerald-600 hover:text-white rounded-md"><Shield size={14} /></button>
                                             <button onClick={() => handleOpenModal(p)} title="Edit Product" className="p-1.5 bg-indigo-50 text-indigo-700 border border-indigo-100 hover:bg-indigo-600 hover:text-white rounded-md"><Edit2 size={14} /></button>
+                                            {canDelete && (
+                                              <button onClick={() => handleDeleteProduct(p)} title="Delete Product" className="p-1.5 bg-rose-50 text-rose-600 border border-rose-100 hover:bg-rose-600 hover:text-white rounded-md"><Trash2 size={14} /></button>
+                                            )}
                                           </div>
                                         </td>
                                       </tr>
@@ -1425,6 +1519,9 @@ const ProductManagement: React.FC = () => {
                                         <td className="px-4 py-3 text-right">
                                           <div className="flex justify-end gap-2">
                                             <button onClick={() => handleOpenModal(p)} title="Edit Product" className="p-1.5 bg-indigo-50 text-indigo-700 border border-indigo-100 hover:bg-indigo-600 hover:text-white rounded-md"><Edit2 size={14} /></button>
+                                            {canDelete && (
+                                              <button onClick={() => handleDeleteProduct(p)} title="Delete Product" className="p-1.5 bg-rose-50 text-rose-600 border border-rose-100 hover:bg-rose-600 hover:text-white rounded-md"><Trash2 size={14} /></button>
+                                            )}
                                           </div>
                                         </td>
                                       </tr>
@@ -1470,6 +1567,9 @@ const ProductManagement: React.FC = () => {
                                           {idx === 0 ? (
                                             <>
                                               <button onClick={() => handleOpenModal(p)} title="Edit Product" className="p-1.5 bg-indigo-50 text-indigo-700 border border-indigo-100 hover:bg-indigo-600 hover:text-white rounded-md"><Edit2 size={14} /></button>
+                                              {canDelete && (
+                                                <button onClick={() => handleDeleteProduct(p)} title="Delete Product" className="p-1.5 bg-rose-50 text-rose-600 border border-rose-100 hover:bg-rose-600 hover:text-white rounded-md"><Trash2 size={14} /></button>
+                                              )}
                                             </>
                                           ) : (
                                             <button onClick={() => handleDeleteSerial(s.id)} title="Remove Serial" className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-md"><Trash2 size={12} /></button>
@@ -1554,6 +1654,78 @@ const ProductManagement: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Warranty Quick-Edit Modal — qty products only */}
+      {isWarrantyModalOpen && warrantyProduct && (
+        <div className="fixed inset-0 z-[102] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm" onClick={() => setIsWarrantyModalOpen(false)}>
+          <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl border border-slate-200" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 bg-emerald-50 text-emerald-600 rounded-lg"><Shield size={15} /></div>
+                <div>
+                  <p className="text-sm font-bold text-slate-800">အာမခံ ပြင်ဆင်</p>
+                  <p className="text-[10px] text-slate-400">{warrantyProduct.productCode} · {warrantyProduct.name}</p>
+                </div>
+              </div>
+              <button onClick={() => setIsWarrantyModalOpen(false)} className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400"><X size={15} /></button>
+            </div>
+            <div className="px-5 py-4 space-y-4">
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">အာမခံကာလ</label>
+                <div className="mt-1 flex gap-2">
+                  <input
+                    type="number"
+                    min={0}
+                    value={warrantyValue}
+                    onChange={e => setWarrantyValue(Math.max(0, Number(e.target.value) || 0))}
+                    className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-400"
+                    placeholder="0"
+                  />
+                  <select
+                    value={warrantyUnit}
+                    onChange={e => setWarrantyUnit(e.target.value as 'ရက်' | 'လ' | 'နှစ်')}
+                    className="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-400 bg-white"
+                  >
+                    <option value="ရက်">ရက်</option>
+                    <option value="လ">လ</option>
+                    <option value="နှစ်">နှစ်</option>
+                  </select>
+                </div>
+                {warrantyValue > 0 && (
+                  <p className="mt-1 text-[10px] text-emerald-600 font-semibold">
+                    = {toWarrantyMonths(warrantyValue, warrantyUnit)} လ (တွက်ချက်မှု)
+                  </p>
+                )}
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">အာမခံ မှတ်ချက် (ရွေးချယ်မှုဖြင့်)</label>
+                <textarea
+                  rows={2}
+                  value={warrantyNote}
+                  onChange={e => setWarrantyNote(e.target.value)}
+                  className="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-400 resize-none"
+                  placeholder="ဥပမာ: ရေ / မီး ထိမိမှု မပါ"
+                />
+              </div>
+              {warrantyValue > 0 && (
+                <div className="bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2">
+                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-0.5">ပြသမည့် ပုံစံ</p>
+                  <p className="text-sm font-bold text-emerald-700">
+                    {warrantyValue} {warrantyUnit}{warrantyNote ? ' · ' + warrantyNote : ''}
+                  </p>
+                </div>
+              )}
+            </div>
+            <div className="flex justify-end gap-2 px-5 py-3 border-t border-slate-100">
+              <button onClick={() => setIsWarrantyModalOpen(false)} className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg">မလုပ်တော့</button>
+              <button onClick={handleSaveWarranty} disabled={warrantySaving} className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg disabled:opacity-60">
+                {warrantySaving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+                သိမ်းမည်
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Assign Serials Modal — retroactively convert qty-only stock to serial-tracked */}
       {isAssignSerialsOpen && assignSerialsProduct && (

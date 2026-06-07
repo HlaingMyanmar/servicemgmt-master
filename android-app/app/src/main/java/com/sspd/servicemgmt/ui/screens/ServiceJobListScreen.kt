@@ -61,7 +61,7 @@ fun ServiceJobListScreen(
                 TextButton(onClick = {
                     dpState.selectedDateMillis?.let { vm.setFromDate(it.formatMillisToDate()) }
                     showFromPicker = false
-                }) { Text("OK") }
+                }) { Text("အိုကေ") }
             },
             dismissButton = {
                 TextButton(onClick = { showFromPicker = false }) { Text("ပယ်ဖျက်") }
@@ -79,7 +79,7 @@ fun ServiceJobListScreen(
                 TextButton(onClick = {
                     dpState.selectedDateMillis?.let { vm.setToDate(it.formatMillisToDate()) }
                     showToPicker = false
-                }) { Text("OK") }
+                }) { Text("အိုကေ") }
             },
             dismissButton = {
                 TextButton(onClick = { showToPicker = false }) { Text("ပယ်ဖျက်") }
@@ -134,7 +134,7 @@ fun ServiceJobListScreen(
         snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
             TopAppBar(
-                title = { Text("ဝန်ဆောင်မှု Jobs", fontWeight = FontWeight.ExtraBold) },
+                title = { Text("ဝန်ဆောင်မှုအလုပ်များ", fontWeight = FontWeight.ExtraBold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Outlined.ArrowBack, "နောက်ပြန်", tint = Color.White)
@@ -144,9 +144,13 @@ fun ServiceJobListScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = onNewJob, containerColor = Primary) {
-                Icon(Icons.Outlined.Add, null, tint = Color.White)
-            }
+            ExtendedFloatingActionButton(
+                onClick = onNewJob,
+                containerColor = Primary,
+                contentColor = Color.White,
+                icon = { Icon(Icons.Outlined.Add, null) },
+                text = { Text("Job အသစ်", fontWeight = FontWeight.Bold) }
+            )
         }
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding).background(ScreenBg)) {
@@ -226,8 +230,38 @@ fun ServiceJobListScreen(
                     AppLoading()
                 }
             } else if (filtered.isEmpty()) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("ဒေတာမရှိပါ", color = TextMuted)
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 28.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Surface(color = PrimaryLight, shape = RoundedCornerShape(18.dp)) {
+                            Icon(
+                                Icons.Outlined.Build,
+                                null,
+                                tint = Primary,
+                                modifier = Modifier.padding(18.dp).size(34.dp)
+                            )
+                        }
+                        Text("Job မရှိသေးပါ", color = TextMain, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold)
+                        Text(
+                            "ဖုန်း၊ Laptop၊ Printer စတဲ့ပြင်ဆင်မှုအသစ်တွေကို ဒီနေရာကနေ မှတ်တမ်းတင်ပါ။",
+                            color = TextMuted,
+                            fontSize = 13.sp,
+                            lineHeight = 20.sp
+                        )
+                        Button(
+                            onClick = onNewJob,
+                            colors = ButtonDefaults.buttonColors(containerColor = Primary),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(Icons.Outlined.Add, null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("Job အသစ်ယူမည်", fontWeight = FontWeight.Bold)
+                        }
+                    }
                 }
             } else {
                 LazyColumn(
@@ -239,7 +273,7 @@ fun ServiceJobListScreen(
                             shape    = RoundedCornerShape(12.dp),
                             colors   = CardDefaults.cardColors(containerColor = CardBg),
                             border   = BorderStroke(1.dp, BorderColor),
-                            modifier = Modifier.clickable { job.id?.let { onJobClick(it) } }
+                            modifier = Modifier.fillMaxWidth().clickable { job.id?.let { onJobClick(it) } }
                         ) {
                             Column(Modifier.padding(14.dp)) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {

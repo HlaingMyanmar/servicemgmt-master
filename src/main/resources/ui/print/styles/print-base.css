@@ -35,7 +35,7 @@
 /* ─── 2. Screen Styles (preview) ─────────────────────────────────────────── */
 
 .invoice-print-root {
-  font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+  font-family: 'Pyidaungsu', 'Noto Sans Myanmar', 'Myanmar Text', 'Padauk', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
   color: var(--inv-text);
   background: #e5e7eb;
   padding: 16px;

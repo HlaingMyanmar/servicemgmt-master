@@ -50,7 +50,7 @@ import java.io.ByteArrayOutputStream
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ProductDetailScreen(onBack: () -> Unit) {
+fun ProductDetailScreen(onBack: () -> Unit, onEdit: () -> Unit = {}) {
     val vm: ProductDetailViewModel = viewModel()
     val state by vm.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -62,6 +62,8 @@ fun ProductDetailScreen(onBack: () -> Unit) {
     var pendingProductPhoto  by remember { mutableStateOf(false) }
     var viewingPhoto         by remember { mutableStateOf<String?>(null) }   // data-uri string
     var showSourceSheet      by remember { mutableStateOf(false) }
+    var showAddSerialDialog  by remember { mutableStateOf(false) }
+    var newSerialNumber      by remember { mutableStateOf("") }
 
     fun handleBitmap(bitmap: Bitmap) {
         val b64 = bitmapToBase64(bitmap)
@@ -146,6 +148,39 @@ fun ProductDetailScreen(onBack: () -> Unit) {
         }
     }
 
+    if (showAddSerialDialog) {
+        AlertDialog(
+            onDismissRequest = { if (!state.addingSerial) showAddSerialDialog = false },
+            icon = { Icon(Icons.Outlined.QrCode2, null, tint = Primary) },
+            title = { Text("Serial အသစ်ထည့်ရန်", fontWeight = FontWeight.ExtraBold) },
+            text = {
+                OutlinedTextField(
+                    value = newSerialNumber,
+                    onValueChange = { newSerialNumber = it },
+                    label = { Text("Serial number") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    shape = RoundedCornerShape(10.dp)
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        vm.addSerial(newSerialNumber)
+                        newSerialNumber = ""
+                        showAddSerialDialog = false
+                    },
+                    enabled = !state.addingSerial,
+                    colors = ButtonDefaults.buttonColors(containerColor = Primary)
+                ) {
+                    if (state.addingSerial) CircularProgressIndicator(color = Color.White, modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                    else Text("ထည့်မည်", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = { TextButton(onClick = { showAddSerialDialog = false }) { Text("မလုပ်တော့ပါ") } }
+        )
+    }
+
     Box(Modifier.fillMaxSize()) {
         Scaffold(
             snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -156,6 +191,9 @@ fun ProductDetailScreen(onBack: () -> Unit) {
                         IconButton(onClick = onBack) { Icon(Icons.Outlined.ArrowBack, "နောက်ပြန်", tint = Color.White) }
                     },
                     actions = {
+                        IconButton(onClick = onEdit) {
+                            Icon(Icons.Outlined.Edit, "ပြင်ဆင်ရန်", tint = Color.White)
+                        }
                         if (state.product?.hasSerial == true) {
                             IconButton(onClick = { vm.showScanner() }) {
                                 Icon(Icons.Outlined.QrCodeScanner, "ဘားကုဒ် ဖတ်ရန်", tint = Color.White)
@@ -363,6 +401,12 @@ fun ProductDetailScreen(onBack: () -> Unit) {
                                     Text("Highlight ရှင်းမည်", fontSize = 11.sp, color = Primary)
                                 }
                             }
+                            TextButton(onClick = { newSerialNumber = ""; showAddSerialDialog = true },
+                                contentPadding = PaddingValues(horizontal = 8.dp)) {
+                                Icon(Icons.Outlined.Add, null, modifier = Modifier.size(14.dp), tint = Primary)
+                                Spacer(Modifier.width(4.dp))
+                                Text("Serial ထည့်", fontSize = 11.sp, color = Primary, fontWeight = FontWeight.Bold)
+                            }
                         }
 
                         if (state.scannedSerial != null) {
@@ -387,11 +431,13 @@ fun ProductDetailScreen(onBack: () -> Unit) {
                                     serial        = serial,
                                     isHighlighted = serial.serialNumber == state.scannedSerial,
                                     isUploading   = state.uploadingSerialId == serial.id,
+                                    isDeleting    = state.deletingSerialId == serial.id,
                                     onViewPhoto   = { viewingPhoto = it },
                                     onUploadPhoto = {
                                         pendingUploadSerial = serial
                                         showSourceSheet = true
                                     },
+                                    onDelete      = { vm.deleteSerial(serial) },
                                     onSharePhoto  = { bmp ->
                                         val shareText = buildString {
                                             appendLine("🏷 ${p.name}")
@@ -485,8 +531,10 @@ private fun SerialCard(
     serial:        ProductSerialDTO,
     isHighlighted: Boolean = false,
     isUploading:   Boolean = false,
+    isDeleting:    Boolean = false,
     onViewPhoto:   (String) -> Unit = {},
     onUploadPhoto: () -> Unit = {},
+    onDelete:      () -> Unit = {},
     onSharePhoto:  (Bitmap?) -> Unit = {}
 ) {
     val (statusBg, statusColor, statusLabel) = when (serial.status?.uppercase()) {
@@ -586,10 +634,25 @@ private fun SerialCard(
                         modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
                         fontSize = 10.sp, fontWeight = FontWeight.Bold, color = statusColor)
                 }
+                OutlinedButton(
+                    onClick = onDelete,
+                    enabled = !isDeleting,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp),
+                    border = BorderStroke(1.dp, Danger.copy(0.5f)),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
+                ) {
+                    if (isDeleting) {
+                        CircularProgressIndicator(color = Danger, modifier = Modifier.size(13.dp), strokeWidth = 2.dp)
+                    } else {
+                        Icon(Icons.Outlined.DeleteOutline, null, tint = Danger, modifier = Modifier.size(13.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("ဖျက်", color = Danger, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
             }
         }
     }
 }
 
 private fun Long.fmt() = String.format("%,d", this)
-

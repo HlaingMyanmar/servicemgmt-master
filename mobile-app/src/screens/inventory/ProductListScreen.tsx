@@ -187,9 +187,15 @@ export default function ProductListScreen({ navigation }: any) {
       {/* Count bar */}
       <View style={st.countBar}>
         <Text style={st.countText}>{filtered.length} products</Text>
-        {search.length > 0 && (
-          <Text style={st.searchHint}>Searching: "{search}"</Text>
-        )}
+        {search.length > 0
+          ? <Text style={st.searchHint}>Searching: "{search}"</Text>
+          : <TouchableOpacity
+              style={{ backgroundColor: C.primaryLight, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 }}
+              onPress={() => navigation.navigate('ProductSerials')}
+            >
+              <Text style={{ fontSize: 11, fontWeight: '700', color: C.primary }}>🔖 Serial Registry</Text>
+            </TouchableOpacity>
+        }
       </View>
 
       {loading

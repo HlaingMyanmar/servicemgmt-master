@@ -27,6 +27,8 @@ public interface ProductSerialRepository extends JpaRepository<ProductSerial,Int
 
     boolean existsBySerialNumber(String serialNumber);
 
+    List<ProductSerial> findBySerialNumberIn(java.util.Collection<String> serialNumbers);
+
     void deleteBySerialNumber(String serialNumber);
 
     long countByProductId(Integer productId);

@@ -9,10 +9,13 @@ import * as Sharing from 'expo-sharing';
 import { Ionicons } from '@expo/vector-icons';
 import { LOGO_BASE64 } from '../../assets/logoBase64';
 import { api } from '../../api/client';
-import { ApiResponse, ServiceJobDTO, SettleJobDTO, PaymentMethodDTO } from '../../types';
+import { ApiResponse, ServiceJobDTO, SettleJobDTO, PaymentMethodDTO, ProductSerialDTO } from '../../types';
+
+type SnWarrantyMap = Record<string, ProductSerialDTO>;
 import { C } from '../../theme';
 import { useWsTopic } from '../../hooks/useWsTopic';
 import { useAuth } from '../../context/AuthContext';
+import { fmtSerialWarranty } from '../../utils/warrantyFormat';
 
 const fmtDate = (v?: string) => {
   if (!v) return '';
@@ -28,14 +31,14 @@ const STATUS_COL: Record<string, { bg: string; text: string }> = {
 };
 
 // ── Voucher builder (matches ServiceJobDetailScreen) ──────────────────────────
-function buildVoucherHtml(job: ServiceJobDTO): string {
+function buildVoucherHtml(job: ServiceJobDTO, snWarMap: SnWarrantyMap = {}): string {
   const esc = (v?: string | number | null) =>
     String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const money = (v?: number | null) =>
     Number(v || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   const lines = (job.lines ?? []).map((l, i) => {
-    const warTxt = (l.warrantyMonths ?? 0) > 0 ? `${l.warrantyMonths} Month${(l.warrantyMonths ?? 0) > 1 ? 's' : ''} Warranty` : '';
+    const _dur = fmtSerialWarranty(l.warrantyMonths); const warTxt = _dur ? `${_dur} အာမခံ` : '';
     return `
       <tr>
         <td class="center">${i + 1}</td>
@@ -61,15 +64,25 @@ function buildVoucherHtml(job: ServiceJobDTO): string {
     return 'background:#f1f5f9;color:#475569';
   };
 
-  const parts = (job.productParts ?? []).map((p, i) => `
+  const parts = (job.productParts ?? []).map((p, i) => {
+    const snHtml = (p.serialNumbers ?? []).map(sn => {
+      const info = snWarMap[sn];
+      const wLabel = info ? fmtSerialWarranty(info.warrantyMonths) : '';
+      return `<div style="font-size:10px;color:#1d4ed8;margin-top:1px;">S/N: ${esc(sn)}${wLabel ? ` &nbsp;&#128737; ${esc(wLabel)}` : ''}</div>`;
+    }).join('');
+    return `
     <tr>
       <td class="center">${i + 1}</td>
-      <td>${esc(p.productName ?? '-')}</td>
+      <td>
+        <div>${esc(p.productName ?? '-')}</div>
+        ${snHtml}
+      </td>
       <td class="center"><span style="display:inline-block;padding:1px 7px;border-radius:20px;font-size:10px;font-weight:600;${condStyle(p.productType)}">${esc(condLabel(p.productType))}</span></td>
       <td class="num">${p.qty}</td>
       <td class="num">${money(p.unitPrice)}</td>
       <td class="num">${money(p.unitPrice * p.qty)}</td>
-    </tr>`).join('') || '<tr><td colspan="6" class="center muted">No parts used</td></tr>';
+    </tr>`;
+  }).join('') || '<tr><td colspan="6" class="center muted">No parts used</td></tr>';
 
   const finalCost = Number(job.finalCost) || 0;
   const discount  = Number(job.discountAmount) || 0;
@@ -304,7 +317,16 @@ export default function DoneServiceJobsScreen({ navigation }: any) {
     setPrinting(jobId);
     try {
       const res = await api.get<ApiResponse<ServiceJobDTO>>(`/service-jobs/${jobId}`);
-      const html = buildVoucherHtml(res.data);
+      const job = res.data;
+      const allSerials = (job.productParts ?? []).flatMap(p => p.serialNumbers ?? []);
+      let snWarMap: SnWarrantyMap = {};
+      if (allSerials.length > 0) {
+        try {
+          const snRes = await api.post<ApiResponse<ProductSerialDTO[]>>('/product-serials/by-serials', allSerials);
+          (snRes.data ?? []).forEach(s => { snWarMap[s.serialNumber] = s; });
+        } catch {}
+      }
+      const html = buildVoucherHtml(job, snWarMap);
       const { uri } = await Print.printToFileAsync({ html });
       await Sharing.shareAsync(uri, { mimeType: 'application/pdf', dialogTitle: 'Print / Save PDF' });
     } catch (e: any) {

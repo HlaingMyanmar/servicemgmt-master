@@ -58,6 +58,67 @@ fun ServiceJobFormScreen(onBack: () -> Unit, onSuccess: (ServiceJobDTO) -> Unit)
         state.serialError?.let { snackbar.showSnackbar(it); vm.clearSerialError() }
     }
 
+    if (state.showNewCustomerDialog) {
+        AlertDialog(
+            onDismissRequest = { if (!state.creatingCustomer) vm.dismissNewCustomerDialog() },
+            icon = { Icon(Icons.Outlined.PersonAdd, null, tint = Primary, modifier = Modifier.size(28.dp)) },
+            title = { Text("ဖောက်သည်အသစ်", fontWeight = FontWeight.ExtraBold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedTextField(
+                        value = state.newCustomerName,
+                        onValueChange = { vm.setNewCustomerName(it) },
+                        label = { Text("အမည် *") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        shape = RoundedCornerShape(10.dp),
+                        isError = state.newCustomerError != null && state.newCustomerName.isBlank()
+                    )
+                    OutlinedTextField(
+                        value = state.newCustomerPhone,
+                        onValueChange = { vm.setNewCustomerPhone(it) },
+                        label = { Text("ဖုန်း") },
+                        modifier = Modifier.fillMaxWidth(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone, imeAction = ImeAction.Next),
+                        singleLine = true,
+                        shape = RoundedCornerShape(10.dp)
+                    )
+                    OutlinedTextField(
+                        value = state.newCustomerAddress,
+                        onValueChange = { vm.setNewCustomerAddress(it) },
+                        label = { Text("လိပ်စာ") },
+                        modifier = Modifier.fillMaxWidth(),
+                        maxLines = 2,
+                        shape = RoundedCornerShape(10.dp),
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done)
+                    )
+                    state.newCustomerError?.let {
+                        Text(it, color = Danger, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = { vm.createCustomer() },
+                    enabled = !state.creatingCustomer,
+                    colors = ButtonDefaults.buttonColors(containerColor = Primary)
+                ) {
+                    if (state.creatingCustomer) {
+                        CircularProgressIndicator(color = Color.White, modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                    } else {
+                        Text("သိမ်းမည်", fontWeight = FontWeight.Bold)
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { vm.dismissNewCustomerDialog() },
+                    enabled = !state.creatingCustomer
+                ) { Text("မလုပ်တော့ပါ") }
+            }
+        )
+    }
+
     // Staff sheet
     if (showStaffSheet) {
         ModalBottomSheet(onDismissRequest = { showStaffSheet = false }) {
@@ -143,13 +204,7 @@ fun ServiceJobFormScreen(onBack: () -> Unit, onSuccess: (ServiceJobDTO) -> Unit)
                 filtered.forEach { prod ->
                     Row(
                         modifier = Modifier.fillMaxWidth().clickable {
-                            if (partIdx < state.parts.size) {
-                                val part = state.parts[partIdx]
-                                vm.updatePart(partIdx, part.copy(
-                                    product   = prod,
-                                    unitPrice = String.format("%.0f", prod.sellingPrice.toDouble())
-                                ))
-                            }
+                            vm.selectPartProduct(partIdx, prod)
                             showPartSheet = -1; partSearchQuery = ""
                         }.padding(vertical = 10.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -168,6 +223,81 @@ fun ServiceJobFormScreen(onBack: () -> Unit, onSuccess: (ServiceJobDTO) -> Unit)
                     }
                     HorizontalDivider(color = BorderColor)
                 }
+                Spacer(Modifier.height(24.dp))
+            }
+        }
+    }
+
+    if (state.serialSelectPartIdx != null && state.serialSelectProduct != null) {
+        val serialProduct = state.serialSelectProduct!!
+        val serialError = state.serialSelectError
+        ModalBottomSheet(
+            onDismissRequest = { vm.dismissSerialSelector() },
+            modifier = Modifier.fillMaxHeight(0.82f)
+        ) {
+            Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                Text("Serial number ရွေးပါ", fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = TextMain)
+                Spacer(Modifier.height(4.dp))
+                Text(serialProduct.name, fontSize = 12.sp, color = TextMuted)
+                Spacer(Modifier.height(12.dp))
+
+                when {
+                    state.serialSelectLoading -> {
+                        Box(Modifier.fillMaxWidth().height(140.dp), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(color = Primary)
+                        }
+                    }
+                    serialError != null -> {
+                        Surface(color = DangerBg, shape = RoundedCornerShape(12.dp)) {
+                            Row(
+                                Modifier.fillMaxWidth().padding(12.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Outlined.ErrorOutline, null, tint = Danger, modifier = Modifier.size(18.dp))
+                                Text(serialError, fontSize = 13.sp, color = Danger, modifier = Modifier.weight(1f))
+                            }
+                        }
+                    }
+                    else -> {
+                        Column(Modifier.fillMaxWidth().heightIn(max = 420.dp).verticalScroll(rememberScrollState())) {
+                            state.serialSelectOptions.forEach { serial ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable { vm.selectSerialForPart(serial) }
+                                        .padding(vertical = 12.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Box(
+                                        Modifier.size(36.dp).background(VioletBg, RoundedCornerShape(10.dp)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(Icons.Outlined.QrCode2, null, tint = Violet, modifier = Modifier.size(18.dp))
+                                    }
+                                    Column(Modifier.weight(1f)) {
+                                        Text(serial.serialNumber, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, color = TextMain)
+                                        val sub = listOfNotNull(
+                                            serial.condition?.takeIf { it.isNotBlank() },
+                                            serial.warrantyEndDate?.take(10)?.let { "အာမခံ: $it" }
+                                        ).joinToString(" • ")
+                                        if (sub.isNotBlank()) Text(sub, fontSize = 11.sp, color = TextMuted)
+                                    }
+                                    Surface(color = SuccessBg, shape = RoundedCornerShape(8.dp)) {
+                                        Text("ရွေးမည်", modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Success)
+                                    }
+                                }
+                                HorizontalDivider(color = BorderColor)
+                            }
+                        }
+                    }
+                }
+                Spacer(Modifier.height(10.dp))
+                TextButton(
+                    onClick = { vm.dismissSerialSelector() },
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("နောက်မှရွေးမည်", color = TextMuted) }
                 Spacer(Modifier.height(24.dp))
             }
         }
@@ -227,6 +357,39 @@ fun ServiceJobFormScreen(onBack: () -> Unit, onSuccess: (ServiceJobDTO) -> Unit)
     Box(Modifier.fillMaxSize()) {
     Scaffold(
         snackbarHost = { SnackbarHost(snackbar) },
+        bottomBar = {
+            if (!state.loading) {
+                Surface(
+                    color = CardBg,
+                    shadowElevation = 8.dp,
+                    border = BorderStroke(1.dp, BorderColor)
+                ) {
+                    Button(
+                        onClick = { vm.save { job -> onSuccess(job) } },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .navigationBarsPadding()
+                            .padding(horizontal = 16.dp, vertical = 10.dp)
+                            .height(52.dp),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Primary),
+                        enabled = !state.saving
+                    ) {
+                        if (state.saving) {
+                            CircularProgressIndicator(color = Color.White, modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                        } else {
+                            Icon(Icons.Outlined.Save, null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                if (vm.isEdit) "Job ပြင်ဆင်မှု သိမ်းဆည်းမည်" else "Job သိမ်းဆည်းမည်",
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                        }
+                    }
+                }
+            }
+        },
         topBar = {
             TopAppBar(
                 title = { Text(if (vm.isEdit) "Job ပြင်ဆင်ရန်" else "Job အသစ်", fontWeight = FontWeight.ExtraBold) },
@@ -253,7 +416,44 @@ fun ServiceJobFormScreen(onBack: () -> Unit, onSuccess: (ServiceJobDTO) -> Unit)
         ) {
             // ── ဖောက်သည် ──────────────────────────────────────────────────────
             JobFormSection(Icons.Outlined.Person, "ဖောက်သည် *")
-            Column {
+            Card(
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = CardBg),
+                border = BorderStroke(1.dp, BorderColor)
+            ) {
+            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                state.selectedCustomer?.let { customer ->
+                    Surface(
+                        color = SuccessBg,
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.dp, Success.copy(0.22f))
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier.size(38.dp).background(Success.copy(0.14f), RoundedCornerShape(10.dp)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Outlined.Person, null, tint = Success, modifier = Modifier.size(20.dp))
+                            }
+                            Column(Modifier.weight(1f)) {
+                                Text(customer.name, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, color = TextMain)
+                                if (!customer.phone.isNullOrBlank()) {
+                                    Text(customer.phone, fontSize = 12.sp, color = TextMuted)
+                                }
+                                if (!customer.address.isNullOrBlank()) {
+                                    Text(customer.address, fontSize = 11.sp, color = TextMuted, maxLines = 1)
+                                }
+                            }
+                            IconButton(onClick = { vm.setCustomerQuery("") }, modifier = Modifier.size(40.dp)) {
+                                Icon(Icons.Outlined.Close, "ဖောက်သည် ပြန်ရွေးရန်", tint = TextMuted, modifier = Modifier.size(18.dp))
+                            }
+                        }
+                    }
+                }
                 OutlinedTextField(
                     value = state.customerQuery, onValueChange = { vm.setCustomerQuery(it) },
                     label = { Text("ဖောက်သည် ရှာပါ *") },
@@ -285,6 +485,19 @@ fun ServiceJobFormScreen(onBack: () -> Unit, onSuccess: (ServiceJobDTO) -> Unit)
                         }
                     }
                 }
+                if (state.selectedCustomer == null) {
+                    OutlinedButton(
+                        onClick = { vm.showNewCustomerDialog() },
+                        modifier = Modifier.fillMaxWidth().height(46.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.dp, Primary)
+                    ) {
+                        Icon(Icons.Outlined.PersonAdd, null, tint = Primary, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("ဖောက်သည်အသစ် ဖန်တီးမည်", color = Primary, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
             }
 
             // ── နည်းပညာဆရာ ──────────────────────────────────────────────────
@@ -494,23 +707,7 @@ fun ServiceJobFormScreen(onBack: () -> Unit, onSuccess: (ServiceJobDTO) -> Unit)
                 }
             }
 
-            // ── Save ───────────────────────────────────────────────────────────
-            Button(
-                onClick = { vm.save { job -> onSuccess(job) } },
-                modifier = Modifier.fillMaxWidth().height(52.dp),
-                shape = RoundedCornerShape(14.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Primary),
-                enabled = !state.saving
-            ) {
-                if (state.saving) {
-                    CircularProgressIndicator(color = Color.White, modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
-                } else {
-                    Icon(Icons.Outlined.Save, null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text(if (vm.isEdit) "Job ပြင်ဆင်မှု သိမ်းဆည်းမည်" else "Job သိမ်းဆည်းမည်", fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
-                }
-            }
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(86.dp))
         }
     }
 
@@ -777,4 +974,3 @@ private fun JobTextField(
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
     )
 }
-

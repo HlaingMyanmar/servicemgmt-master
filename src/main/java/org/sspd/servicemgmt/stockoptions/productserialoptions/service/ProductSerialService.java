@@ -145,6 +145,15 @@ public class ProductSerialService {
 
 
 
+    @Transactional(readOnly = true)
+    public List<ProductSerialDTO> findBySerialNumbers(List<String> serials) {
+        if (serials == null || serials.isEmpty()) return List.of();
+        return productSerialRepository.findBySerialNumberIn(serials)
+                .stream()
+                .map(mapper::toDto)
+                .toList();
+    }
+
     private void applyWarrantyFields(ProductSerial entity, ProductSerialDTO dto) {
         Integer months = dto.getWarrantyMonths() != null ? dto.getWarrantyMonths() : entity.getWarrantyMonths();
         LocalDate start = dto.getWarrantyStartDate() != null ? dto.getWarrantyStartDate() : entity.getWarrantyStartDate();

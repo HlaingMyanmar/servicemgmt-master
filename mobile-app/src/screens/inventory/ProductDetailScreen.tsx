@@ -6,6 +6,7 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import { ProductDTO, ProductSerialDTO, ProductType, ApiResponse } from '../../types';
+import { fmtProductWarranty, fmtSerialWarranty } from '../../utils/warrantyFormat';
 import { api } from '../../api/client';
 import { C } from '../../theme';
 
@@ -164,7 +165,7 @@ export default function ProductDetailScreen({ route, navigation }: any) {
     ['Selling Price', `${product.sellingPrice.toLocaleString()} Ks`],
     ['Available',     String(avail)],
     ['Reorder Level', product.reorderLevel ? String(product.reorderLevel) : '—'],
-    ['Warranty',      product.warrantyMonths ? `${product.warrantyMonths} months` : '—'],
+    ['Warranty',      fmtProductWarranty(product.warrantyTerms, product.warrantyMonths) || '—'],
   ];
 
   const visibleSerials = product.hasSerial ? serials : [];
@@ -310,9 +311,9 @@ export default function ProductDetailScreen({ route, navigation }: any) {
                         </View>
                       ) : null}
 
-                      {s.warrantyEndDate && (
-                        <Text style={st.warrantyText}>🛡 {s.warrantyEndDate}</Text>
-                      )}
+                      {fmtSerialWarranty(s.warrantyMonths) ? (
+                        <Text style={st.warrantyText}>🛡 {fmtSerialWarranty(s.warrantyMonths)}</Text>
+                      ) : null}
 
                       <View style={[st.statusBadge, { backgroundColor: col.bg }]}>
                         <Text style={[st.statusText, { color: col.text }]}>{s.status}</Text>

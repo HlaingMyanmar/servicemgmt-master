@@ -54,7 +54,7 @@ fun BookingPrintScreen(onBack: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Booking Invoice Preview", fontWeight = FontWeight.ExtraBold) },
+                title = { Text("လက်ခံဘောင်ချာ အစမ်းကြည့်ရန်", fontWeight = FontWeight.ExtraBold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Outlined.ArrowBack, "နောက်ပြန်", tint = Color.White)

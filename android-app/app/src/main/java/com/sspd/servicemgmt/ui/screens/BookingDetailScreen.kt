@@ -42,7 +42,7 @@ fun BookingDetailScreen(onBack: () -> Unit, onJobCreated: () -> Unit = {}, onEdi
         snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
             TopAppBar(
-                title = { Text(state.booking?.invoiceNo ?: "Booking အသေးစိတ်", fontWeight = FontWeight.ExtraBold) },
+                title = { Text(state.booking?.invoiceNo ?: "လက်ခံမှု အသေးစိတ်", fontWeight = FontWeight.ExtraBold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) { Icon(Icons.Outlined.ArrowBack, "နောက်ပြန်", tint = Color.White) }
                 },
@@ -92,7 +92,7 @@ fun BookingDetailScreen(onBack: () -> Unit, onJobCreated: () -> Unit = {}, onEdi
                             Surface(color = VioletBg, shape = RoundedCornerShape(6.dp)) {
                                 Row(Modifier.padding(horizontal = 8.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
                                     Icon(Icons.Outlined.LocationOn, null, tint = Violet, modifier = Modifier.size(12.dp))
-                                    Text("Shelf: ${booking.shelfLocation}", fontSize = 11.sp, color = Violet, fontWeight = FontWeight.Bold)
+                                    Text("ကန့်: ${booking.shelfLocation}", fontSize = 11.sp, color = Violet, fontWeight = FontWeight.Bold)
                                 }
                             }
                         }
@@ -214,7 +214,7 @@ fun BookingDetailScreen(onBack: () -> Unit, onJobCreated: () -> Unit = {}, onEdi
                         else {
                             Icon(Icons.Outlined.Build, null, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(8.dp))
-                            Text("Job အဖြစ် ပြောင်းရန်", fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
+                            Text("ဝန်ဆောင်မှုအလုပ် ပြောင်းရန်", fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
                         }
                     }
                 }
@@ -244,7 +244,7 @@ private fun BookingDetailStatusBadge(status: String?) {
     val (bg, color, label) = when (status?.uppercase()) {
         "PENDING"    -> Triple(WarningBg, Warning, "စောင့်ဆိုင်း")
         "IN_STORAGE" -> Triple(VioletBg,  Violet,  "သိမ်းထားပြီး")
-        "CONVERTED"  -> Triple(SuccessBg, Success, "Job ပြောင်းပြီး")
+        "CONVERTED"  -> Triple(SuccessBg, Success, "အလုပ်ပြောင်းပြီး")
         "COMPLETED"  -> Triple(SuccessBg, Success, "ပြီးဆုံး")
         "CANCELLED"  -> Triple(DangerBg,  Danger,  "ပယ်ဖျက်")
         else         -> Triple(BorderColor, TextMuted, status ?: "—")
@@ -305,4 +305,3 @@ private fun BookingServiceRow(detail: BookingDetailItemDTO) {
         }
     }
 }
-

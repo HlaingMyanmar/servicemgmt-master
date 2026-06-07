@@ -32,14 +32,14 @@ const ServiceManagement: React.FC = () => {
   const [savingSub, setSavingSub]     = useState(false);
   const [savingItem, setSavingItem]   = useState(false);
 
-  useEffect(() => { loadAll(); }, []);
-  useDataEvents(['Service'], loadAll);
-
   const loadAll = async () => {
     const [t, s] = await Promise.all([serviceTypeService.getAll(), serviceItemService.getAll()]);
     if (t.success) setTypes(t.data ?? []);
     if (s.success) setItems(s.data ?? []);
   };
+
+  useEffect(() => { loadAll(); }, []);
+  useDataEvents(['Service'], loadAll);
 
   // ── Service Types ──────────────────────────────────────
   const openTypeModal = (row?: any) => {

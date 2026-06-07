@@ -36,7 +36,8 @@ import kotlinx.coroutines.delay
 fun ProductListScreen(
     onBack: () -> Unit,
     onProductClick: (Int) -> Unit = {},
-    onScanNavigate: (productId: Int, serial: String) -> Unit = { _, _ -> }
+    onScanNavigate: (productId: Int, serial: String) -> Unit = { _, _ -> },
+    onNewProduct: () -> Unit = {}
 ) {
     val vm: ProductListViewModel = viewModel()
     val state by vm.uiState.collectAsStateWithLifecycle()
@@ -81,6 +82,15 @@ fun ProductListScreen(
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = Primary, titleContentColor = Color.White
                     )
+                )
+            },
+            floatingActionButton = {
+                ExtendedFloatingActionButton(
+                    onClick = onNewProduct,
+                    containerColor = Primary,
+                    contentColor = Color.White,
+                    icon = { Icon(Icons.Outlined.Add, null) },
+                    text = { Text("ကုန်ပစ္စည်းအသစ်", fontWeight = FontWeight.Bold) }
                 )
             }
         ) { padding ->
@@ -142,7 +152,7 @@ fun ProductListScreen(
                         items(filtered, key = { it.id }) { p ->
                             ProductCard(p, onClick = { onProductClick(p.id) })
                         }
-                        item { Spacer(Modifier.height(24.dp)) }
+                        item { Spacer(Modifier.height(88.dp)) }
                     }
                 }
             }

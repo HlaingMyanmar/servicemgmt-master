@@ -28,8 +28,6 @@ const TrialBalanceReport: React.FC = () => {
   const [backfilling, setBackfilling] = useState(false);
   const [backfillMsg, setBackfillMsg] = useState('');
 
-  useDataEvents(['Sale', 'Purchase', 'Expense', 'Income', 'Journal'], fetchReport);
-
   const fetchReport = async () => {
     if (!asOf) return;
     setLoading(true);
@@ -42,6 +40,8 @@ const TrialBalanceReport: React.FC = () => {
       setLoading(false);
     }
   };
+
+  useDataEvents(['Sale', 'Purchase', 'Expense', 'Income', 'Journal'], fetchReport);
 
   const handleBackfill = async () => {
     setBackfilling(true);

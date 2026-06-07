@@ -124,6 +124,53 @@ class ProductDetailViewModel(
     fun clearHighlight()     = _uiState.update { it.copy(scannedSerial = null) }
     fun clearScanError()     = _uiState.update { it.copy(scanError = null) }
 
+    fun addSerial(serialNumber: String) {
+        val p = _uiState.value.product ?: return
+        val sn = serialNumber.trim().uppercase()
+        if (sn.isBlank()) {
+            _uiState.update { it.copy(uploadError = "Serial number ဖြည့်ပါ") }
+            return
+        }
+        if (_uiState.value.serials.any { it.serialNumber.equals(sn, ignoreCase = true) }) {
+            _uiState.update { it.copy(uploadError = "\"$sn\" ထပ်နေသည်") }
+            return
+        }
+        viewModelScope.launch {
+            _uiState.update { it.copy(addingSerial = true) }
+            try {
+                val res = ApiClient.service.createProductSerial(
+                    ApiClient.bearer(prefs.authToken),
+                    ProductSerialDTO(serialNumber = sn, status = "AVAILABLE", productId = p.id)
+                )
+                val created = res.body()?.data
+                if (res.isSuccessful && created != null) {
+                    _uiState.update { it.copy(serials = it.serials + created, addingSerial = false, uploadSuccess = created.id) }
+                } else {
+                    _uiState.update { it.copy(addingSerial = false, uploadError = res.body()?.message ?: "Serial မသိမ်းနိုင်ပါ (${res.code()})") }
+                }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(addingSerial = false, uploadError = e.message ?: "ချိတ်ဆက်မှု ချို့ယွင်း") }
+            }
+        }
+    }
+
+    fun deleteSerial(serial: ProductSerialDTO) {
+        val id = serial.id ?: return
+        viewModelScope.launch {
+            _uiState.update { it.copy(deletingSerialId = id) }
+            try {
+                val res = ApiClient.service.deleteProductSerial(ApiClient.bearer(prefs.authToken), id)
+                if (res.isSuccessful) {
+                    _uiState.update { it.copy(serials = it.serials.filterNot { s -> s.id == id }, deletingSerialId = null) }
+                } else {
+                    _uiState.update { it.copy(deletingSerialId = null, uploadError = res.body()?.message ?: "Serial ဖျက်မရပါ (${res.code()})") }
+                }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(deletingSerialId = null, uploadError = e.message ?: "ချိတ်ဆက်မှု ချို့ယွင်း") }
+            }
+        }
+    }
+
     fun onScanResult(serialNumber: String) {
         _uiState.update { it.copy(showScanner = false) }
         val found = _uiState.value.serials.any { it.serialNumber == serialNumber }
@@ -143,6 +190,8 @@ class ProductDetailViewModel(
         val scanError: String? = null,
         val uploadingSerialId: Int? = null,
         val uploadingProductPhoto: Boolean = false,
+        val addingSerial: Boolean = false,
+        val deletingSerialId: Int? = null,
         val uploadSuccess: Int? = null,   // serialId, or -1 for product photo
         val uploadError: String? = null
     )

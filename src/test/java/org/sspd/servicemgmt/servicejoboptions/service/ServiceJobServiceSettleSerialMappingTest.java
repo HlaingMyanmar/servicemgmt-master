@@ -113,6 +113,7 @@ class ServiceJobServiceSettleSerialMappingTest {
             mock(PaymentTransactionRepository.class),
             mock(AccountResolver.class),
             mock(SaleService.class),
+            mock(org.sspd.servicemgmt.creditoptions.service.CreditService.class),
             mock(org.springframework.messaging.simp.SimpMessagingTemplate.class),
             mock(org.sspd.servicemgmt.bookingoptions.repository.BookingRepository.class)
         );

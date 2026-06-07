@@ -6,6 +6,7 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
@@ -26,19 +27,21 @@ private val AppColorScheme = lightColorScheme(
     onError            = Color.White,
 )
 
+private val MyanmarFontFamily = FontFamily.SansSerif
+
 private val AppTypography = Typography(
-    displaySmall  = TextStyle(fontWeight = FontWeight.ExtraBold, fontSize = 28.sp, letterSpacing = (-0.5).sp, color = TextMain),
-    headlineMedium = TextStyle(fontWeight = FontWeight.ExtraBold, fontSize = 22.sp, letterSpacing = (-0.3).sp, color = TextMain),
-    headlineSmall  = TextStyle(fontWeight = FontWeight.Bold,      fontSize = 18.sp, color = TextMain),
-    titleLarge     = TextStyle(fontWeight = FontWeight.Bold,      fontSize = 16.sp, color = TextMain),
-    titleMedium    = TextStyle(fontWeight = FontWeight.SemiBold,  fontSize = 14.sp, color = TextMain),
-    titleSmall     = TextStyle(fontWeight = FontWeight.SemiBold,  fontSize = 13.sp, color = TextMain),
-    bodyLarge      = TextStyle(fontWeight = FontWeight.Normal,    fontSize = 16.sp, color = TextMain),
-    bodyMedium     = TextStyle(fontWeight = FontWeight.Normal,    fontSize = 14.sp, color = TextMain),
-    bodySmall      = TextStyle(fontWeight = FontWeight.Normal,    fontSize = 12.sp, color = TextMuted),
-    labelLarge     = TextStyle(fontWeight = FontWeight.SemiBold,  fontSize = 13.sp),
-    labelMedium    = TextStyle(fontWeight = FontWeight.Medium,    fontSize = 11.sp),
-    labelSmall     = TextStyle(fontWeight = FontWeight.Medium,    fontSize = 10.sp, color = TextMuted),
+    displaySmall   = TextStyle(fontFamily = MyanmarFontFamily, fontWeight = FontWeight.ExtraBold, fontSize = 28.sp, letterSpacing = 0.sp, color = TextMain),
+    headlineMedium = TextStyle(fontFamily = MyanmarFontFamily, fontWeight = FontWeight.ExtraBold, fontSize = 22.sp, letterSpacing = 0.sp, color = TextMain),
+    headlineSmall  = TextStyle(fontFamily = MyanmarFontFamily, fontWeight = FontWeight.Bold,      fontSize = 18.sp, letterSpacing = 0.sp, color = TextMain),
+    titleLarge     = TextStyle(fontFamily = MyanmarFontFamily, fontWeight = FontWeight.Bold,      fontSize = 16.sp, letterSpacing = 0.sp, color = TextMain),
+    titleMedium    = TextStyle(fontFamily = MyanmarFontFamily, fontWeight = FontWeight.SemiBold,  fontSize = 14.sp, letterSpacing = 0.sp, color = TextMain),
+    titleSmall     = TextStyle(fontFamily = MyanmarFontFamily, fontWeight = FontWeight.SemiBold,  fontSize = 13.sp, letterSpacing = 0.sp, color = TextMain),
+    bodyLarge      = TextStyle(fontFamily = MyanmarFontFamily, fontWeight = FontWeight.Normal,    fontSize = 16.sp, letterSpacing = 0.sp, color = TextMain),
+    bodyMedium     = TextStyle(fontFamily = MyanmarFontFamily, fontWeight = FontWeight.Normal,    fontSize = 14.sp, letterSpacing = 0.sp, color = TextMain),
+    bodySmall      = TextStyle(fontFamily = MyanmarFontFamily, fontWeight = FontWeight.Normal,    fontSize = 12.sp, letterSpacing = 0.sp, color = TextMuted),
+    labelLarge     = TextStyle(fontFamily = MyanmarFontFamily, fontWeight = FontWeight.SemiBold,  fontSize = 13.sp, letterSpacing = 0.sp),
+    labelMedium    = TextStyle(fontFamily = MyanmarFontFamily, fontWeight = FontWeight.Medium,    fontSize = 11.sp, letterSpacing = 0.sp),
+    labelSmall     = TextStyle(fontFamily = MyanmarFontFamily, fontWeight = FontWeight.Medium,    fontSize = 10.sp, letterSpacing = 0.sp, color = TextMuted),
 )
 
 @Composable

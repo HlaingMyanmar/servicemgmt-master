@@ -200,7 +200,7 @@ fun HomeScreen(
                         fontSize     = 13.sp,
                         fontWeight   = FontWeight.ExtraBold,
                         color        = TextMain,
-                        letterSpacing = 0.5.sp
+                        letterSpacing = 0.sp
                     )
                     if (state.loading)
                         CircularProgressIndicator(
@@ -251,13 +251,24 @@ fun HomeScreen(
 
                     StatCard(
                         modifier = Modifier.weight(1f),
-                        label    = "ဆိုင်ခင်း Job",
+                        label    = "ဆိုင်ခင်းအလုပ်",
                         value    = "${state.stats.pendingServiceJobs ?: 0} ခု",
                         icon     = Icons.Outlined.Build,
                         color    = Violet,
                         bg       = VioletBg
                     ) { onNavigate(Screen.ServiceJobs.route) }
                 }
+
+                Spacer(Modifier.height(12.dp))
+
+                OperationsPulseCard(
+                    pendingAmount = state.stats.totalPendingAR ?: 0,
+                    overdueAmount = state.stats.totalOverdueAR ?: 0,
+                    pendingCount = state.stats.pendingARCount ?: 0,
+                    overdueCount = state.stats.overdueARCount ?: 0,
+                    onCreditClick = { onNavigate(Screen.CreditDesk.route) },
+                    onCustomerClick = { onNavigate(Screen.Customers.route) }
+                )
 
                 // ── Booking alerts ────────────────────────────────────────────
                 AnimatedVisibility(
@@ -282,7 +293,7 @@ fun HomeScreen(
                                     modifier = Modifier.size(16.dp)
                                 )
                                 Text(
-                                    "Appointment သတိပေးချက် (${state.bookingAlerts.size} ခု)",
+                                    "ချိန်းဆိုမှု သတိပေးချက် (${state.bookingAlerts.size} ခု)",
                                     fontSize   = 13.sp,
                                     fontWeight = FontWeight.ExtraBold,
                                     color      = Color(0xFFD97706)
@@ -312,15 +323,17 @@ fun HomeScreen(
                     fontSize     = 13.sp,
                     fontWeight   = FontWeight.ExtraBold,
                     color        = TextMain,
-                    letterSpacing = 0.5.sp
+                    letterSpacing = 0.sp
                 )
                 Spacer(Modifier.height(12.dp))
 
                 val actions = listOf(
                     QuadItem("ကုန်ပစ္စည်းများ",         Icons.Outlined.Inventory2,            Color(0xFF0891B2), Screen.Products.route),
                     QuadItem("အရောင်းဆိုင်ရာ",           Icons.Outlined.Receipt,               Primary,          Screen.Sales.route),
-                    QuadItem("Booking",                  Icons.Outlined.CalendarMonth,         Color(0xFF0369A1),Screen.Bookings.route),
-                    QuadItem("ဝန်ဆောင်မှု Job",          Icons.Outlined.Build,                 Color(0xFF059669),Screen.ServiceJobs.route),
+                    QuadItem("ပစ္စည်းလက်ခံ",                  Icons.Outlined.CalendarMonth,         Color(0xFF0369A1),Screen.Bookings.route),
+                    QuadItem("ဝန်ဆောင်မှုအလုပ်",          Icons.Outlined.Build,                 Color(0xFF059669),Screen.ServiceJobs.route),
+                    QuadItem("ဖောက်သည်များ",              Icons.Outlined.Groups,                Color(0xFF16A34A),Screen.Customers.route),
+                    QuadItem("Credit Desk",              Icons.Outlined.CreditCard,            Color(0xFF7C3AED),Screen.CreditDesk.route),
                     QuadItem("ကုန်ကျစရိတ်",              Icons.Outlined.AccountBalanceWallet,  Color(0xFFB45309),Screen.Expenses.route),
                     QuadItem("ကိန်းဂဏာန်း",              Icons.Outlined.BarChart,              Color(0xFF0891B2),Screen.Report.route),
                     QuadItem("ဝင်ငွေ/အမြတ်",             Icons.Outlined.TrendingUp,            Color(0xFF059669),Screen.IncomeReport.route),
@@ -362,6 +375,85 @@ private data class QuadItem(
 
 // ── Stat Card ─────────────────────────────────────────────────────────────────
 @Composable
+private fun OperationsPulseCard(
+    pendingAmount: Long,
+    overdueAmount: Long,
+    pendingCount: Long,
+    overdueCount: Long,
+    onCreditClick: () -> Unit,
+    onCustomerClick: () -> Unit
+) {
+    Card(
+        shape = RoundedCornerShape(8.dp),
+        colors = CardDefaults.cardColors(containerColor = CardBg),
+        border = BorderStroke(1.dp, BorderColor),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("လုပ်ငန်းအခြေအနေ", fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, color = TextMain)
+                    Text("အကြွေး၊ လက်ကျန်နှင့် follow-up", fontSize = 11.sp, color = TextMuted)
+                }
+                AssistChip(
+                    onClick = onCreditClick,
+                    label = { Text("Credit Desk", fontSize = 11.sp, fontWeight = FontWeight.Bold) },
+                    leadingIcon = { Icon(Icons.Outlined.CreditCard, null, modifier = Modifier.size(16.dp)) }
+                )
+            }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                PulseMetric("လက်ကျန်", "${pendingAmount.fmt()} Ks", "$pendingCount invoices", Icons.Outlined.PendingActions, Primary, Modifier.weight(1f))
+                PulseMetric("ကျော်လွန်", "${overdueAmount.fmt()} Ks", "$overdueCount overdue", Icons.Outlined.EventBusy, Danger, Modifier.weight(1f))
+            }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = onCustomerClick, modifier = Modifier.weight(1f).height(42.dp), shape = RoundedCornerShape(8.dp)) {
+                    Icon(Icons.Outlined.Groups, null, modifier = Modifier.size(17.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("ဖောက်သည်များ")
+                }
+                Button(
+                    onClick = onCreditClick,
+                    modifier = Modifier.weight(1f).height(42.dp),
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Primary)
+                ) {
+                    Icon(Icons.Outlined.Payments, null, modifier = Modifier.size(17.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("ငွေကောက်ရန်")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PulseMetric(
+    label: String,
+    value: String,
+    count: String,
+    icon: ImageVector,
+    color: Color,
+    modifier: Modifier
+) {
+    Surface(
+        modifier = modifier,
+        color = color.copy(0.08f),
+        shape = RoundedCornerShape(8.dp),
+        border = BorderStroke(1.dp, color.copy(0.18f))
+    ) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+            Icon(icon, null, tint = color, modifier = Modifier.size(18.dp))
+            Text(label, fontSize = 11.sp, color = TextMuted, fontWeight = FontWeight.SemiBold)
+            Text(value, fontSize = 15.sp, color = TextMain, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(count, fontSize = 10.sp, color = TextMuted, maxLines = 1)
+        }
+    }
+}
+
+@Composable
 private fun StatCard(
     modifier: Modifier,
     label:    String,
@@ -373,15 +465,16 @@ private fun StatCard(
 ) {
     Card(
         modifier  = modifier.clickable { onClick() },
-        shape     = RoundedCornerShape(18.dp),
-        colors    = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        shape     = RoundedCornerShape(8.dp),
+        colors    = CardDefaults.cardColors(containerColor = CardBg),
+        border    = BorderStroke(1.dp, BorderColor),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
             Box(
                 modifier = Modifier
                     .size(40.dp)
-                    .clip(RoundedCornerShape(12.dp))
+                    .clip(RoundedCornerShape(8.dp))
                     .background(bg),
                 contentAlignment = Alignment.Center
             ) {
@@ -406,9 +499,10 @@ private fun ActionGridCard(
 ) {
     Card(
         modifier  = modifier.clickable { onClick() },
-        shape     = RoundedCornerShape(18.dp),
-        colors    = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        shape     = RoundedCornerShape(8.dp),
+        colors    = CardDefaults.cardColors(containerColor = CardBg),
+        border    = BorderStroke(1.dp, BorderColor),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 16.dp),
@@ -417,7 +511,7 @@ private fun ActionGridCard(
             Box(
                 modifier = Modifier
                     .size(44.dp)
-                    .clip(RoundedCornerShape(12.dp))
+                    .clip(RoundedCornerShape(8.dp))
                     .background(color.copy(alpha = 0.10f)),
                 contentAlignment = Alignment.Center
             ) {
@@ -478,7 +572,7 @@ private fun BookingAlertCard(
             // Info
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(
-                    booking.customerName ?: "Customer",
+                    booking.customerName ?: "ဖောက်သည်",
                     fontWeight = FontWeight.Bold,
                     fontSize   = 13.sp,
                     color      = Color(0xFF92400E)
@@ -491,7 +585,7 @@ private fun BookingAlertCard(
                     )
                 }
                 Text(
-                    "Appointment: ${booking.appointmentDate?.take(16)?.replace("T", " ") ?: "-"}",
+                    "ချိန်းဆိုချိန်: ${booking.appointmentDate?.take(16)?.replace("T", " ") ?: "-"}",
                     fontSize = 11.sp,
                     color    = Color(0xFF78716C)
                 )
@@ -553,7 +647,7 @@ fun DrawerContent(
                 ) {
                     Image(
                         painter            = painterResource(R.drawable.logo),
-                        contentDescription = "SSPD Logo",
+                        contentDescription = "SSPD လိုဂို",
                         contentScale       = ContentScale.Fit,
                         modifier           = Modifier.size(56.dp)
                     )
@@ -568,7 +662,7 @@ fun DrawerContent(
                     color      = Color.White
                 )
                 Text(
-                    "IT Solution Center",
+                    "IT ဖြေရှင်းရေးစင်တာ",
                     fontSize = 11.sp,
                     color    = Color.White.copy(0.65f)
                 )
@@ -615,6 +709,9 @@ fun DrawerContent(
                 .padding(top = 8.dp, bottom = 8.dp)
         ) {
             DrawerSection("စီမံခန့်ခွဲမှု")
+            DrawerMenuItem("ကုန်ပစ္စည်း မာစတာ",          Icons.Outlined.Inventory2,             Screen.Products.route,       onNavigate)
+            DrawerMenuItem("ဖောက်သည်များ",              Icons.Outlined.Groups,                 Screen.Customers.route,      onNavigate)
+            DrawerMenuItem("Credit Operations Desk",     Icons.Outlined.CreditCard,             Screen.CreditDesk.route,     onNavigate)
             DrawerMenuItem("ဝန်ဆောင်မှုများ",          Icons.Outlined.MiscellaneousServices, Screen.ServiceMgmt.route,   onNavigate)
             DrawerMenuItem("ကန့်တည်နေရာများ",          Icons.Outlined.LocationOn,            Screen.ShelfLocations.route, onNavigate)
 
@@ -625,10 +722,10 @@ fun DrawerContent(
 
             DrawerSection("အဖွဲ့")
             DrawerMenuItem("ဝန်ထမ်းစွမ်းဆောင်ရည်",     Icons.Outlined.BarChart,              Screen.StaffReport.route,   onNavigate)
-            DrawerMenuItem("အဖွဲ့ Chat",               Icons.Outlined.Chat,                  Screen.Chat.route,          onNavigate)
+            DrawerMenuItem("အဖွဲ့ စကားဝိုင်း",               Icons.Outlined.Chat,                  Screen.Chat.route,          onNavigate)
 
             DrawerSection("စနစ်")
-            DrawerMenuItem("Audit မှတ်တမ်း",           Icons.Outlined.Security,              Screen.AuditLog.route,      onNavigate)
+            DrawerMenuItem("စစ်ဆေးမှု မှတ်တမ်း",           Icons.Outlined.Security,              Screen.AuditLog.route,      onNavigate)
             DrawerMenuItem("အကောင့်သတ်မှတ်ချက်",        Icons.Outlined.ManageAccounts,        Screen.Account.route,       onNavigate)
             DrawerMenuItem("အကြောင်းအရာ",               Icons.Outlined.Info,                  Screen.About.route,         onNavigate)
         }
@@ -711,8 +808,8 @@ private fun ServerStatusChip() {
     )
 
     val (icon, dotColor, label) = when (status) {
-        ServerStatus.ONLINE   -> Triple(Icons.Outlined.Wifi,    Color(0xFF4ADE80), "Online")
-        ServerStatus.OFFLINE  -> Triple(Icons.Outlined.WifiOff, Color(0xFFF87171), "Offline")
+        ServerStatus.ONLINE   -> Triple(Icons.Outlined.Wifi,    Color(0xFF4ADE80), "အွန်လိုင်း")
+        ServerStatus.OFFLINE  -> Triple(Icons.Outlined.WifiOff, Color(0xFFF87171), "အော့ဖ်လိုင်း")
         ServerStatus.CHECKING -> Triple(Icons.Outlined.Wifi,    Color.White.copy(pulseAlpha), "...")
     }
 

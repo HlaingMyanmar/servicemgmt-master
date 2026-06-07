@@ -8,6 +8,7 @@ import com.sspd.servicemgmt.api.ApiClient
 import com.sspd.servicemgmt.api.CustomerDTO
 import com.sspd.servicemgmt.api.PaymentMethodDTO
 import com.sspd.servicemgmt.api.ProductDTO
+import com.sspd.servicemgmt.api.ProductSerialDTO
 import com.sspd.servicemgmt.api.ServiceItemDTO
 import com.sspd.servicemgmt.api.ServiceJobDTO
 import com.sspd.servicemgmt.api.ServiceJobLineDTO
@@ -111,6 +112,13 @@ class ServiceJobFormViewModel(
     // ── Field setters ─────────────────────────────────────────────────────────
     fun setCustomerQuery(q: String)        = _uiState.update { it.copy(customerQuery = q, selectedCustomer = null) }
     fun selectCustomer(c: CustomerDTO)     = _uiState.update { it.copy(selectedCustomer = c, customerQuery = c.name) }
+    fun showNewCustomerDialog()            = _uiState.update {
+        it.copy(showNewCustomerDialog = true, newCustomerName = it.customerQuery)
+    }
+    fun dismissNewCustomerDialog()         = _uiState.update { it.copy(showNewCustomerDialog = false, newCustomerError = null) }
+    fun setNewCustomerName(v: String)      = _uiState.update { it.copy(newCustomerName = v, newCustomerError = null) }
+    fun setNewCustomerPhone(v: String)     = _uiState.update { it.copy(newCustomerPhone = v) }
+    fun setNewCustomerAddress(v: String)   = _uiState.update { it.copy(newCustomerAddress = v) }
     fun selectStaff(s: StaffDTO?)          = _uiState.update { it.copy(selectedStaff = s) }
     fun setItemName(v: String)             = _uiState.update { it.copy(itemName = v) }
     fun setItemCondition(v: String)        = _uiState.update { it.copy(itemCondition = v) }
@@ -136,6 +144,92 @@ class ServiceJobFormViewModel(
     fun removePart(index: Int)  = _uiState.update { it.copy(parts = it.parts.toMutableList().also { l -> l.removeAt(index) }) }
     fun updatePart(index: Int, part: PartDraft) = _uiState.update {
         it.copy(parts = it.parts.toMutableList().also { l -> l[index] = part })
+    }
+
+    fun selectPartProduct(partIdx: Int, product: ProductDTO) {
+        if (partIdx !in _uiState.value.parts.indices) return
+        if (product.hasSerial == true) {
+            _uiState.update { s ->
+                val parts = s.parts.toMutableList()
+                parts[partIdx] = parts[partIdx].copy(
+                    product = product,
+                    unitPrice = String.format("%.0f", product.sellingPrice.toDouble()),
+                    serialNumbers = emptyList(),
+                    qty = "1"
+                )
+                s.copy(
+                    parts = parts,
+                    serialSelectPartIdx = partIdx,
+                    serialSelectProduct = product,
+                    serialSelectOptions = emptyList(),
+                    serialSelectLoading = true,
+                    serialSelectError = null
+                )
+            }
+            loadSerialOptions(partIdx, product)
+        } else {
+            updatePart(
+                partIdx,
+                _uiState.value.parts[partIdx].copy(
+                    product = product,
+                    unitPrice = String.format("%.0f", product.sellingPrice.toDouble()),
+                    serialNumbers = emptyList(),
+                    qty = "1"
+                )
+            )
+        }
+    }
+
+    private fun loadSerialOptions(partIdx: Int, product: ProductDTO) {
+        viewModelScope.launch {
+            try {
+                val res = ApiClient.service.getProductSerials(ApiClient.bearer(prefs.authToken), product.id)
+                val selectedElsewhere = _uiState.value.parts
+                    .filterIndexed { idx, _ -> idx != partIdx }
+                    .flatMap { it.serialNumbers }
+                    .toSet()
+                val options = (if (res.isSuccessful) res.body()?.data ?: emptyList() else emptyList())
+                    .filter { serial ->
+                        val status = serial.status?.uppercase()
+                        serial.serialNumber.isNotBlank() &&
+                            status != "SOLD" &&
+                            status != "USED" &&
+                            status != "DAMAGED" &&
+                            status != "LOST" &&
+                            !selectedElsewhere.contains(serial.serialNumber)
+                    }
+                _uiState.update {
+                    it.copy(
+                        serialSelectOptions = options,
+                        serialSelectLoading = false,
+                        serialSelectError = if (options.isEmpty()) "အသုံးပြုနိုင်သော Serial number မရှိပါ" else null
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(
+                        serialSelectLoading = false,
+                        serialSelectError = e.message ?: "Serial number များ မဖတ်နိုင်ပါ"
+                    )
+                }
+            }
+        }
+    }
+
+    fun selectSerialForPart(serial: ProductSerialDTO) {
+        val partIdx = _uiState.value.serialSelectPartIdx ?: return
+        addSerialToPart(partIdx, serial.serialNumber)
+        dismissSerialSelector()
+    }
+
+    fun dismissSerialSelector() = _uiState.update {
+        it.copy(
+            serialSelectPartIdx = null,
+            serialSelectProduct = null,
+            serialSelectOptions = emptyList(),
+            serialSelectLoading = false,
+            serialSelectError = null
+        )
     }
 
     // ── Part scan ─────────────────────────────────────────────────────────────
@@ -223,6 +317,59 @@ class ServiceJobFormViewModel(
             val newSerials = part.serialNumbers.filter { it != serial }
             parts[partIdx] = part.copy(serialNumbers = newSerials, qty = maxOf(1, newSerials.size).toString())
             s.copy(parts = parts)
+        }
+    }
+
+    fun createCustomer() {
+        val s = _uiState.value
+        if (s.newCustomerName.isBlank()) {
+            _uiState.update { it.copy(newCustomerError = "ဖောက်သည်အမည် ဖြည့်ပါ") }
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(creatingCustomer = true, newCustomerError = null) }
+            try {
+                val token = ApiClient.bearer(prefs.authToken)
+                val res = ApiClient.service.createCustomer(
+                    token,
+                    CustomerDTO(
+                        name = s.newCustomerName.trim(),
+                        phone = s.newCustomerPhone.ifBlank { null },
+                        address = s.newCustomerAddress.ifBlank { null }
+                    )
+                )
+                if (res.isSuccessful && res.body()?.data != null) {
+                    val created = res.body()!!.data!!
+                    _uiState.update {
+                        it.copy(
+                            customers = it.customers + created,
+                            selectedCustomer = created,
+                            customerQuery = created.name,
+                            showNewCustomerDialog = false,
+                            newCustomerName = "",
+                            newCustomerPhone = "",
+                            newCustomerAddress = "",
+                            creatingCustomer = false,
+                            newCustomerError = null
+                        )
+                    }
+                } else {
+                    _uiState.update {
+                        it.copy(
+                            creatingCustomer = false,
+                            newCustomerError = res.body()?.message ?: "ဖောက်သည် မသိမ်းနိုင်ပါ (${res.code()})"
+                        )
+                    }
+                }
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(
+                        creatingCustomer = false,
+                        newCustomerError = e.message ?: "ချိတ်ဆက်မှု ချို့ယွင်း"
+                    )
+                }
+            }
         }
     }
 
@@ -339,6 +486,12 @@ class ServiceJobFormViewModel(
         // form
         val customerQuery:       String                  = "",
         val selectedCustomer:    CustomerDTO?            = null,
+        val showNewCustomerDialog: Boolean               = false,
+        val newCustomerName:     String                  = "",
+        val newCustomerPhone:    String                  = "",
+        val newCustomerAddress:  String                  = "",
+        val creatingCustomer:    Boolean                 = false,
+        val newCustomerError:    String?                 = null,
         val selectedStaff:       StaffDTO?               = null,
         val itemName:            String                  = "",
         val itemCondition:       String                  = "",
@@ -357,6 +510,11 @@ class ServiceJobFormViewModel(
         val showPartScanner:     Boolean                 = false,
         val partScanLoading:     Boolean                 = false,
         val partScanError:       String?                 = null,
+        val serialSelectPartIdx: Int?                    = null,
+        val serialSelectProduct: ProductDTO?             = null,
+        val serialSelectOptions: List<ProductSerialDTO>  = emptyList(),
+        val serialSelectLoading: Boolean                 = false,
+        val serialSelectError:   String?                 = null,
         val serialScanPartIdx:   Int?                    = null,
         val serialError:         String?                 = null
     )

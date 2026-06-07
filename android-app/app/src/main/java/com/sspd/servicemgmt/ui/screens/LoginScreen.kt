@@ -67,11 +67,11 @@ fun LoginScreen(onSuccess: () -> Unit) {
         AlertDialog(
             onDismissRequest = { vm.clearError() },
             icon = { Icon(Icons.Outlined.ErrorOutline, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
-            title = { Text("Login မအောင်မြင်ပါ", fontWeight = FontWeight.Bold) },
+            title = { Text("ဝင်ရောက်မှု မအောင်မြင်ပါ", fontWeight = FontWeight.Bold) },
             text  = { Text(state.error) },
             confirmButton = {
                 TextButton(onClick = { vm.clearError() }) {
-                    Text("OK", fontWeight = FontWeight.Bold)
+                    Text("အိုကေ", fontWeight = FontWeight.Bold)
                 }
             }
         )
@@ -305,7 +305,7 @@ private fun AnimatedLogo(modifier: Modifier = Modifier) {
         }
         Image(
             painter            = painterResource(R.drawable.logo),
-            contentDescription = "Logo",
+            contentDescription = "လိုဂို",
             modifier           = Modifier.fillMaxSize().scale(breathe)
         )
     }
@@ -342,7 +342,7 @@ private fun LoginCard(
                 value           = username,
                 onValueChange   = onUsernameChange,
                 modifier        = Modifier.fillMaxWidth(),
-                placeholder     = { Text("Username") },
+                placeholder     = { Text("အသုံးပြုသူအမည်") },
                 leadingIcon     = { Icon(Icons.Outlined.Person, null) },
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                 singleLine      = true,
@@ -355,7 +355,7 @@ private fun LoginCard(
                 value                = password,
                 onValueChange        = onPasswordChange,
                 modifier             = Modifier.fillMaxWidth(),
-                placeholder          = { Text("Password") },
+                placeholder          = { Text("စကားဝှက်") },
                 leadingIcon          = { Icon(Icons.Outlined.Lock, null) },
                 trailingIcon         = {
                     IconButton(onClick = onTogglePwVisible) {

@@ -1,14 +1,25 @@
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="my">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SSPD Service Management</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+Myanmar:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Pyidaungsu', 'Noto Sans Myanmar', 'Myanmar Text', 'Padauk', 'Inter', 'Segoe UI', 'sans-serif']
+            }
+          }
+        }
+      };
+    </script>
     <style>
-        body { font-family: 'Inter', sans-serif; margin: 0; padding: 0; overflow-x: hidden; }
+        body { font-family: 'Pyidaungsu', 'Noto Sans Myanmar', 'Myanmar Text', 'Padauk', 'Inter', 'Segoe UI', sans-serif; margin: 0; padding: 0; overflow-x: hidden; }
         #root { min-height: 100vh; display: flex; flex-direction: column; }
     </style>
     <script>
@@ -39,7 +50,7 @@
 </script>
 <link rel="stylesheet" href="/index.css">
 </head>
-<body class="bg-slate-50 text-slate-900 lang-en">
+<body class="bg-slate-50 text-slate-900 lang-my">
     <div id="root"></div>
 <script type="module" src="/index.tsx"></script>
 </body>

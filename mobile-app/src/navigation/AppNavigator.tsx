@@ -11,6 +11,7 @@ import LoginScreen            from '../screens/LoginScreen';
 import HomeScreen             from '../screens/HomeScreen';
 import ProductListScreen      from '../screens/inventory/ProductListScreen';
 import ProductDetailScreen    from '../screens/inventory/ProductDetailScreen';
+import ProductSerialScreen    from '../screens/inventory/ProductSerialScreen';
 import SaleListScreen         from '../screens/sales/SaleListScreen';
 import NewSaleScreen          from '../screens/sales/NewSaleScreen';
 import VoucherScreen          from '../screens/sales/VoucherScreen';
@@ -43,8 +44,9 @@ const HDR = {
 function InventoryStack() {
   return (
     <Stack.Navigator screenOptions={HDR}>
-      <Stack.Screen name="Products"      component={ProductListScreen}   options={{ title: 'ကုန်ပစ္စည်းများ' }} />
-      <Stack.Screen name="ProductDetail" component={ProductDetailScreen} options={{ title: 'ကုန်ပစ္စည်း အသေးစိတ်' }} />
+      <Stack.Screen name="Products"       component={ProductListScreen}    options={{ title: 'ကုန်ပစ္စည်းများ' }} />
+      <Stack.Screen name="ProductDetail"  component={ProductDetailScreen}  options={{ title: 'ကုန်ပစ္စည်း အသေးစိတ်' }} />
+      <Stack.Screen name="ProductSerials" component={ProductSerialScreen}  options={{ title: 'Serial Registry' }} />
     </Stack.Navigator>
   );
 }

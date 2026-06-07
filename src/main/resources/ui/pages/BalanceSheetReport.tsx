@@ -15,8 +15,6 @@ const BalanceSheetReport: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState('');
 
-  useDataEvents(['Sale', 'Purchase', 'Expense', 'Income', 'Journal'], fetchReport);
-
   const fetchReport = async () => {
     if (!asOf) return;
     setLoading(true);
@@ -29,6 +27,8 @@ const BalanceSheetReport: React.FC = () => {
       setLoading(false);
     }
   };
+
+  useDataEvents(['Sale', 'Purchase', 'Expense', 'Income', 'Journal'], fetchReport);
 
   const isProfit = (data?.currentYearPnL ?? 0) >= 0;
   const diff = data ? Math.abs(data.totalAssets - data.totalLiabilitiesAndEquity) : 0;

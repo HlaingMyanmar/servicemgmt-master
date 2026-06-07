@@ -83,6 +83,71 @@ class NewSaleViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    fun selectProductForSale(product: ProductDTO) {
+        _uiState.update { it.copy(showProductPicker = false) }
+        if (product.hasSerial == true) {
+            _uiState.update {
+                it.copy(
+                    serialSelectProduct = product,
+                    serialSelectOptions = emptyList(),
+                    serialSelectLoading = true,
+                    serialSelectError = null
+                )
+            }
+            loadSerialOptions(product)
+        } else {
+            addToCart(product)
+        }
+    }
+
+    private fun loadSerialOptions(product: ProductDTO) {
+        viewModelScope.launch {
+            try {
+                val res = ApiClient.service.getProductSerials(ApiClient.bearer(prefs.authToken), product.id)
+                val selected = _uiState.value.cart.flatMap { it.serialNumbers }.toSet()
+                val options = (if (res.isSuccessful) res.body()?.data ?: emptyList() else emptyList())
+                    .filter { serial ->
+                        val status = serial.status?.uppercase()
+                        serial.serialNumber.isNotBlank() &&
+                            status != "SOLD" &&
+                            status != "USED" &&
+                            status != "DAMAGED" &&
+                            status != "LOST" &&
+                            !selected.contains(serial.serialNumber)
+                    }
+                _uiState.update {
+                    it.copy(
+                        serialSelectOptions = options,
+                        serialSelectLoading = false,
+                        serialSelectError = if (options.isEmpty()) "အသုံးပြုနိုင်သော Serial number မရှိပါ" else null
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(
+                        serialSelectLoading = false,
+                        serialSelectError = e.message ?: "Serial number များ မဖတ်နိုင်ပါ"
+                    )
+                }
+            }
+        }
+    }
+
+    fun selectSerialForSale(serial: ProductSerialDTO) {
+        val product = _uiState.value.serialSelectProduct ?: return
+        addToCart(product, serial.serialNumber)
+        dismissSerialSelector()
+    }
+
+    fun dismissSerialSelector() = _uiState.update {
+        it.copy(
+            serialSelectProduct = null,
+            serialSelectOptions = emptyList(),
+            serialSelectLoading = false,
+            serialSelectError = null
+        )
+    }
+
     fun updateQty(idx: Int, delta: Int) {
         _uiState.update { state ->
             val cart = state.cart.toMutableList()
@@ -358,6 +423,10 @@ class NewSaleViewModel(application: Application) : AndroidViewModel(application)
         val showStaffPicker:   Boolean              = false,
         val showPayPicker:     Boolean              = false,
         val serialScanIdx:     Int?                 = null,
+        val serialSelectProduct: ProductDTO?        = null,
+        val serialSelectOptions: List<ProductSerialDTO> = emptyList(),
+        val serialSelectLoading: Boolean            = false,
+        val serialSelectError: String?              = null,
         val scanLoading:       Boolean              = false,
         val scanError:         String?              = null,
         val serialError:       String?              = null

@@ -58,9 +58,12 @@ export const buildServiceVoucherHtml = ({
   const partLines = Array.isArray(job.productParts) ? job.productParts : [];
 
   const fmtWarranty = (l: any) => {
+    const terms = String(l?.warrantyTerms || '').trim();
+    if (terms) return `${terms} Warranty`;
     const m = Number(l.warrantyMonths) || 0;
-    if (m > 0) return `${m} Month${m > 1 ? 's' : ''} Warranty`;
-    return '';
+    if (m <= 0) return '';
+    if (m % 12 === 0) { const y = m / 12; return `${y} Year${y > 1 ? 's' : ''} Warranty`; }
+    return `${m} Month${m > 1 ? 's' : ''} Warranty`;
   };
 
   const serviceRowsHtml = serviceLines.length

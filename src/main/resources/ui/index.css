@@ -7,6 +7,8 @@
 
 /* ── Mobile-matching color tokens ──────────────────────────── */
 :root {
+  --app-font-sans: 'Pyidaungsu', 'Noto Sans Myanmar', 'Myanmar Text', 'Padauk', 'Inter', 'Segoe UI', sans-serif;
+  --app-font-mono: 'Cascadia Mono', 'Consolas', 'Courier New', monospace;
   --primary:       #4F46E5;
   --primary-dark:  #4338CA;
   --primary-light: #EEF2FF;
@@ -31,19 +33,19 @@ body {
   margin: 0;
   padding: 0;
   overflow-x: hidden;
-  font-family: 'Pyidaungsu', 'Noto Sans Myanmar', 'Myanmar Text', 'Padauk', 'Inter', 'Segoe UI', sans-serif;
+  font-family: var(--app-font-sans);
   background: var(--bg);
   color: var(--text);
   -webkit-font-smoothing: antialiased;
 }
 
 body.lang-en {
-  font-family: 'Pyidaungsu', 'Noto Sans Myanmar', 'Myanmar Text', 'Padauk', 'Inter', 'Segoe UI', sans-serif;
+  font-family: var(--app-font-sans);
 }
 
 body.lang-my,
 body.lang-my * {
-  font-family: 'Pyidaungsu', 'Noto Sans Myanmar', 'Myanmar Text', 'Padauk', sans-serif !important;
+  font-family: var(--app-font-sans) !important;
 }
 
 button,
@@ -51,6 +53,23 @@ input,
 select,
 textarea {
   font-family: inherit;
+}
+
+code,
+pre,
+kbd,
+samp,
+.font-mono {
+  font-family: var(--app-font-mono) !important;
+}
+
+.swal2-container,
+.swal2-container * {
+  font-family: var(--app-font-sans) !important;
+}
+
+.recharts-wrapper text {
+  font-family: var(--app-font-sans) !important;
 }
 
 #root {
@@ -174,6 +193,13 @@ main thead th {
   padding-bottom: 12px !important;
   text-shadow: 0 1px 1px rgba(15, 23, 42, 0.18);
   white-space: nowrap;
+}
+
+body.lang-my main thead th,
+body.lang-my .uppercase,
+body.lang-my [class*="uppercase"] {
+  text-transform: none !important;
+  letter-spacing: 0 !important;
 }
 
 main thead th:first-child {

@@ -36,6 +36,12 @@ type BuildSaleVoucherHtmlInput = {
   preview?: boolean;
 };
 
+const fmtWarrantyDuration = (months: number): string => {
+  if (months <= 0) return '';
+  if (months % 12 === 0) { const y = months / 12; return `${y} Year${y > 1 ? 's' : ''}`; }
+  return `${months} Month${months > 1 ? 's' : ''}`;
+};
+
 const formatWarrantyPreview = (detail: any) => {
   const warrantyTerms = String(detail?.warrantyTerms || '').trim();
   const warrantyMonths = Number(detail?.warrantyMonths) || 0;
@@ -43,7 +49,7 @@ const formatWarrantyPreview = (detail: any) => {
   const parts: string[] = [];
 
   if (warrantyTerms) parts.push(warrantyTerms);
-  else if (warrantyMonths > 0) parts.push(`${warrantyMonths} Month${warrantyMonths > 1 ? 's' : ''}`);
+  else { const d = fmtWarrantyDuration(warrantyMonths); if (d) parts.push(d); }
 
   if (warrantyExpiry) parts.push(`Exp: ${fmtDate(warrantyExpiry)}`);
   return parts.join(' · ');

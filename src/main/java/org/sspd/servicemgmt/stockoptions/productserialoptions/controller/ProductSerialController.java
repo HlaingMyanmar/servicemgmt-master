@@ -91,6 +91,14 @@ public class ProductSerialController {
     }
 
     // 🔹 Delete by Serial Number
+    @PreAuthorize("isAuthenticated()")
+    @PostMapping("/by-serials")
+    public ResponseEntity<ApiResponse<List<ProductSerialDTO>>> getBySerialNumbers(@RequestBody List<String> serials) {
+        return ResponseEntity.ok(
+                new ApiResponse<>(true, "Serials Found", service.findBySerialNumbers(serials))
+        );
+    }
+
     @PreAuthorize("hasAuthority('CAN_ACCESS_PRODUCT_SERIAL_DELETE')")
     @DeleteMapping("/by-serial/{serialNumber}")
     public ResponseEntity<ApiResponse<Void>> deleteBySerialNumber(@PathVariable String serialNumber) {

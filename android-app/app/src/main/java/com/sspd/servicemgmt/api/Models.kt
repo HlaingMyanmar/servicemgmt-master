@@ -71,8 +71,11 @@ data class ProductDTO(
     val productType: String = "",
     val sellingPrice: Long = 0,
     val costPrice: Long? = null,
+    val categoryId: Int? = null,
     val categoryName: String? = null,
+    val brandId: Int? = null,
     val brandName: String? = null,
+    val unitId: Int? = null,
     val unitName: String? = null,
     val reorderLevel: Int? = null,
     val shortageQty: Int? = null,
@@ -81,6 +84,34 @@ data class ProductDTO(
     val warrantyTerms: String? = null,
     val remark: String? = null,
     val photoBase64: String? = null
+)
+
+data class BrandDTO(
+    val id: Int? = null,
+    val name: String = "",
+    val isActive: Boolean = true
+)
+
+data class CategoryDTO(
+    val id: Int? = null,
+    val name: String = "",
+    val parentId: Int? = null,
+    val isActive: Boolean = true,
+    val children: List<CategoryDTO>? = null
+)
+
+data class UnitDTO(
+    val id: Int? = null,
+    val name: String = "",
+    val unitName: String? = null,
+    val symbol: String? = null,
+    val description: String? = null,
+    val isActive: Boolean = true
+)
+
+data class AssignSerialsRequest(
+    val serialNumbers: List<String>,
+    val warrantyMonths: Int? = null
 )
 
 data class ProductSerialDTO(

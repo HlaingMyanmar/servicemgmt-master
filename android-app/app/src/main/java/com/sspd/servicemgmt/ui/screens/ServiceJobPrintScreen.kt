@@ -54,7 +54,7 @@ fun ServiceJobPrintScreen(onBack: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Service Job Print", fontWeight = FontWeight.ExtraBold) },
+                title = { Text("ဝန်ဆောင်မှုအလုပ် ပရင့်", fontWeight = FontWeight.ExtraBold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Outlined.ArrowBack, "နောက်ပြန်", tint = Color.White)

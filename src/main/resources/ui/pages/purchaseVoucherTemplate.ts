@@ -55,7 +55,14 @@ export const buildPurchaseVoucherHtml = ({
         <td>
           <div>${name}</div>
           ${d.serialNumbers?.length ? `<div class="item-sn">SN: ${escapeHtml(serials)}</div>` : ''}
-          ${d.warrantyMonths ? `<div class="item-sn">Warranty: ${d.warrantyMonths} month(s)</div>` : ''}
+          ${(() => {
+            const terms = String(d.warrantyTerms || '').trim();
+            if (terms) return `<div class="item-sn">Warranty: ${escapeHtml(terms)}</div>`;
+            const m = Number(d.warrantyMonths) || 0;
+            if (!m) return '';
+            const label = m % 12 === 0 ? `${m/12} Year${m/12>1?'s':''}` : `${m} Month${m>1?'s':''}`;
+            return `<div class="item-sn">Warranty: ${label}</div>`;
+          })()}
         </td>
         <td class="num">${qty}</td>
         <td class="num">${cost}</td>

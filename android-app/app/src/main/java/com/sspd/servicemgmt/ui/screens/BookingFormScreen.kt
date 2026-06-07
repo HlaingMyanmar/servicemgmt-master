@@ -137,7 +137,7 @@ fun BookingFormScreen(onBack: () -> Unit, onSuccess: () -> Unit) {
             TopAppBar(
                 title = {
                     Text(
-                        if (vm.isEdit) "Booking ပြင်ဆင်ရန်" else "Booking အသစ်",
+                        if (vm.isEdit) "လက်ခံမှု ပြင်ဆင်ရန်" else "လက်ခံမှု အသစ်",
                         fontWeight = FontWeight.ExtraBold
                     )
                 },
@@ -353,7 +353,7 @@ fun BookingFormScreen(onBack: () -> Unit, onSuccess: () -> Unit) {
                     Icon(Icons.Outlined.Save, null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
                     Text(
-                        if (vm.isEdit) "ပြင်ဆင်မှု သိမ်းဆည်းမည်" else "Booking သိမ်းဆည်းမည်",
+                        if (vm.isEdit) "ပြင်ဆင်မှု သိမ်းဆည်းမည်" else "လက်ခံမှု သိမ်းဆည်းမည်",
                         fontSize = 15.sp, fontWeight = FontWeight.ExtraBold
                     )
                 }
@@ -523,4 +523,3 @@ private fun DeviceField(
         textStyle       = LocalTextStyle.current.copy(fontSize = 13.sp)
     )
 }
-

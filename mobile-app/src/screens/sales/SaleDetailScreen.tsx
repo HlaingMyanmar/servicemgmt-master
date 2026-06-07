@@ -3,10 +3,11 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { api } from '../../api/client';
-import { ApiResponse, SaleDTO } from '../../types';
+import { ApiResponse, SaleDTO, ProductSerialDTO } from '../../types';
 import { C } from '../../theme';
 import { useAuth } from '../../context/AuthContext';
 import { buildSaleVoucherHtml, PrintFormat, VoucherData } from '../../utils/saleVoucherHtml';
+import { fmtSerialWarranty } from '../../utils/warrantyFormat';
 
 const LOGO = require('../../assets/logo.png');
 
@@ -24,14 +25,27 @@ function Divider() { return <View style={{ height: 1, backgroundColor: C.border,
 export default function SaleDetailScreen({ route, navigation }: any) {
   const { saleId } = route.params;
   const { hasPermission } = useAuth();
-  const [sale,     setSale]    = useState<SaleDTO | null>(null);
-  const [loading,  setLoading] = useState(true);
-  const [printing, setPrinting] = useState(false);
-  const [fmtModal, setFmtModal] = useState(false);
+  const [sale,               setSale]               = useState<SaleDTO | null>(null);
+  const [loading,            setLoading]            = useState(true);
+  const [printing,           setPrinting]           = useState(false);
+  const [fmtModal,           setFmtModal]           = useState(false);
+  const [serialWarrantyMap,  setSerialWarrantyMap]  = useState<Record<string, ProductSerialDTO>>({});
 
   useEffect(() => {
     api.get<ApiResponse<SaleDTO>>(`/sales/${saleId}`)
-      .then(r => setSale(r.data))
+      .then(r => {
+        setSale(r.data);
+        const allSerials = (r.data.details ?? []).flatMap(d => d.serialNumbers ?? []);
+        if (allSerials.length > 0) {
+          api.post<ApiResponse<ProductSerialDTO[]>>('/product-serials/by-serials', allSerials)
+            .then(sr => {
+              const m: Record<string, ProductSerialDTO> = {};
+              (sr.data ?? []).forEach(s => { m[s.serialNumber] = s; });
+              setSerialWarrantyMap(m);
+            })
+            .catch(() => {});
+        }
+      })
       .catch(() => Alert.alert('Error', 'Cannot load sale'))
       .finally(() => setLoading(false));
   }, [saleId]);
@@ -62,6 +76,14 @@ export default function SaleDetailScreen({ route, navigation }: any) {
           unitPrice: d.unitPrice ?? 0,
           subtotal: (d.unitPrice ?? 0) * d.qty,
           serialNumbers: d.serialNumbers,
+          serialWarranties: (d.serialNumbers ?? []).length > 0
+            ? Object.fromEntries(
+                (d.serialNumbers ?? []).map(sn => {
+                  const info = serialWarrantyMap[sn];
+                  return [sn, info ? fmtSerialWarranty(info.warrantyMonths) : ''];
+                })
+              )
+            : undefined,
           warrantyMonths: d.warrantyMonths,
           warrantyExpiryDate: d.warrantyExpiryDate,
         })),
@@ -132,15 +154,21 @@ export default function SaleDetailScreen({ route, navigation }: any) {
               <View style={{ flex: 1 }}>
                 <Text style={st.itemName}>{d.productName}</Text>
                 <Text style={st.itemMeta}>{d.qty} × {(d.unitPrice ?? 0).toLocaleString()} Ks</Text>
-                {(d.serialNumbers ?? []).length > 0 && (
-                  <Text style={st.serial}>S/N: {d.serialNumbers.join(', ')}</Text>
-                )}
-                {(d.warrantyMonths ?? 0) > 0 && (
-                  <Text style={st.warranty}>
-                    🛡 {d.warrantyMonths} Month{(d.warrantyMonths ?? 0) > 1 ? 's' : ''} Warranty
-                    {d.warrantyExpiryDate ? `  ·  Exp: ${new Date(d.warrantyExpiryDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}` : ''}
-                  </Text>
-                )}
+                {(d.serialNumbers ?? []).length > 0
+                  ? d.serialNumbers.map(sn => {
+                      const info = serialWarrantyMap[sn];
+                      const wLabel = info ? fmtSerialWarranty(info.warrantyMonths) : '';
+                      return (
+                        <View key={sn} style={{ marginTop: 2 }}>
+                          <Text style={st.serial}>S/N: {sn}</Text>
+                          {wLabel ? <Text style={st.warranty}>🛡 {wLabel}</Text> : null}
+                        </View>
+                      );
+                    })
+                  : (d.warrantyMonths ?? 0) > 0
+                      ? <Text style={st.warranty}>🛡 {fmtSerialWarranty(d.warrantyMonths)}</Text>
+                      : null
+                }
               </View>
               <Text style={st.itemTotal}>{((d.unitPrice ?? 0) * d.qty).toLocaleString()}</Text>
             </View>
