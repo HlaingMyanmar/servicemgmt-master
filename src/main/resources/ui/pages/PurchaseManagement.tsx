@@ -128,7 +128,7 @@ const PurchaseManagement: React.FC = () => {
   const generateSerialNumbers = (productCode: string, qty: number, startSeq = 1): string[] => {
     const d = new Date();
     const ds = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
-    return Array.from({ length: qty }, (_, i) => `${productCode}-${ds}-${String(startSeq + i).padStart(3, '0')}`);
+    return Array.from({ length: qty }, (_, i) => `${ds}-${String(startSeq + i).padStart(2, '0')}`);
   };
 
   const handleAddRow = () => {

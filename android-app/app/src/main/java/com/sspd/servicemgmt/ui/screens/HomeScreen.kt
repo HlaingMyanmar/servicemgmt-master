@@ -12,6 +12,7 @@ import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
@@ -48,6 +49,7 @@ fun HomeScreen(
 ) {
     val vm: HomeViewModel = viewModel()
     val state by vm.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
 
     // Version update check — runs once per session after login
     val versionVm: com.sspd.servicemgmt.ui.viewmodel.VersionCheckViewModel = viewModel()
@@ -65,8 +67,13 @@ fun HomeScreen(
     // Show update dialog when a newer version is available
     versionState.update?.let { update ->
         com.sspd.servicemgmt.ui.components.UpdateDialog(
-            update    = update,
-            onDismiss = versionVm::dismiss
+            update           = update,
+            downloadProgress = versionState.downloadProgress,
+            apkFile          = versionState.apkFile,
+            downloadError    = versionState.downloadError,
+            onDownload       = versionVm::downloadAndInstall,
+            onInstall        = { versionVm.triggerInstall(context) },
+            onDismiss        = versionVm::dismiss
         )
     }
 
@@ -338,6 +345,10 @@ fun HomeScreen(
                     QuadItem("ကိန်းဂဏာန်း",              Icons.Outlined.BarChart,              Color(0xFF0891B2),Screen.Report.route),
                     QuadItem("ဝင်ငွေ/အမြတ်",             Icons.Outlined.TrendingUp,            Color(0xFF059669),Screen.IncomeReport.route),
                     QuadItem("ဝန်ဆောင်မှုများ",          Icons.Outlined.MiscellaneousServices, Color(0xFFD97706),Screen.ServiceMgmt.route),
+                    QuadItem("ကုန်ပမာဏ ပြင်ဆင်မှု",      Icons.Outlined.Inventory,             Color(0xFF0891B2),Screen.StockAdjustments.route),
+                    QuadItem("ဝယ်ယူရေး",                 Icons.Outlined.ShoppingCart,          Color(0xFF0F766E),Screen.Purchases.route),
+                    QuadItem("Serial Registry",           Icons.Outlined.QrCode2,               Color(0xFF7C3AED),Screen.SerialRegistry.route),
+                    QuadItem("Opening Balance",           Icons.Outlined.AccountBalance,         Color(0xFF0369A1),Screen.OpeningBalance.route),
                 )
 
                 actions.chunked(2).forEach { row ->
@@ -709,13 +720,18 @@ fun DrawerContent(
                 .padding(top = 8.dp, bottom = 8.dp)
         ) {
             DrawerSection("စီမံခန့်ခွဲမှု")
-            DrawerMenuItem("ကုန်ပစ္စည်း မာစတာ",          Icons.Outlined.Inventory2,             Screen.Products.route,       onNavigate)
-            DrawerMenuItem("ဖောက်သည်များ",              Icons.Outlined.Groups,                 Screen.Customers.route,      onNavigate)
-            DrawerMenuItem("Credit Operations Desk",     Icons.Outlined.CreditCard,             Screen.CreditDesk.route,     onNavigate)
-            DrawerMenuItem("ဝန်ဆောင်မှုများ",          Icons.Outlined.MiscellaneousServices, Screen.ServiceMgmt.route,   onNavigate)
-            DrawerMenuItem("ကန့်တည်နေရာများ",          Icons.Outlined.LocationOn,            Screen.ShelfLocations.route, onNavigate)
+            DrawerMenuItem("ကုန်ပစ္စည်း မာစတာ",          Icons.Outlined.Inventory2,             Screen.Products.route,          onNavigate)
+            DrawerMenuItem("Inventory Setup",            Icons.Outlined.AccountTree,            Screen.InventorySetup.route,    onNavigate)
+            DrawerMenuItem("ဝယ်ယူရေး",                    Icons.Outlined.ShoppingCart,           Screen.Purchases.route,         onNavigate)
+            DrawerMenuItem("ကုန်ပမာဏ ပြင်ဆင်မှု",      Icons.Outlined.Inventory,              Screen.StockAdjustments.route,  onNavigate)
+            DrawerMenuItem("Serial Registry",           Icons.Outlined.QrCode2,                Screen.SerialRegistry.route,    onNavigate)
+            DrawerMenuItem("ဖောက်သည်များ",              Icons.Outlined.Groups,                 Screen.Customers.route,         onNavigate)
+            DrawerMenuItem("Credit Operations Desk",     Icons.Outlined.CreditCard,             Screen.CreditDesk.route,        onNavigate)
+            DrawerMenuItem("ဝန်ဆောင်မှုများ",          Icons.Outlined.MiscellaneousServices, Screen.ServiceMgmt.route,       onNavigate)
+            DrawerMenuItem("ကန့်တည်နေရာများ",          Icons.Outlined.LocationOn,            Screen.ShelfLocations.route,    onNavigate)
 
             DrawerSection("ငွေကြေး")
+            DrawerMenuItem("Opening Balance / Capital", Icons.Outlined.AccountBalance,         Screen.OpeningBalance.route, onNavigate)
             DrawerMenuItem("ကုန်ကျစရိတ်",              Icons.Outlined.AccountBalanceWallet,  Screen.Expenses.route,      onNavigate)
             DrawerMenuItem("ကိန်းဂဏာန်း",              Icons.Outlined.BarChart,              Screen.Report.route,        onNavigate)
             DrawerMenuItem("ဝင်ငွေ / အမြတ် စာရင်း",   Icons.Outlined.TrendingUp,            Screen.IncomeReport.route,  onNavigate)
@@ -728,6 +744,7 @@ fun DrawerContent(
             DrawerMenuItem("စစ်ဆေးမှု မှတ်တမ်း",           Icons.Outlined.Security,              Screen.AuditLog.route,      onNavigate)
             DrawerMenuItem("အကောင့်သတ်မှတ်ချက်",        Icons.Outlined.ManageAccounts,        Screen.Account.route,       onNavigate)
             DrawerMenuItem("အကြောင်းအရာ",               Icons.Outlined.Info,                  Screen.About.route,         onNavigate)
+            DrawerMenuItem("Software Update",            Icons.Outlined.SystemUpdate,          Screen.SoftwareUpdate.route, onNavigate)
         }
 
         HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))

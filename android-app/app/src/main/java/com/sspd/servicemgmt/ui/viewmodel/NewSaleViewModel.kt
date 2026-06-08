@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.time.LocalDate
 
 data class CartItem(
     val product:        ProductDTO,
@@ -27,7 +28,12 @@ class NewSaleViewModel(application: Application) : AndroidViewModel(application)
     private val _uiState = MutableStateFlow(NewSaleUiState())
     val uiState: StateFlow<NewSaleUiState> = _uiState.asStateFlow()
 
-    init { loadMasterData() }
+    init {
+        _uiState.update {
+            it.copy(hasBackdatePermission = prefs.hasPermission("CAN_ACCESS_SALE_BACKDATE"))
+        }
+        loadMasterData()
+    }
 
     private fun loadMasterData() {
         viewModelScope.launch {
@@ -252,6 +258,7 @@ class NewSaleViewModel(application: Application) : AndroidViewModel(application)
     }
     fun setStaff(s: StaffDTO)                = _uiState.update { it.copy(selectedStaff = s) }
     fun setPayMethod(m: PaymentMethodDTO)    = _uiState.update { it.copy(selectedPayMethod = m) }
+    fun setSaleDate(v: String)               = _uiState.update { it.copy(saleDate = v) }
     fun setPaidAmount(v: String)             = _uiState.update { it.copy(paidAmount = v) }
     fun setOverallDiscount(v: String)        = _uiState.update { it.copy(overallDiscount = v) }
     fun setRemark(v: String)                 = _uiState.update { it.copy(remark = v) }
@@ -308,6 +315,17 @@ class NewSaleViewModel(application: Application) : AndroidViewModel(application)
         if (customer == null)     { onError("Customer ရွေးပါ"); return }
         if (state.cart.isEmpty()) { onError("Item တစ်ခုမျှ မထည့်ရသေးပါ"); return }
 
+        val saleLocalDate = try {
+            LocalDate.parse(state.saleDate)
+        } catch (_: Exception) {
+            onError("Sale date မှန်ကန်စွာ ရွေးပါ")
+            return
+        }
+        if (saleLocalDate.isBefore(LocalDate.now()) && !state.hasBackdatePermission) {
+            onError("Back date sale သိမ်းရန် permission လိုအပ်ပါသည်")
+            return
+        }
+
         // Compute totals once (Long for validation, Double for API body)
         val grossL    = state.cart.sumOf { it.unitPrice * it.qty.toLong() }
         val lineDiscL = state.cart.sumOf { it.discountAmount }
@@ -355,12 +373,13 @@ class NewSaleViewModel(application: Application) : AndroidViewModel(application)
         // Compute dueDate from credit term (today + creditDays)
         val dueDateStr: String? = if (due > 0) {
             val days = state.creditTerm?.creditDays ?: 30
-            java.time.LocalDate.now().plusDays(days.toLong()).toString()
+            saleLocalDate.plusDays(days.toLong()).toString()
         } else null
 
         val body = SaleDTO(
             customerId      = state.selectedCustomer.id,
             staffId         = state.selectedStaff?.id,
+            saleDate        = "${state.saleDate}T00:00:00",
             totalAmount     = gross,
             discountAmount  = overallD,
             netAmount       = net,
@@ -411,6 +430,8 @@ class NewSaleViewModel(application: Application) : AndroidViewModel(application)
         val selectedCustomer:  CustomerDTO?            = null,
         val selectedStaff:     StaffDTO?               = null,
         val selectedPayMethod: PaymentMethodDTO?       = null,
+        val saleDate:          String                  = LocalDate.now().toString(),
+        val hasBackdatePermission: Boolean             = false,
         val creditTerm:        CustomerCreditTermDTO?  = null,
         val creditTermLoading: Boolean                 = false,
         val paidAmount:        String               = "",

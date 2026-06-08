@@ -45,6 +45,7 @@ import com.sspd.servicemgmt.api.ProductSerialDTO
 import com.sspd.servicemgmt.ui.theme.*
 import com.sspd.servicemgmt.ui.components.AppLoading
 import com.sspd.servicemgmt.ui.viewmodel.ProductDetailViewModel
+import com.sspd.servicemgmt.utils.fmtWarranty
 import kotlinx.coroutines.launch
 import java.io.ByteArrayOutputStream
 
@@ -368,7 +369,7 @@ fun ProductDetailScreen(onBack: () -> Unit, onEdit: () -> Unit = {}) {
                                 "ရောင်းဈေး"        to "${p.sellingPrice.fmt()} Ks",
                                 "လက်ကျန်"          to "$avail ခု",
                                 "Reorder Level"    to (p.reorderLevel?.let { "$it ခု" } ?: "—"),
-                                "အာမခံ"            to (p.warrantyMonths?.let { "$it လ" } ?: "—"),
+                                "အာမခံ"            to (p.warrantyMonths?.let { fmtWarranty(it).ifEmpty { "—" } } ?: "—"),
                             ).forEachIndexed { i, (label, value) ->
                                 Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
                                     horizontalArrangement = Arrangement.SpaceBetween) {
@@ -446,15 +447,15 @@ fun ProductDetailScreen(onBack: () -> Unit, onEdit: () -> Unit = {}) {
                                             appendLine("လက်ကျန်: ${p.availableSerialCount ?: p.stockQty} ခု")
                                             val warranty = when {
                                                 !p.warrantyTerms.isNullOrBlank() -> p.warrantyTerms
-                                                (p.warrantyMonths ?: 0) > 0      -> "${p.warrantyMonths} လ"
-                                                else                             -> null
+                                                else -> fmtWarranty(p.warrantyMonths).ifEmpty { null }
                                             }
                                             if (warranty != null) appendLine("အာမခံ: $warranty")
                                             if (!p.remark.isNullOrBlank()) appendLine("မှတ်ချက်: ${p.remark}")
                                             appendLine("─────────────────")
                                             appendLine("Serial: ${serial.serialNumber}")
                                             if (!serial.condition.isNullOrBlank()) appendLine("Condition: ${serial.condition}")
-                                            if (serial.warrantyEndDate != null)    appendLine("အာမခံကုန်ဆုံး: ${serial.warrantyEndDate.take(10)}")
+                                            val snWLabel = fmtWarranty(serial.warrantyMonths)
+                                            if (snWLabel.isNotEmpty()) appendLine("အာမခံ: $snWLabel")
                                             append("Status: ${serial.status ?: "—"}")
                                         }
                                         shareContent(context, bmp, shareText)
@@ -626,8 +627,9 @@ private fun SerialCard(
                             fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color(0xFF92400E))
                     }
                 }
-                if (serial.warrantyEndDate != null) {
-                    Text("🛡 ${serial.warrantyEndDate.take(10)}", fontSize = 10.sp, color = TextMuted)
+                val wLabel = fmtWarranty(serial.warrantyMonths)
+                if (wLabel.isNotEmpty()) {
+                    Text("🛡 $wLabel", fontSize = 10.sp, color = Color(0xFF0891B2))
                 }
                 Surface(color = statusBg, shape = RoundedCornerShape(5.dp)) {
                     Text(statusLabel ?: "—",

@@ -7,6 +7,8 @@ sealed class Screen(val route: String) {
     object Home         : Screen("home")
     object Sales        : Screen("sales")
     object Products     : Screen("products")
+    object InventorySetup : Screen("inventory_setup")
+    object Purchases    : Screen("purchases")
     object Customers    : Screen("customers")
     object CreditDesk   : Screen("credit_desk")
     object ServiceJobs  : Screen("service_jobs")
@@ -18,6 +20,7 @@ sealed class Screen(val route: String) {
     object Chat         : Screen("chat")
     object Account      : Screen("account")
     object About          : Screen("about")
+    object SoftwareUpdate : Screen("software_update")
     object ProductDetail  : Screen("product_detail/{productId}?serial={serialNumber}") {
         fun createRoute(id: Int, serial: String? = null) =
             if (serial != null) "product_detail/$id?serial=${Uri.encode(serial)}"
@@ -31,6 +34,10 @@ sealed class Screen(val route: String) {
         fun createRoute(id: Int) = "sale_detail/$id"
     }
     object NewSale         : Screen("new_sale")
+    object PurchaseDetail  : Screen("purchase_detail/{purchaseId}") {
+        fun createRoute(id: Int) = "purchase_detail/$id"
+    }
+    object NewPurchase     : Screen("new_purchase")
     object SalePrint       : Screen("sale_print/{saleId}") {
         fun createRoute(id: Int) = "sale_print/$id"
     }
@@ -69,6 +76,13 @@ sealed class Screen(val route: String) {
     object ServiceJobPrint : Screen("service_job_print/{jobId}") {
         fun createRoute(id: Int) = "service_job_print/$id"
     }
+    object StockAdjustments : Screen("stock_adjustments")
+    object StockAdjDetail   : Screen("stock_adj_detail/{adjId}") {
+        fun createRoute(id: Int) = "stock_adj_detail/$id"
+    }
+    object NewStockAdj      : Screen("new_stock_adj")
+    object SerialRegistry   : Screen("serial_registry")
+    object OpeningBalance   : Screen("opening_balance")
 }
 
 const val AUTH_GRAPH = "auth_graph"

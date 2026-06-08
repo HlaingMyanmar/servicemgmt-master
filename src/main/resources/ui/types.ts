@@ -716,6 +716,9 @@ export enum AppRoute {
   SERVICE_SUMMARY   = '/reports/service-summary',
   STAFF_PERFORMANCE = '/reports/staff-performance',
   STOCK_REPORT      = '/reports/stock',
-  VOUCHER_SETTINGS  = '/settings/voucher',
-  SHELF_LOCATIONS   = '/services/shelf-locations'
+  VOUCHER_SETTINGS     = '/settings/voucher',
+  APP_VERSION_SETTINGS = '/settings/app-version',
+  SHELF_LOCATIONS      = '/services/shelf-locations',
+  OPENING_BALANCE      = '/accounting/opening-balance',
+  OPENING_STOCK        = '/inventory/opening-stock'
 }

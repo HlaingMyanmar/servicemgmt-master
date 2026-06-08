@@ -129,6 +129,7 @@ public enum PermissionName {
     CAN_ACCESS_SALE_READ("ဝယ်ယူသူ (Customer) အသစ်များ ဖန်တီးခွင့်ပြုသည်"),
     CAN_ACCESS_SALE_DELETE("ဝယ်ယူမှု (Purchase) အချက်အလက်များကို ပြင်ဆင်ခွင့်ပြုသည်"),
     CAN_ACCESS_SALE_UPDATE("ဝယ်ယူမှု (Purchase) အချက်အလက်များကို ပြင်ဆင်ခွင့်ပြုသည်"),
+    CAN_ACCESS_SALE_BACKDATE("Sale ကို နောက်ကျသောရက်စွဲဖြင့် သိမ်းခွင့်"),
     CAN_ACCESS_SALE_RETURN_CREATE("Sale Return ဖန်တီးခွင့်ပြုသည်"),
     CAN_ACCESS_SALE_RETURN_READ("Sale Return အချက်အလက်များကို ကြည့်ရှုခွင့်ပြုသည်"),
     CAN_ACCESS_SALE_RETURN_UPDATE("Sale Return အချက်အလက်များကို ပြင်ဆင်ခွင့်ပြုသည်"),

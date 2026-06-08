@@ -23,7 +23,6 @@ import PurchaseManagement from './pages/PurchaseManagement';
 import PurchaseReturnManagement from './pages/PurchaseReturnManagement';
 import SaleManagement from './pages/SaleManagement';
 import SaleReturnManagement from './pages/SaleReturnManagement';
-import CreditManagement from './pages/CreditManagement';
 import StockAdjustmentManagement from './pages/StockAdjustmentManagement';
 import ExpenseIncomeManagement from './pages/ExpenseIncomeManagement';
 import ProfitLossReport from './pages/ProfitLossReport';
@@ -47,6 +46,9 @@ import StockReport from './pages/reports/StockReport';
 import StaffPerformanceReport from './pages/reports/StaffPerformanceReport';
 import SetupWizardPage from './pages/SetupWizardPage';
 import ScanPage from './pages/ScanPage';
+import OpeningBalancePage from './pages/OpeningBalancePage';
+import OpeningStockPage from './pages/OpeningStockPage';
+import AppVersionSettingsPage from './pages/AppVersionSettingsPage';
 import Layout from './components/Layout';
 import { User, AppLanguage, AppRoute, AppTheme } from './types';
 import { getFromSession } from './utils/storageHelper';
@@ -265,6 +267,14 @@ const App: React.FC = () => {
           element={renderProtected(<ExpenseIncomeManagement />, 'CAN_ACCESS_EXPENSE_READ')}
         />
         <Route
+          path={AppRoute.OPENING_BALANCE}
+          element={renderProtected(<OpeningBalancePage />, 'CAN_ACCESS_COA_READ')}
+        />
+        <Route
+          path={AppRoute.OPENING_STOCK}
+          element={renderProtected(<OpeningStockPage />, 'CAN_ACCESS_PRODUCT_READ')}
+        />
+        <Route
           path={AppRoute.PURCHASES}
           element={renderProtected(<PurchaseManagement />, 'CAN_ACCESS_PURCHASE_READ')}
         />
@@ -282,7 +292,7 @@ const App: React.FC = () => {
         />
         <Route
           path={AppRoute.CREDIT}
-          element={renderProtected(<CreditManagement />, 'CAN_ACCESS_CREDIT_TERM_READ')}
+          element={<Navigate to={AppRoute.CUSTOMERS} replace />}
         />
         <Route
           path={AppRoute.PROFIT_LOSS}
@@ -331,6 +341,10 @@ const App: React.FC = () => {
         <Route
           path={AppRoute.VOUCHER_SETTINGS}
           element={renderProtected(<VoucherSettingsPage />)}
+        />
+        <Route
+          path={AppRoute.APP_VERSION_SETTINGS}
+          element={renderProtected(<AppVersionSettingsPage />, 'CAN_ACCESS_USERS_READ')}
         />
         <Route
           path={AppRoute.AUDIT_LOGS}

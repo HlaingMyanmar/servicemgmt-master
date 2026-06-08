@@ -403,6 +403,34 @@ fun AppNavigation() {
                     }
 
                     // ── Bookings ────────────────────────────────────────────
+                    screen(Screen.InventorySetup.route) {
+                        InventorySetupScreen { nav.popBackStack() }
+                    }
+
+                    screen(Screen.Purchases.route) {
+                        PurchaseListScreen(
+                            onBack = { nav.popBackStack() },
+                            onPurchaseClick = { id -> nav.navigate(Screen.PurchaseDetail.createRoute(id)) },
+                            onNewPurchase = { nav.navigate(Screen.NewPurchase.route) }
+                        )
+                    }
+                    screen(Screen.NewPurchase.route) {
+                        PurchaseFormScreen(
+                            onBack = { nav.popBackStack() },
+                            onSuccess = { purchase ->
+                                nav.navigate(Screen.PurchaseDetail.createRoute(purchase.id!!)) {
+                                    popUpTo(Screen.NewPurchase.route) { inclusive = true }
+                                }
+                            }
+                        )
+                    }
+                    composable(
+                        route = Screen.PurchaseDetail.route,
+                        arguments = listOf(navArgument("purchaseId") { type = NavType.IntType })
+                    ) {
+                        PurchaseDetailScreen(onBack = { nav.popBackStack() })
+                    }
+
                     screen(Screen.Bookings.route) {
                         BookingListScreen(
                             onBack         = { nav.popBackStack() },
@@ -535,6 +563,53 @@ fun AppNavigation() {
                         )
                     }
 
+                    // ── Opening Balance ──────────────────────────────────────
+                    screen(Screen.OpeningBalance.route) {
+                        OpeningBalanceScreen(onBack = { nav.popBackStack() })
+                    }
+
+                    // ── Serial Registry ─────────────────────────────────────
+                    screen(Screen.SerialRegistry.route) {
+                        SerialRegistryScreen(
+                            onBack         = { nav.popBackStack() },
+                            onProductClick = { productId, serial ->
+                                nav.navigate(Screen.ProductDetail.createRoute(productId, serial))
+                            }
+                        )
+                    }
+
+                    // ── Stock Adjustments ───────────────────────────────────
+                    screen(Screen.StockAdjustments.route) {
+                        StockAdjListScreen(
+                            onBack     = { nav.popBackStack() },
+                            onAdjClick = { id -> nav.navigate(Screen.StockAdjDetail.createRoute(id)) },
+                            onNewAdj   = { nav.navigate(Screen.NewStockAdj.route) }
+                        )
+                    }
+                    screen(Screen.NewStockAdj.route) {
+                        StockAdjFormScreen(
+                            onBack    = { nav.popBackStack() },
+                            onSuccess = { adj ->
+                                nav.navigate(Screen.StockAdjDetail.createRoute(adj.id!!)) {
+                                    popUpTo(Screen.NewStockAdj.route) { inclusive = true }
+                                }
+                            }
+                        )
+                    }
+                    composable(
+                        route     = Screen.StockAdjDetail.route,
+                        arguments = listOf(navArgument("adjId") { type = NavType.IntType })
+                    ) {
+                        StockAdjDetailScreen(
+                            onBack    = { nav.popBackStack() },
+                            onDeleted = {
+                                nav.navigate(Screen.StockAdjustments.route) {
+                                    popUpTo(Screen.StockAdjDetail.route) { inclusive = true }
+                                }
+                            }
+                        )
+                    }
+
                     // ── Other screens ───────────────────────────────────────
                     screen(Screen.Customers.route)      { CustomerManagementScreen { nav.popBackStack() } }
                     screen(Screen.CreditDesk.route)     { CreditOperationsScreen    { nav.popBackStack() } }
@@ -563,6 +638,7 @@ fun AppNavigation() {
                     screen(Screen.Chat.route)           { ChatScreen              { nav.popBackStack() } }
                     screen(Screen.Account.route)        { AccountSettingsScreen   { nav.popBackStack() } }
                     screen(Screen.About.route)          { AboutScreen             { nav.popBackStack() } }
+                    screen(Screen.SoftwareUpdate.route) { SoftwareUpdateScreen    { nav.popBackStack() } }
                 }
             }
         }

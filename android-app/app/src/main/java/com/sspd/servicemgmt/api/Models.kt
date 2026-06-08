@@ -119,6 +119,7 @@ data class ProductSerialDTO(
     val serialNumber: String = "",
     val status: String? = null,
     val productId: Int? = null,
+    val productCode: String? = null,
     val productName: String? = null,
     val warrantyMonths: Int? = null,
     val warrantyStartDate: String? = null,
@@ -455,14 +456,35 @@ data class SupplierDTO(
 data class PurchaseDTO(
     val id: Int? = null,
     val purchaseCode: String? = null,
+    val supplierId: Int? = null,
     val supplierName: String? = null,
+    val staffId: Int? = null,
     val staffName: String? = null,
     val purchaseDate: String? = null,
-    val totalAmount: Long? = null,
-    val paidAmount: Long? = null,
-    val dueAmount: Long? = null,
+    val dueDate: String? = null,
+    val totalAmount: Double? = null,
+    val paidAmount: Double? = null,
+    val dueAmount: Double? = null,
     val paymentStatus: String? = null,
-    val remark: String? = null
+    val remark: String? = null,
+    val details: List<PurchaseItemDTO>? = null,
+    val paymentMethodId: Int? = null,
+    val paymentMethodName: String? = null,
+    val transactionNo: String? = null
+)
+
+data class PurchaseItemDTO(
+    val id: Int? = null,
+    val productId: Int? = null,
+    val productName: String? = null,
+    val qty: Int? = null,
+    val unitCost: Double? = null,
+    val subtotal: Double? = null,
+    val warrantyMonths: Int? = null,
+    val itemWarranties: List<Int>? = null,
+    val serialNumbers: List<String>? = null,
+    val serialConditions: List<String>? = null,
+    val serialPhotos: List<String>? = null
 )
 
 // ─── Expenses / Income ───────────────────────────────────────────────────────
@@ -525,6 +547,42 @@ data class AuditLogDTO(
     val ipAddress: String? = null,
     val deviceType: String? = null,
     val createdAt: String? = null
+)
+
+// ─── Account Balances ────────────────────────────────────────────────────────
+
+data class AccountBalanceDTO(
+    val id:             Int?    = null,
+    val accountId:      Int?    = null,
+    val accountName:    String? = null,
+    val accountType:    String? = null,
+    val accountCode:    String? = null,
+    val fiscalYear:     String? = null,
+    val openingBalance: Double? = null,
+    val currentBalance: Double? = null,
+    val lastUpdated:    String? = null
+)
+
+// ─── Stock Adjustments ───────────────────────────────────────────────────────
+
+data class StockAdjItemDTO(
+    val id:          Int?    = null,
+    val productId:   Int?    = null,
+    val productName: String? = null,
+    val productCode: String? = null,
+    val qty:         Int?    = null,
+    val type:        String? = null,   // "GAIN" | "LOSS"
+    val remark:      String? = null
+)
+
+data class StockAdjustmentDTO(
+    val id:        Int?                   = null,
+    val adjCode:   String?                = null,
+    val adjDate:   String?                = null,
+    val reason:    String?                = null,
+    val staffId:   Int?                   = null,
+    val staffName: String?                = null,
+    val items:     List<StockAdjItemDTO>? = null
 )
 
 // ─── Print ───────────────────────────────────────────────────────────────────

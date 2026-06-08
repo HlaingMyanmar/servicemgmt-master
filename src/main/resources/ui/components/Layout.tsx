@@ -6,6 +6,7 @@ import {
   BarChart2,
   BarChart3,
   Bell,
+  Building2,
   CalendarDays,
   Barcode,
   Scale,
@@ -44,7 +45,8 @@ import {
   Wallet,
   Wrench,
   X,
-  ChevronRight
+  ChevronRight,
+  Smartphone
 } from 'lucide-react';
 import { AppLanguage, AppRoute, AppTheme, User } from '../types';
 import { creditAlertService } from '../services/creditalertapiservice';
@@ -104,6 +106,7 @@ const Layout: React.FC<LayoutProps> = ({
       { name: 'ဝန်ထမ်းများ', icon: <UserCircle size={18} />, path: AppRoute.STAFF, group: 'ဝန်ထမ်းရေးရာ', permission: 'CAN_ACCESS_STAFF_READ' },
       { name: 'ကုန်ပစ္စည်းများ', icon: <Box size={18} />, path: AppRoute.PRODUCTS, group: 'ကုန်ပစ္စည်း', permission: 'CAN_ACCESS_PRODUCT_READ' },
       { name: 'လေဘယ်ဒီဇိုင်း', icon: <Barcode size={18} />, path: AppRoute.LABEL_DESIGNER, group: 'ကုန်ပစ္စည်း', permission: 'CAN_ACCESS_PRODUCT_READ' },
+      { name: 'ကနဦး ကုန်လက်ကျန်', icon: <Package size={18} />, path: AppRoute.OPENING_STOCK, group: 'ကုန်ပစ္စည်း', permission: 'CAN_ACCESS_PRODUCT_READ' },
       { name: 'လက်ကျန်ညှိမှု', icon: <Wrench size={18} />, path: AppRoute.STOCK_ADJUSTMENTS, group: 'ကုန်ပစ္စည်း', permission: 'CAN_ACCESS_STOCK_ADJUSTMENT_READ' },
       { name: 'စီရီနံပါတ်', icon: <Hash size={18} />, path: AppRoute.PRODUCT_SERIALS, group: 'ကုန်ပစ္စည်း', permission: 'CAN_ACCESS_PRODUCT_SERIAL_READ' },
       { name: 'အမှတ်တံဆိပ်', icon: <Package size={18} />, path: AppRoute.BRANDS, group: 'ကုန်ပစ္စည်း', permission: 'CAN_ACCESS_BRAND_READ' },
@@ -114,13 +117,13 @@ const Layout: React.FC<LayoutProps> = ({
       { name: 'ပေးသွင်းသူ', icon: <Truck size={18} />, path: AppRoute.SUPPLIERS, group: 'ဝယ်ယူရေး', permission: 'CAN_ACCESS_SUPPLIER_READ' },
       { name: 'ရောင်းချမှု', icon: <TrendingUp size={18} />, path: AppRoute.SALES, group: 'ရောင်းချရေး', permission: 'CAN_ACCESS_SALE_READ' },
       { name: 'ရောင်းပြန်ပို့', icon: <RotateCcw size={18} />, path: AppRoute.SALE_RETURNS, group: 'ရောင်းချရေး', permission: 'CAN_ACCESS_SALE_RETURN_READ' },
-      { name: 'အကြွေးစီမံ', icon: <CreditCard size={18} />, path: AppRoute.CREDIT, group: 'ရောင်းချရေး', permission: 'CAN_ACCESS_CREDIT_TERM_READ' },
       { name: 'ဖောက်သည်များ', icon: <Users size={18} />, path: AppRoute.CUSTOMERS, group: 'ရောင်းချရေး', permission: 'CAN_ACCESS_CUSTOMER_READ' },
       { name: 'စာရင်းပင်မ', icon: <BarChart3 size={18} />, path: AppRoute.ACCOUNTING_DASHBOARD, group: 'စာရင်းကိုင်', permission: 'CAN_ACCESS_COA_READ' },
       { name: 'စာရင်းဇယား', icon: <BookOpen size={18} />, path: AppRoute.COA, group: 'စာရင်းကိုင်', permission: 'CAN_ACCESS_COA_READ' },
       { name: 'ဂျာနယ်မှတ်တမ်း', icon: <BookMarked size={18} />, path: AppRoute.JOURNAL_ENTRIES, group: 'စာရင်းကိုင်', permission: 'CAN_ACCESS_JOURNAL_READ' },
       { name: 'ဝင်ငွေ/ထွက်ငွေ', icon: <Wallet size={18} />, path: AppRoute.EXPENSE_INCOME, group: 'စာရင်းကိုင်', permission: 'CAN_ACCESS_EXPENSE_READ' },
       { name: 'ငွေပေးချေနည်း', icon: <CreditCard size={18} />, path: AppRoute.PAYMENT_METHODS, group: 'စာရင်းကိုင်', permission: 'CAN_ACCESS_PAYMENT_METHOD_READ' },
+      { name: 'Opening Balance', icon: <Building2 size={18} />, path: AppRoute.OPENING_BALANCE, group: 'စာရင်းကိုင်', permission: 'CAN_ACCESS_COA_READ' },
       { name: 'ဝင်ငွေနှင့်အမြတ်', icon: <CalendarDays size={18} />, path: AppRoute.INCOME_REPORT, group: 'အစီရင်ခံစာ', permission: 'CAN_ACCESS_REPORT_READ' },
       { name: 'ရောင်းအားအကျဉ်း', icon: <TrendingUp size={18} />, path: AppRoute.SALES_SUMMARY, group: 'အစီရင်ခံစာ', permission: 'CAN_ACCESS_SALE_READ' },
       { name: 'ရောင်းအားအဆင့်', icon: <BarChart3 size={18} />, path: AppRoute.SALES_RANKING, group: 'အစီရင်ခံစာ', permission: 'CAN_ACCESS_SALE_READ' },
@@ -143,7 +146,8 @@ const Layout: React.FC<LayoutProps> = ({
       { name: 'ဝန်ဆောင်မှုစာရင်း', icon: <Scissors size={18} />, path: AppRoute.SERVICES, group: 'ဝန်ဆောင်မှု', permission: 'CAN_ACCESS_SERVICE_READ' },
       { name: 'အရန်သိမ်းဆည်း', icon: <Database size={18} />, path: AppRoute.BACKUP, group: 'ဆက်တင်', permission: 'CAN_ACCESS_BACKUP_SETTINGS_READ' },
       { name: 'ကုမ္ပဏီဆက်တင်', icon: <Settings size={18} />, path: AppRoute.COMPANY_SETTINGS, group: 'ဆက်တင်' },
-      { name: 'ပရင့်ဒီဇိုင်း', icon: <FileText size={18} />, path: AppRoute.VOUCHER_SETTINGS, group: 'ဆက်တင်' }
+      { name: 'ပရင့်ဒီဇိုင်း', icon: <FileText size={18} />, path: AppRoute.VOUCHER_SETTINGS, group: 'ဆက်တင်' },
+      { name: 'App Version', icon: <Smartphone size={18} />, path: AppRoute.APP_VERSION_SETTINGS, group: 'ဆက်တင်', permission: 'CAN_ACCESS_USERS_READ' }
     ],
     []
   );

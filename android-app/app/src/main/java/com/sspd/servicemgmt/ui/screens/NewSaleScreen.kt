@@ -30,6 +30,11 @@ import com.sspd.servicemgmt.ui.theme.*
 import com.sspd.servicemgmt.ui.components.AppLoading
 import com.sspd.servicemgmt.ui.viewmodel.CartItem
 import com.sspd.servicemgmt.ui.viewmodel.NewSaleViewModel
+import com.sspd.servicemgmt.utils.fmtWarranty
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -42,6 +47,7 @@ fun NewSaleScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     var errorDialog  by remember { mutableStateOf("") }
     var successSale  by remember { mutableStateOf<com.sspd.servicemgmt.api.SaleDTO?>(null) }
+    var showSaleDatePicker by remember { mutableStateOf(false) }
 
     // Snackbar errors
     LaunchedEffect(state.scanError)   { state.scanError?.let   { snackbarHostState.showSnackbar(it); vm.clearScanError() } }
@@ -162,6 +168,22 @@ fun NewSaleScreen(
         )
     }
 
+    if (showSaleDatePicker) {
+        val dpState = rememberDatePickerState(
+            initialSelectedDateMillis = nsDateToMillis(state.saleDate)
+        )
+        DatePickerDialog(
+            onDismissRequest = { showSaleDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    dpState.selectedDateMillis?.let { vm.setSaleDate(nsMillisToDate(it)) }
+                    showSaleDatePicker = false
+                }) { Text("OK") }
+            },
+            dismissButton = { TextButton(onClick = { showSaleDatePicker = false }) { Text("Cancel") } }
+        ) { DatePicker(state = dpState) }
+    }
+
     if (state.showProductPicker) {
         PickerSheet(
             title    = "ကုန်ပစ္စည်း ရွေးပါ",
@@ -224,7 +246,7 @@ fun NewSaleScreen(
                                         Text(serial.serialNumber, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, color = TextMain)
                                         val sub = listOfNotNull(
                                             serial.condition?.takeIf { it.isNotBlank() },
-                                            serial.warrantyEndDate?.take(10)?.let { "အာမခံ: $it" }
+                                            fmtWarranty(serial.warrantyMonths).takeIf { it.isNotEmpty() }?.let { "🛡 $it" }
                                         ).joinToString(" • ")
                                         if (sub.isNotBlank()) Text(sub, fontSize = 11.sp, color = TextMuted)
                                     }
@@ -306,6 +328,11 @@ fun NewSaleScreen(
 
                         HorizontalDivider(color = BorderColor, modifier = Modifier.padding(top = 8.dp))
                         PickerRow("Staff", state.selectedStaff?.name) { vm.showStaffPicker() }
+                        PickerRow(
+                            label = "Sale Date",
+                            value = state.saleDate,
+                            sub = if (state.hasBackdatePermission) null else "Back date requires permission"
+                        ) { showSaleDatePicker = true }
                     }
                 }
 
@@ -796,6 +823,22 @@ private fun NewCustomerDialog(onDismiss: () -> Unit, onSave: (String, String, St
 
 private fun Long.fmtL() = String.format("%,d", this)
 private fun Double?.fmtS() = String.format("%,.0f", this ?: 0.0)
+
+private fun nsMillisToDate(millis: Long): String {
+    val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+    sdf.timeZone = TimeZone.getTimeZone("UTC")
+    return sdf.format(Date(millis))
+}
+
+private fun nsDateToMillis(dateStr: String): Long {
+    return try {
+        val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+        sdf.timeZone = TimeZone.getTimeZone("UTC")
+        sdf.parse(dateStr)?.time ?: 0L
+    } catch (_: Exception) {
+        0L
+    }
+}
 
 private data class CreditBanner(
     val bg:    androidx.compose.ui.graphics.Color,

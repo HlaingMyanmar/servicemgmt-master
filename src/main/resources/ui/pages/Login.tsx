@@ -6,6 +6,7 @@ import Swal from 'sweetalert2';
 import fallbackLogoSrc from '../img/logo.png';
 import { companySettingsService } from '../services/api';
 import { setCompanySettingsCache, CompanySettings } from '../utils/companySettings';
+import { appVersionSettingsService } from '../services/api';
 
 interface LoginProps {
   onLoginSuccess: (user: User, token: string) => void;
@@ -19,7 +20,8 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, language, onLanguageChang
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [company, setCompany] = useState<CompanySettings | null>(null);
+  const [company, setCompany]       = useState<CompanySettings | null>(null);
+  const [appVersion, setAppVersion] = useState('');
 
   useEffect(() => {
     companySettingsService.getSettings()
@@ -29,6 +31,9 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, language, onLanguageChang
           setCompany(res.data);
         }
       })
+      .catch(() => {});
+    appVersionSettingsService.getSettings()
+      .then(res => { if (res.success && res.data) setAppVersion(res.data.versionName); })
       .catch(() => {});
   }, []);
 
@@ -168,7 +173,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, language, onLanguageChang
         </form>
 
         <p className="text-center text-gray-300 text-[10px] mt-6">
-          &copy; 2026 SSPD IT Solution &nbsp;&middot;&nbsp; v1.0.4-stable
+          &copy; 2026 SSPD IT Solution &nbsp;&middot;&nbsp; {appVersion ? `v${appVersion}` : 'v1.2.0'}
         </p>
       </div>
     </div>

@@ -6,6 +6,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.sspd.servicemgmt.api.ApiClient
 import com.sspd.servicemgmt.api.PaymentMethodDTO
+import com.sspd.servicemgmt.api.ProductSerialDTO
 import com.sspd.servicemgmt.api.ServiceJobDTO
 import com.sspd.servicemgmt.api.ServiceJobPayDueRequest
 import com.sspd.servicemgmt.api.SettleJobRequest
@@ -37,14 +38,23 @@ class ServiceJobDetailViewModel(
         viewModelScope.launch {
             _uiState.update { it.copy(loading = true) }
             try {
-                val token = ApiClient.bearer(prefs.authToken)
-                val jobD  = async { ApiClient.service.getServiceJobById(token, jobId) }
-                val pmD   = async { ApiClient.service.getActivePaymentMethods(token) }
+                val token   = ApiClient.bearer(prefs.authToken)
+                val jobD    = async { ApiClient.service.getServiceJobById(token, jobId) }
+                val pmD     = async { ApiClient.service.getActivePaymentMethods(token) }
+                val jobData = jobD.await().body()?.data
+                val allSerials = (jobData?.productParts ?: emptyList()).flatMap { it.serialNumbers ?: emptyList() }
+                val snMap: Map<String, ProductSerialDTO> = if (allSerials.isNotEmpty()) {
+                    runCatching {
+                        ApiClient.service.getProductSerialsBySerials(token, allSerials)
+                            .body()?.data?.associateBy { it.serialNumber } ?: emptyMap()
+                    }.getOrElse { emptyMap() }
+                } else emptyMap()
                 _uiState.update {
                     it.copy(
-                        job            = jobD.await().body()?.data,
-                        paymentMethods = pmD.await().body()?.data ?: emptyList(),
-                        loading        = false
+                        job               = jobData,
+                        paymentMethods    = pmD.await().body()?.data ?: emptyList(),
+                        serialWarrantyMap = snMap,
+                        loading           = false
                     )
                 }
             } catch (_: Exception) {
@@ -184,15 +194,16 @@ class ServiceJobDetailViewModel(
     }
 
     data class UiState(
-        val job:              ServiceJobDTO?        = null,
-        val paymentMethods:   List<PaymentMethodDTO> = emptyList(),
-        val loading:          Boolean               = true,
-        val actionLoading:    Boolean               = false,
-        val showSettleDialog: Boolean               = false,
-        val showPayDueDialog: Boolean               = false,
-        val showDeleteDialog: Boolean               = false,
-        val deleteLoading:    Boolean               = false,
-        val actionSuccess:    String?               = null,
-        val actionError:      String?               = null
+        val job:               ServiceJobDTO?               = null,
+        val paymentMethods:    List<PaymentMethodDTO>        = emptyList(),
+        val serialWarrantyMap: Map<String, ProductSerialDTO> = emptyMap(),
+        val loading:           Boolean                      = true,
+        val actionLoading:     Boolean                      = false,
+        val showSettleDialog:  Boolean                      = false,
+        val showPayDueDialog:  Boolean                      = false,
+        val showDeleteDialog:  Boolean                      = false,
+        val deleteLoading:     Boolean                      = false,
+        val actionSuccess:     String?                      = null,
+        val actionError:       String?                      = null
     )
 }

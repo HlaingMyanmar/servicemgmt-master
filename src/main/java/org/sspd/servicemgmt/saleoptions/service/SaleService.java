@@ -3,7 +3,9 @@ package org.sspd.servicemgmt.saleoptions.service;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.sspd.servicemgmt.customeroptions.model.Customer;
@@ -137,7 +139,7 @@ public class SaleService {
         Sale sale = new Sale();
         sale.setCustomer(customer);
         sale.setStaff(staff);
-        sale.setSaleDate(dto.getSaleDate() != null ? dto.getSaleDate() : LocalDateTime.now());
+        sale.setSaleDate(resolveSaleDateWithPermission(dto.getSaleDate()));
         sale.setRemark(dto.getRemark());
         sale.setFoc(Boolean.TRUE.equals(dto.getFoc()));
         sale.setSaleCode("PENDING"); // temporary to satisfy not-null, will overwrite after save
@@ -210,6 +212,23 @@ public class SaleService {
         return java.time.LocalDate.parse(s).atStartOfDay().plusDays(1);
     }
 
+    private LocalDateTime resolveSaleDateWithPermission(LocalDateTime requestedSaleDate) {
+        LocalDateTime resolved = requestedSaleDate != null ? requestedSaleDate : LocalDateTime.now();
+        if (resolved.toLocalDate().isBefore(LocalDate.now()) && !hasCurrentAuthority("CAN_ACCESS_SALE_BACKDATE")) {
+            throw new AccessDeniedException("Back date sale requires CAN_ACCESS_SALE_BACKDATE permission.");
+        }
+        return resolved;
+    }
+
+    private boolean hasCurrentAuthority(String authority) {
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || authentication.getAuthorities() == null) {
+            return false;
+        }
+        return authentication.getAuthorities().stream()
+                .anyMatch(granted -> authority.equals(granted.getAuthority()));
+    }
+
     @PreAuthorize("hasAuthority('CAN_ACCESS_SALE_READ')")
     @Transactional(readOnly = true)
     public SaleDTO findById(Integer id) {
@@ -236,7 +255,7 @@ public class SaleService {
             existing.setStaff(staff);
         }
 
-        if (dto.getSaleDate() != null) existing.setSaleDate(dto.getSaleDate());
+        if (dto.getSaleDate() != null) existing.setSaleDate(resolveSaleDateWithPermission(dto.getSaleDate()));
         if (dto.getRemark() != null) existing.setRemark(dto.getRemark());
 
         if (dto.getDetails() != null) {

@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sspd.servicemgmt.api.PaymentMethodDTO
+import com.sspd.servicemgmt.api.ProductSerialDTO
 import com.sspd.servicemgmt.api.ServiceJobDTO
 import com.sspd.servicemgmt.api.ServiceJobLineDTO
 import com.sspd.servicemgmt.api.ServiceJobPartDTO
@@ -29,6 +30,7 @@ import com.sspd.servicemgmt.api.StaffDTO
 import com.sspd.servicemgmt.ui.theme.*
 import com.sspd.servicemgmt.ui.components.AppLoading
 import com.sspd.servicemgmt.ui.viewmodel.ServiceJobDetailViewModel
+import com.sspd.servicemgmt.utils.fmtWarranty
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -264,7 +266,7 @@ fun ServiceJobDetailScreen(
                 item {
                     Text("အပိုပစ္စည်းများ (${job.productParts.size})", fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, color = TextMuted, letterSpacing = 0.5.sp)
                 }
-                items(job.productParts) { part -> PartCard(part) }
+                items(job.productParts) { part -> PartCard(part, state.serialWarrantyMap) }
             }
 
             // ── Summary ───────────────────────────────────────────────────────
@@ -428,8 +430,9 @@ private fun ServiceLineCard(line: ServiceJobLineDTO) {
             Column(Modifier.weight(1f)) {
                 Text(line.serviceItemName ?: "—", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = TextMain)
                 Text("${line.qty ?: 1} × ${line.price.fmtD()} Ks", fontSize = 11.sp, color = TextMuted)
-                if ((line.warrantyMonths ?: 0) > 0)
-                    Text("အာမခံ: ${line.warrantyMonths} လ", fontSize = 10.sp, color = TextMuted)
+                val lineWLabel = fmtWarranty(line.warrantyMonths)
+                if (lineWLabel.isNotEmpty())
+                    Text("အာမခံ: $lineWLabel", fontSize = 10.sp, color = androidx.compose.ui.graphics.Color(0xFF0891B2))
             }
             Text("${line.subtotal.fmtD()} Ks", fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, color = Violet)
         }
@@ -437,7 +440,10 @@ private fun ServiceLineCard(line: ServiceJobLineDTO) {
 }
 
 @Composable
-private fun PartCard(part: ServiceJobPartDTO) {
+private fun PartCard(
+    part:  ServiceJobPartDTO,
+    snMap: Map<String, ProductSerialDTO> = emptyMap()
+) {
     Card(shape = RoundedCornerShape(10.dp), colors = CardDefaults.cardColors(containerColor = CardBg), border = BorderStroke(1.dp, BorderColor)) {
         Column(Modifier.padding(12.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -451,7 +457,13 @@ private fun PartCard(part: ServiceJobPartDTO) {
             }
             if (!part.serialNumbers.isNullOrEmpty()) {
                 Spacer(Modifier.height(4.dp))
-                Text("S/N: ${part.serialNumbers.joinToString(", ")}", fontSize = 10.sp, color = TextMuted)
+                part.serialNumbers.forEach { sn ->
+                    val wLabel = fmtWarranty(snMap[sn]?.warrantyMonths)
+                    Text("S/N: $sn", fontSize = 10.sp, color = Primary)
+                    if (wLabel.isNotEmpty()) {
+                        Text("🛡 $wLabel", fontSize = 10.sp, color = androidx.compose.ui.graphics.Color(0xFF0891B2))
+                    }
+                }
             }
         }
     }

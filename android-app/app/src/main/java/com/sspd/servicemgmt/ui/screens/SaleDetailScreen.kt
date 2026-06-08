@@ -27,11 +27,13 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sspd.servicemgmt.api.PaymentMethodDTO
 import com.sspd.servicemgmt.api.PaymentTransactionDTO
+import com.sspd.servicemgmt.api.ProductSerialDTO
 import com.sspd.servicemgmt.api.SaleDTO
 import com.sspd.servicemgmt.api.SaleItemDTO
 import com.sspd.servicemgmt.ui.theme.*
 import com.sspd.servicemgmt.ui.components.AppLoading
 import com.sspd.servicemgmt.ui.viewmodel.SaleDetailViewModel
+import com.sspd.servicemgmt.utils.fmtWarranty
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -193,7 +195,7 @@ fun SaleDetailScreen(onBack: () -> Unit, onPrint: () -> Unit = {}) {
                     )
                 }
                 items(sale.details) { item ->
-                    SaleItemCard(item)
+                    SaleItemCard(item, state.serialWarrantyMap)
                 }
             }
 
@@ -306,7 +308,10 @@ private fun SaleInfoRow(
 }
 
 @Composable
-private fun SaleItemCard(item: SaleItemDTO) {
+private fun SaleItemCard(
+    item:  SaleItemDTO,
+    snMap: Map<String, ProductSerialDTO> = emptyMap()
+) {
     Card(
         shape  = RoundedCornerShape(10.dp),
         colors = CardDefaults.cardColors(containerColor = CardBg),
@@ -339,18 +344,19 @@ private fun SaleItemCard(item: SaleItemDTO) {
             }
             if (!item.serialNumbers.isNullOrEmpty()) {
                 Spacer(Modifier.height(4.dp))
-                Text(
-                    "S/N: ${item.serialNumbers.joinToString(", ")}",
-                    fontSize = 10.sp, color = TextMuted
-                )
-            }
-            if ((item.warrantyMonths ?: 0) > 0) {
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    "🛡 ${item.warrantyMonths} လ" +
-                    (if (item.warrantyExpiryDate != null) "  (${item.warrantyExpiryDate.take(10)} ထိ)" else ""),
-                    fontSize = 10.sp, color = TextMuted
-                )
+                item.serialNumbers.forEach { sn ->
+                    val wLabel = fmtWarranty(snMap[sn]?.warrantyMonths ?: item.warrantyMonths)
+                    Text("S/N: $sn", fontSize = 10.sp, color = Primary)
+                    if (wLabel.isNotEmpty()) {
+                        Text("🛡 $wLabel", fontSize = 10.sp, color = Color(0xFF0891B2))
+                    }
+                }
+            } else {
+                val wLabel = fmtWarranty(item.warrantyMonths)
+                if (wLabel.isNotEmpty()) {
+                    Spacer(Modifier.height(2.dp))
+                    Text("🛡 $wLabel", fontSize = 10.sp, color = Color(0xFF0891B2))
+                }
             }
             if ((item.discountAmount ?: 0.0) > 0) {
                 Spacer(Modifier.height(2.dp))

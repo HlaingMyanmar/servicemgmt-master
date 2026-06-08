@@ -34,7 +34,7 @@ const ProductSerialManagement: React.FC = () => {
 
   // Warranty duration state
   const [wValue, setWValue] = useState(0);
-  const [wUnit, setWUnit] = useState<'ရက်' | 'လ' | 'နှစ်'>('လ');
+  const [wUnit, setWUnit] = useState<'ရက်' | 'လ' | 'နှစ်'>('နှစ်');
   const [viewPhotoUrl, setViewPhotoUrl] = useState<string | null>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
 
@@ -113,7 +113,7 @@ const ProductSerialManagement: React.FC = () => {
         photoBase64: undefined
       });
       setWValue(0);
-      setWUnit('လ');
+      setWUnit('နှစ်');
     }
     setIsModalOpen(true);
   };

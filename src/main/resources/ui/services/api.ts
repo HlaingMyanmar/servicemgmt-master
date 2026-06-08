@@ -147,6 +147,12 @@ export const companySettingsService = {
   saveSettings: (dto: any) => api.post<any, ApiResponse<any>>('/v1/company-settings', dto),
 };
 
+// ── App Version Settings ───────────────────────────────────
+export const appVersionSettingsService = {
+  getSettings: () => api.get<any, ApiResponse<any>>('/v1/app-version-settings'),
+  saveSettings: (dto: any) => api.post<any, ApiResponse<any>>('/v1/app-version-settings', dto),
+};
+
 // ── Backup ────────────────────────────────────────────────
 export const backupService = {
   getSettings: () => api.get<any, ApiResponse<any>>('/v1/backup/settings'),

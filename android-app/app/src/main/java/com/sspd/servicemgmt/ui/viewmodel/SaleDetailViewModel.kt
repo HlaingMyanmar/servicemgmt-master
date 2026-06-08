@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.sspd.servicemgmt.api.ApiClient
 import com.sspd.servicemgmt.api.PaymentMethodDTO
 import com.sspd.servicemgmt.api.PaymentTransactionDTO
+import com.sspd.servicemgmt.api.ProductSerialDTO
 import com.sspd.servicemgmt.api.SaleDTO
 import com.sspd.servicemgmt.api.SalePaymentRequest
 import com.sspd.servicemgmt.utils.PreferenceManager
@@ -38,17 +39,25 @@ class SaleDetailViewModel(
         viewModelScope.launch {
             _uiState.update { it.copy(loading = true) }
             try {
-                val token = ApiClient.bearer(prefs.authToken)
-                val saleD = async { ApiClient.service.getSaleById(token, saleId) }
-                val pmD   = async { ApiClient.service.getActivePaymentMethods(token) }
-                val txD   = async { ApiClient.service.getPaymentTransactions(token, saleId, "Sale") }
-                val saleRes = saleD.await()
+                val token   = ApiClient.bearer(prefs.authToken)
+                val saleD   = async { ApiClient.service.getSaleById(token, saleId) }
+                val pmD     = async { ApiClient.service.getActivePaymentMethods(token) }
+                val txD     = async { ApiClient.service.getPaymentTransactions(token, saleId, "Sale") }
+                val saleData = saleD.await().body()?.data
+                val allSerials = (saleData?.details ?: emptyList()).flatMap { it.serialNumbers ?: emptyList() }
+                val snMap: Map<String, ProductSerialDTO> = if (allSerials.isNotEmpty()) {
+                    runCatching {
+                        ApiClient.service.getProductSerialsBySerials(token, allSerials)
+                            .body()?.data?.associateBy { it.serialNumber } ?: emptyMap()
+                    }.getOrElse { emptyMap() }
+                } else emptyMap()
                 _uiState.update {
                     it.copy(
-                        sale           = if (saleRes.isSuccessful) saleRes.body()?.data else null,
-                        paymentMethods = pmD.await().body()?.data ?: emptyList(),
-                        transactions   = txD.await().body()?.data ?: emptyList(),
-                        loading        = false
+                        sale              = saleData,
+                        paymentMethods    = pmD.await().body()?.data ?: emptyList(),
+                        transactions      = txD.await().body()?.data ?: emptyList(),
+                        serialWarrantyMap = snMap,
+                        loading           = false
                     )
                 }
             } catch (_: Exception) {
@@ -98,13 +107,14 @@ class SaleDetailViewModel(
     }
 
     data class SaleDetailUiState(
-        val sale:           SaleDTO?                   = null,
-        val paymentMethods: List<PaymentMethodDTO>     = emptyList(),
-        val transactions:   List<PaymentTransactionDTO> = emptyList(),
-        val loading:        Boolean                    = true,
-        val showPayDialog:  Boolean                    = false,
-        val paying:         Boolean                    = false,
-        val paySuccess:     Boolean                    = false,
-        val payError:       String?                    = null
+        val sale:              SaleDTO?                       = null,
+        val paymentMethods:    List<PaymentMethodDTO>         = emptyList(),
+        val transactions:      List<PaymentTransactionDTO>    = emptyList(),
+        val serialWarrantyMap: Map<String, ProductSerialDTO>  = emptyMap(),
+        val loading:           Boolean                        = true,
+        val showPayDialog:     Boolean                        = false,
+        val paying:            Boolean                        = false,
+        val paySuccess:        Boolean                        = false,
+        val payError:          String?                        = null
     )
 }

@@ -59,6 +59,32 @@ const formatWarranty = (product?: Partial<ProductDTO> | null) => {
   return `${months} လ`;
 };
 
+const InventoryMetricCard: React.FC<{
+  label: string;
+  value: string;
+  icon: React.ReactNode;
+  tone: 'indigo' | 'slate' | 'emerald' | 'amber' | 'rose' | 'teal';
+}> = ({ label, value, icon, tone }) => {
+  const styles = {
+    indigo: 'bg-indigo-50 text-indigo-700 border-indigo-100',
+    slate: 'bg-slate-50 text-slate-700 border-slate-200',
+    emerald: 'bg-emerald-50 text-emerald-700 border-emerald-100',
+    amber: 'bg-amber-50 text-amber-700 border-amber-100',
+    rose: 'bg-rose-50 text-rose-700 border-rose-100',
+    teal: 'bg-teal-50 text-teal-700 border-teal-100',
+  }[tone];
+
+  return (
+    <div className={`rounded-lg border ${styles} px-3 py-2.5 flex items-center gap-3 min-w-0`}>
+      <div className="shrink-0">{icon}</div>
+      <div className="min-w-0">
+        <p className="text-[10px] font-black uppercase tracking-wide opacity-75 truncate">{label}</p>
+        <p className="text-sm font-black tabular-nums truncate">{value}</p>
+      </div>
+    </div>
+  );
+};
+
 const getCanDelete = (): boolean => {
   try {
     const raw = sessionStorage.getItem('sspd_user');
@@ -84,6 +110,10 @@ const ProductManagement: React.FC = () => {
   const [showScanSearch, setShowScanSearch] = useState(false);
   const [filterCondition, setFilterCondition] = useState<'All' | 'New' | 'Second' | 'Second_New'>('All');
   const [filterStatus, setFilterStatus] = useState<'All' | 'In Stock' | 'Out of Stock'>('All');
+  const [filterBrandId, setFilterBrandId] = useState<'All' | number>('All');
+  const [filterCategoryId, setFilterCategoryId] = useState<'All' | number>('All');
+  const [filterTracking, setFilterTracking] = useState<'All' | 'Serial' | 'Qty'>('All');
+  const [filterLowStockOnly, setFilterLowStockOnly] = useState(false);
   
   // Per-group filter for nested rows
   const [nestedFilters, setNestedFilters] = useState<Record<string, 'All' | 'New' | 'Second' | 'Second_New'>>({});
@@ -107,6 +137,10 @@ const ProductManagement: React.FC = () => {
   const [assignSerialsInputs, setAssignSerialsInputs] = useState<string[]>([]);
   const [assignSerialsWarranty, setAssignSerialsWarranty] = useState<number>(0);
   const [assignSerialsSaving, setAssignSerialsSaving] = useState(false);
+
+  // Form warranty value+unit (so users don't accidentally enter months instead of years)
+  const [formWarrantyValue, setFormWarrantyValue] = useState(0);
+  const [formWarrantyUnit, setFormWarrantyUnit] = useState<'ရက်' | 'လ' | 'နှစ်'>('နှစ်');
 
   // Warranty quick-edit modal (qty products)
   const [isWarrantyModalOpen, setIsWarrantyModalOpen] = useState(false);
@@ -343,15 +377,42 @@ const ProductManagement: React.FC = () => {
         (filterStatus === 'In Stock' && group.totalAvailable > 0) || 
         (filterStatus === 'Out of Stock' && group.totalAvailable === 0);
 
-      return matchesSearch && matchesCondition && matchesStatus;
+      const matchesBrand = filterBrandId === 'All' || group.products.some(p => p.brandId === filterBrandId);
+
+      const matchesCategory = filterCategoryId === 'All' || group.products.some(p => p.categoryId === filterCategoryId);
+
+      const matchesTracking = filterTracking === 'All' ||
+        (filterTracking === 'Serial' && group.products.some(p => p.hasSerial !== false)) ||
+        (filterTracking === 'Qty' && group.products.some(p => p.hasSerial === false));
+
+      const matchesLowStock = !filterLowStockOnly || group.products.some(p => lowStockIds.has(p.id));
+
+      return matchesSearch && matchesCondition && matchesStatus && matchesBrand && matchesCategory && matchesTracking && matchesLowStock;
     });
-  }, [products, allSerials, searchTerm, filterCondition, filterStatus, getAvailableCount]);
+  }, [products, allSerials, searchTerm, filterCondition, filterStatus, filterBrandId, filterCategoryId, filterTracking, filterLowStockOnly, lowStockIds, getAvailableCount]);
+
+  const stockSummary = useMemo(() => {
+    const serialProducts = products.filter(p => p.hasSerial !== false).length;
+    const qtyProducts = products.length - serialProducts;
+    const availableUnits = products.reduce((sum, product) => sum + getAvailableCount(product), 0);
+    const outProducts = products.filter(product => getAvailableCount(product) <= 0).length;
+    return {
+      totalProducts: products.length,
+      totalGroups: productGroups.length,
+      serialProducts,
+      qtyProducts,
+      availableUnits,
+      outProducts,
+      lowStock: lowStockProducts.length,
+      value: totalAvailableStockValue,
+    };
+  }, [products, productGroups.length, lowStockProducts.length, totalAvailableStockValue, getAvailableCount]);
 
   useEffect(() => {
     setCurrentPage(1);
     setExpandedGroups(new Set());
     setNestedFilters({});
-  }, [searchTerm, filterCondition, filterStatus]);
+  }, [searchTerm, filterCondition, filterStatus, filterBrandId, filterCategoryId, filterTracking, filterLowStockOnly]);
 
   const toggleGroup = (groupId: string) => {
     const newExpanded = new Set(expandedGroups);
@@ -396,8 +457,19 @@ const ProductManagement: React.FC = () => {
         unitId: product.unitId
       });
       setFormPhoto(product.photoBase64 || undefined);
+      // Initialize warranty display state from existing data
+      const wm = product.warrantyMonths ?? 0;
+      if (wm > 0 && wm % 12 === 0) {
+        setFormWarrantyValue(wm / 12);
+        setFormWarrantyUnit('နှစ်');
+      } else {
+        setFormWarrantyValue(wm);
+        setFormWarrantyUnit('လ');
+      }
     } else {
       setEditingProduct(null);
+      setFormWarrantyValue(0);
+      setFormWarrantyUnit('နှစ်');
       setFormData({
         name: '',
         hasSerial: true,
@@ -494,8 +566,13 @@ const ProductManagement: React.FC = () => {
     if (!formData.unitId) { Swal.fire('စစ်ဆေးမှု', 'တိုင်းတာမှုယူနစ်တစ်ခု ရွေးပါ။', 'warning'); return; }
     setSaving(true);
     try {
+      const warrantyMonthsComputed =
+        formWarrantyUnit === 'နှစ်' ? formWarrantyValue * 12 :
+        formWarrantyUnit === 'ရက်' ? Math.round(formWarrantyValue / 30) :
+        formWarrantyValue;
       const payload: any = {
         ...formData,
+        warrantyMonths: warrantyMonthsComputed,
         hasSerial: formData.hasSerial !== false,
         stockQty: formData.hasSerial === false ? Number(formData.stockQty || 0) : 0,
         reorderLevel: Math.max(0, Number(formData.reorderLevel || 0))
@@ -768,19 +845,31 @@ const ProductManagement: React.FC = () => {
                   <p className="text-[9px] text-slate-400 ml-1">ကုန်သိုလှောင်မှု နည်းပါးသတိပေး သတ်မှတ်ချက်</p>
                 </div>
 
-                {/* Warranty Months */}
+                {/* Warranty */}
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">အခြေခံ အာမခံ</label>
-                  <div className="relative group">
-                    <Send className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-500 transition-colors" size={14} />
+                  <div className="flex gap-2">
                     <input type="number" min="0"
-                      value={formData.warrantyMonths ?? 0}
-                      onChange={(e) => setFormData({...formData, warrantyMonths: Math.max(0, Number(e.target.value) || 0)})}
-                      className="w-full pl-9 pr-3 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-indigo-500 focus:bg-white transition-all"
+                      value={formWarrantyValue}
+                      onChange={e => setFormWarrantyValue(Math.max(0, Number(e.target.value) || 0))}
+                      className="flex-1 px-3 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-indigo-500 focus:bg-white transition-all"
                       placeholder="0"
                     />
+                    <select
+                      value={formWarrantyUnit}
+                      onChange={e => setFormWarrantyUnit(e.target.value as 'ရက်' | 'လ' | 'နှစ်')}
+                      className="px-3 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-indigo-500 focus:bg-white transition-all"
+                    >
+                      <option value="ရက်">ရက်</option>
+                      <option value="လ">လ</option>
+                      <option value="နှစ်">နှစ်</option>
+                    </select>
                   </div>
-                  <p className="text-[9px] text-slate-400 ml-1">လ သာသတ်မှတ်ပါ။ စိတ်ကြိုက်စည်းကမ်းသာဆိုလျှင် ၀ ထည့်ပါ။</p>
+                  {formWarrantyValue > 0 && (
+                    <p className="text-[9px] text-indigo-500 font-semibold ml-1">
+                      = {formWarrantyUnit === 'နှစ်' ? formWarrantyValue * 12 : formWarrantyUnit === 'ရက်' ? Math.round(formWarrantyValue / 30) : formWarrantyValue} လ
+                    </p>
+                  )}
                 </div>
 
                 {/* Warranty Terms */}
@@ -1190,6 +1279,37 @@ const ProductManagement: React.FC = () => {
         </div>
       </div>
 
+      <div className="grid grid-cols-2 lg:grid-cols-6 gap-2 shrink-0">
+        <InventoryMetricCard label="Products" value={stockSummary.totalProducts.toLocaleString()} icon={<Package size={16} />} tone="indigo" />
+        <InventoryMetricCard label="Groups" value={stockSummary.totalGroups.toLocaleString()} icon={<LayoutList size={16} />} tone="slate" />
+        <InventoryMetricCard label="Available Units" value={stockSummary.availableUnits.toLocaleString()} icon={<CheckCircle2 size={16} />} tone="emerald" />
+        <InventoryMetricCard label="Low Stock" value={stockSummary.lowStock.toLocaleString()} icon={<AlertTriangle size={16} />} tone="amber" />
+        <InventoryMetricCard label="Out" value={stockSummary.outProducts.toLocaleString()} icon={<AlertCircle size={16} />} tone="rose" />
+        <InventoryMetricCard label="Stock Value" value={`${stockSummary.value.toLocaleString()} Ks`} icon={<Wallet size={16} />} tone="teal" />
+      </div>
+
+      {lowStockProducts.length > 0 && !filterLowStockOnly && (
+        <button
+          type="button"
+          onClick={() => setFilterLowStockOnly(true)}
+          className="shrink-0 w-full flex items-center justify-between gap-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-left hover:bg-amber-100 transition-colors"
+        >
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-8 h-8 rounded-md bg-amber-500 text-white flex items-center justify-center shrink-0">
+              <AlertTriangle size={16} />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-black text-amber-800 uppercase tracking-wide">Reorder attention needed</p>
+              <p className="text-[11px] text-amber-700 truncate">
+                {lowStockProducts.slice(0, 4).map(p => p.name).join(', ')}
+                {lowStockProducts.length > 4 ? ` +${lowStockProducts.length - 4} more` : ''}
+              </p>
+            </div>
+          </div>
+          <span className="text-[11px] font-black text-amber-800 uppercase whitespace-nowrap">Show low stock</span>
+        </button>
+      )}
+
       {/* Primary Filters */}
       <div className="bg-white p-4 rounded-lg border border-slate-200 space-y-3">
         <div className="flex flex-col xl:flex-row gap-3">
@@ -1253,7 +1373,55 @@ const ProductManagement: React.FC = () => {
               ))}
             </div>
 
-            <button onClick={() => {setSearchTerm(''); setFilterCondition('All'); setFilterStatus('All');}} className="px-3 py-2 text-slate-600 hover:text-rose-700 hover:bg-rose-50 rounded-lg border border-slate-200 bg-white inline-flex items-center gap-2 text-xs font-bold uppercase">
+            <select
+              value={filterBrandId}
+              onChange={(e) => setFilterBrandId(e.target.value === 'All' ? 'All' : Number(e.target.value))}
+              className="h-9 bg-white border border-slate-200 rounded-lg px-3 text-xs font-bold text-slate-600 outline-none focus:border-indigo-500"
+            >
+              <option value="All">Brand: All</option>
+              {brands.map(brand => <option key={brand.id} value={brand.id}>{brand.name}</option>)}
+            </select>
+
+            <select
+              value={filterCategoryId}
+              onChange={(e) => setFilterCategoryId(e.target.value === 'All' ? 'All' : Number(e.target.value))}
+              className="h-9 bg-white border border-slate-200 rounded-lg px-3 text-xs font-bold text-slate-600 outline-none focus:border-indigo-500 max-w-[220px]"
+            >
+              <option value="All">Category: All</option>
+              {flatCategoryOptions.map(category => <option key={category.id} value={category.id}>{category.displayName}</option>)}
+            </select>
+
+            <div className="flex items-center gap-1 p-1 bg-slate-100 border border-slate-200 rounded-lg">
+              <span className="text-[10px] font-bold text-slate-500 uppercase px-2">Track</span>
+              {[
+                { value: 'All', label: 'All' },
+                { value: 'Serial', label: 'Serial' },
+                { value: 'Qty', label: 'Qty' },
+              ].map(({ value, label }) => (
+                <button
+                  key={value}
+                  onClick={() => setFilterTracking(value as any)}
+                  className={`px-3 py-1.5 rounded-md text-xs font-bold uppercase ${
+                    filterTracking === value ? 'bg-white text-indigo-700 border border-slate-200' : 'text-slate-500 hover:text-indigo-700'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            <button
+              onClick={() => setFilterLowStockOnly(v => !v)}
+              className={`px-3 py-2 rounded-lg border inline-flex items-center gap-2 text-xs font-bold uppercase ${
+                filterLowStockOnly
+                  ? 'bg-amber-500 text-white border-amber-500'
+                  : 'bg-white text-amber-700 border-amber-200 hover:bg-amber-50'
+              }`}
+            >
+              <AlertTriangle size={14} /> Low stock
+            </button>
+
+            <button onClick={() => {setSearchTerm(''); setFilterCondition('All'); setFilterStatus('All'); setFilterBrandId('All'); setFilterCategoryId('All'); setFilterTracking('All'); setFilterLowStockOnly(false);}} className="px-3 py-2 text-slate-600 hover:text-rose-700 hover:bg-rose-50 rounded-lg border border-slate-200 bg-white inline-flex items-center gap-2 text-xs font-bold uppercase">
               <RotateCcw size={14} /> ပြန်လည်သတ်မှတ်ရန်
             </button>
           </div>

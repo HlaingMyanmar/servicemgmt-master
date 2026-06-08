@@ -33,6 +33,7 @@ import { InvoicePrintPreview } from '../print/components/InvoicePrintPreview';
 import BarcodeScannerCamera from '../components/BarcodeScannerCamera';
 import { useWebsocket } from '../hooks/useWebsocket';
 import { useDataEvents } from '../hooks/useDataEvents';
+import { getFromSession } from '../utils/storageHelper';
 import {
   AppRoute,
   CustomerCreditTermDTO,
@@ -101,6 +102,21 @@ const getSaleState = (row: SaleDTO): ListFilter => {
   return 'PENDING';
 };
 
+const canCurrentUserBackdateSale = () => {
+  const raw = getFromSession('sspd_user');
+  if (!raw) return false;
+  try {
+    const user = JSON.parse(raw);
+    const roles: string[] = user.roles || [];
+    const permissions: string[] = user.permissions || [];
+    return roles.includes('ADMINISTRATOR') ||
+      roles.includes('ROLE_ADMINISTRATOR') ||
+      permissions.includes('CAN_ACCESS_SALE_BACKDATE');
+  } catch {
+    return false;
+  }
+};
+
 const badgeByState: Record<Exclude<ListFilter, 'ALL'>, string> = {
   PENDING: 'bg-sky-100 text-sky-700 border border-sky-200',
   PARTIAL: 'bg-amber-100 text-amber-700 border border-amber-200',
@@ -145,6 +161,7 @@ const SaleManagement: React.FC = () => {
   const [creatingCustomer, setCreatingCustomer] = useState(false);
   const [newCustomer, setNewCustomer] = useState<NewCustomerForm>({ name: '', phone: '', address: '' });
   const [staffId, setStaffId] = useState(0);
+  const [saleDate, setSaleDate] = useState(todayStr);
   const [discountInput, setDiscountInput] = useState('');
   const [paidInput, setPaidInput] = useState('');
   const [dueDate, setDueDate] = useState('');
@@ -155,6 +172,7 @@ const SaleManagement: React.FC = () => {
   const [barcodeInput, setBarcodeInput] = useState('');
   const [cameraOpen, setCameraOpen] = useState(false);
   const [payModalOpen, setPayModalOpen] = useState(false);
+  const canBackdateSale = useMemo(() => canCurrentUserBackdateSale(), []);
   const detailsRef = useRef<DetailForm[]>([emptyDetail()]);
   const productSearchesRef = useRef<string[]>(['']);
 
@@ -527,6 +545,7 @@ const SaleManagement: React.FC = () => {
     setCustomerSearch('');
     setCustomerOpen(false);
     setStaffId(0);
+    setSaleDate(todayStr);
     setDiscountInput('');
     setPaidInput('');
     setDueDate('');
@@ -541,6 +560,8 @@ const SaleManagement: React.FC = () => {
 
   const validateSale = () => {
     if (customerId <= 0) return 'Customer is required.';
+    if (!saleDate) return 'Sale date is required.';
+    if (saleDate < todayStr && !canBackdateSale) return 'Back date sale requires permission.';
     if (details.length === 0) return 'Sale detail is required.';
 
     const usedSerials = new Set<string>();
@@ -600,6 +621,7 @@ const SaleManagement: React.FC = () => {
       const payload: SaleDTO = {
         customerId,
         staffId,
+        saleDate: `${saleDate}T00:00:00`,
         totalAmount,
         discountAmount: discount,
         netAmount,
@@ -779,7 +801,7 @@ const SaleManagement: React.FC = () => {
 
         <div>
           <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-5">
-          <div className="grid grid-cols-1 xl:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 xl:grid-cols-4 gap-3">
             <div>
               <div className="mb-1.5 flex items-center justify-between">
                 <label className="text-xs font-semibold text-slate-600">Customer <span className="text-rose-500">*</span></label>
@@ -819,6 +841,18 @@ const SaleManagement: React.FC = () => {
                 <option value={0}>- Select staff -</option>
                 {staffs.map((s) => <option key={s.id} value={s.id}>{s.name} ({s.role})</option>)}
               </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1.5">Sale Date</label>
+              <input
+                type="date"
+                value={saleDate}
+                max={canBackdateSale ? undefined : todayStr}
+                onChange={(e) => setSaleDate(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:border-indigo-400"
+              />
+              {!canBackdateSale && <p className="text-[10px] text-slate-400 mt-1">Back date requires permission.</p>}
             </div>
 
             <div>
@@ -1222,7 +1256,7 @@ const SaleManagement: React.FC = () => {
 
         {showCreateSaleForm ? (
           <div className="p-5 space-y-5">
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 xl:grid-cols-4 gap-3">
               <div>
                 <div className="mb-1.5 flex items-center justify-between">
                   <label className="text-xs font-semibold text-slate-600">Customer <span className="text-rose-500">*</span></label>
@@ -1262,6 +1296,18 @@ const SaleManagement: React.FC = () => {
                   <option value={0}>— Select staff —</option>
                   {staffs.map((s) => <option key={s.id} value={s.id}>{s.name} ({s.role})</option>)}
                 </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1.5">Sale Date</label>
+                <input
+                  type="date"
+                  value={saleDate}
+                  max={canBackdateSale ? undefined : todayStr}
+                  onChange={(e) => setSaleDate(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:border-indigo-400"
+                />
+                {!canBackdateSale && <p className="text-[10px] text-slate-400 mt-1">Back date requires permission.</p>}
               </div>
 
               <div>

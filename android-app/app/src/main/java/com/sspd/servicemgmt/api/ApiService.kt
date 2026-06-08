@@ -21,6 +21,12 @@ interface ApiService {
     @GET("products/low-stock")
     suspend fun getLowStockProducts(@Header("Authorization") auth: String): Response<ApiResponse<List<ProductDTO>>>
 
+    @GET("products/{id}/next-serial-seq")
+    suspend fun getNextSerialSeq(
+        @Header("Authorization") auth: String,
+        @Path("id") id: Int
+    ): Response<ApiResponse<Int>>
+
     @POST("products")
     suspend fun createProduct(
         @Header("Authorization") auth: String,
@@ -49,6 +55,19 @@ interface ApiService {
         @Body body: BrandDTO
     ): Response<ApiResponse<BrandDTO>>
 
+    @PUT("brands/{id}")
+    suspend fun updateBrand(
+        @Header("Authorization") auth: String,
+        @Path("id") id: Int,
+        @Body body: BrandDTO
+    ): Response<ApiResponse<BrandDTO>>
+
+    @DELETE("brands/{id}")
+    suspend fun deleteBrand(
+        @Header("Authorization") auth: String,
+        @Path("id") id: Int
+    ): Response<ApiResponse<Void>>
+
     @GET("category/tree")
     suspend fun getCategoryTree(@Header("Authorization") auth: String): Response<ApiResponse<List<CategoryDTO>>>
 
@@ -58,8 +77,40 @@ interface ApiService {
         @Body body: CategoryDTO
     ): Response<ApiResponse<CategoryDTO>>
 
+    @PUT("category/{id}")
+    suspend fun updateCategory(
+        @Header("Authorization") auth: String,
+        @Path("id") id: Int,
+        @Body body: CategoryDTO
+    ): Response<ApiResponse<CategoryDTO>>
+
+    @DELETE("category/{id}")
+    suspend fun deleteCategory(
+        @Header("Authorization") auth: String,
+        @Path("id") id: Int
+    ): Response<ApiResponse<Void>>
+
     @GET("units")
     suspend fun getUnits(@Header("Authorization") auth: String): Response<ApiResponse<List<UnitDTO>>>
+
+    @POST("units")
+    suspend fun createUnit(
+        @Header("Authorization") auth: String,
+        @Body body: UnitDTO
+    ): Response<ApiResponse<UnitDTO>>
+
+    @PUT("units/{id}")
+    suspend fun updateUnit(
+        @Header("Authorization") auth: String,
+        @Path("id") id: Int,
+        @Body body: UnitDTO
+    ): Response<ApiResponse<UnitDTO>>
+
+    @DELETE("units/{id}")
+    suspend fun deleteUnit(
+        @Header("Authorization") auth: String,
+        @Path("id") id: Int
+    ): Response<ApiResponse<Void>>
 
     @GET("sales")
     suspend fun getSales(
@@ -126,6 +177,9 @@ interface ApiService {
     @GET("customers")
     suspend fun getCustomers(@Header("Authorization") auth: String): Response<ApiResponse<List<CustomerDTO>>>
 
+    @GET("suppliers/all")
+    suspend fun getSuppliers(@Header("Authorization") auth: String): Response<ApiResponse<List<SupplierDTO>>>
+
     @POST("customers")
     suspend fun createCustomer(
         @Header("Authorization") auth: String,
@@ -153,6 +207,33 @@ interface ApiService {
 
     @GET("payment-methods/active")
     suspend fun getActivePaymentMethods(@Header("Authorization") auth: String): Response<ApiResponse<List<PaymentMethodDTO>>>
+
+    @GET("purchases")
+    suspend fun getPurchases(
+        @Header("Authorization") auth: String,
+        @Query("page") page: Int = 0,
+        @Query("size") size: Int = 50,
+        @Query("search") search: String = ""
+    ): Response<ApiResponse<PagedResponse<PurchaseDTO>>>
+
+    @GET("purchases/{id}")
+    suspend fun getPurchaseById(
+        @Header("Authorization") auth: String,
+        @Path("id") id: Int
+    ): Response<ApiResponse<PurchaseDTO>>
+
+    @POST("purchases")
+    suspend fun createPurchase(
+        @Header("Authorization") auth: String,
+        @Body body: PurchaseDTO
+    ): Response<ApiResponse<PurchaseDTO>>
+
+    @PUT("purchases/{id}")
+    suspend fun updatePurchase(
+        @Header("Authorization") auth: String,
+        @Path("id") id: Int,
+        @Body body: PurchaseDTO
+    ): Response<ApiResponse<PurchaseDTO>>
 
     @GET("credit-terms/customer/{customerId}")
     suspend fun getCreditTerm(
@@ -434,6 +515,12 @@ interface ApiService {
         @Path("id") id: Int
     ): Response<ApiResponse<ProductDTO>>
 
+    @POST("product-serials/by-serials")
+    suspend fun getProductSerialsBySerials(
+        @Header("Authorization") auth: String,
+        @Body serials: List<String>
+    ): Response<ApiResponse<List<ProductSerialDTO>>>
+
     @GET("product-serials/by-product/{productId}")
     suspend fun getProductSerials(
         @Header("Authorization") auth: String,
@@ -474,6 +561,54 @@ interface ApiService {
         @Path("id") id: Int,
         @Body body: ProductSerialDTO
     ): Response<ApiResponse<ProductSerialDTO>>
+
+    // ── Account Balances ──────────────────────────────────────────────────────
+    @GET("account-balances")
+    suspend fun getAccountBalances(
+        @Header("Authorization") auth: String
+    ): Response<ApiResponse<List<AccountBalanceDTO>>>
+
+    @GET("account-balances/account/{accountId}")
+    suspend fun getBalanceByAccount(
+        @Header("Authorization") auth: String,
+        @Path("accountId") accountId: Int
+    ): Response<ApiResponse<AccountBalanceDTO>>
+
+    @POST("account-balances/set-opening")
+    suspend fun setOpeningBalance(
+        @Header("Authorization") auth: String,
+        @Query("accountId")       accountId:       Int,
+        @Query("amount")          amount:          Double,
+        @Query("staffId")         staffId:         Int,
+        @Query("paymentMethodId") paymentMethodId: Int
+    ): Response<ApiResponse<AccountBalanceDTO>>
+
+    // ── Stock Adjustments ─────────────────────────────────────────────────────
+    @GET("stock-adjustments")
+    suspend fun getStockAdjustments(
+        @Header("Authorization") auth: String,
+        @Query("page")   page:   Int    = 0,
+        @Query("size")   size:   Int    = 50,
+        @Query("search") search: String = ""
+    ): Response<ApiResponse<PagedResponse<StockAdjustmentDTO>>>
+
+    @GET("stock-adjustments/{id}")
+    suspend fun getStockAdjustmentById(
+        @Header("Authorization") auth: String,
+        @Path("id") id: Int
+    ): Response<ApiResponse<StockAdjustmentDTO>>
+
+    @POST("stock-adjustments")
+    suspend fun createStockAdjustment(
+        @Header("Authorization") auth: String,
+        @Body body: StockAdjustmentDTO
+    ): Response<ApiResponse<StockAdjustmentDTO>>
+
+    @DELETE("stock-adjustments/{id}")
+    suspend fun deleteStockAdjustment(
+        @Header("Authorization") auth: String,
+        @Path("id") id: Int
+    ): Response<ApiResponse<Void>>
 
     // ── Print ─────────────────────────────────────────────────────────────────
     @POST("print/preview")

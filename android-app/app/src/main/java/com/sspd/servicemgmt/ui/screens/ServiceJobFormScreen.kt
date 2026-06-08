@@ -32,6 +32,7 @@ import com.sspd.servicemgmt.ui.theme.*
 import com.sspd.servicemgmt.ui.components.AppLoading
 import com.sspd.servicemgmt.ui.utils.rememberIsTablet
 import com.sspd.servicemgmt.ui.viewmodel.ServiceJobFormViewModel
+import com.sspd.servicemgmt.utils.fmtWarranty
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -280,7 +281,7 @@ fun ServiceJobFormScreen(onBack: () -> Unit, onSuccess: (ServiceJobDTO) -> Unit)
                                         Text(serial.serialNumber, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, color = TextMain)
                                         val sub = listOfNotNull(
                                             serial.condition?.takeIf { it.isNotBlank() },
-                                            serial.warrantyEndDate?.take(10)?.let { "အာမခံ: $it" }
+                                            fmtWarranty(serial.warrantyMonths).takeIf { it.isNotEmpty() }?.let { "🛡 $it" }
                                         ).joinToString(" • ")
                                         if (sub.isNotBlank()) Text(sub, fontSize = 11.sp, color = TextMuted)
                                     }
