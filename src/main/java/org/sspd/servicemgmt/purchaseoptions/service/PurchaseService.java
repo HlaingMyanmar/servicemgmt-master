@@ -187,6 +187,10 @@ public class PurchaseService {
         purchase.setDetails(detailEntities);
         purchase.setTotalAmount(calculatedTotal);
         purchase.setPaidAmount(dto.getPaidAmount() != null ? dto.getPaidAmount() : BigDecimal.ZERO);
+        purchase.setReturnAmount(BigDecimal.ZERO);
+        purchase.setRefundAmount(BigDecimal.ZERO);
+        purchase.setNetAmount(calculatedTotal);
+        purchase.setSupplierCreditAmount(BigDecimal.ZERO);
         purchase.setDueAmount(calculatedTotal.subtract(purchase.getPaidAmount()));
 
         if (purchase.getDueAmount().compareTo(BigDecimal.ZERO) <= 0)
@@ -371,8 +375,10 @@ public class PurchaseService {
     private void syncSupplierBalance(Supplier supplier) {
         BigDecimal totalDue = purchaseRepository.sumDueAmountBySupplierId(supplier.getId());
         if (totalDue == null) totalDue = BigDecimal.ZERO;
+        BigDecimal supplierCredit = purchaseRepository.sumSupplierCreditAmountBySupplierId(supplier.getId());
+        if (supplierCredit == null) supplierCredit = BigDecimal.ZERO;
         BigDecimal opening = supplier.getOpeningBalance() != null ? supplier.getOpeningBalance() : BigDecimal.ZERO;
-        supplier.setCurrentBalance(opening.add(totalDue));
+        supplier.setCurrentBalance(opening.add(totalDue).subtract(supplierCredit));
         supplierRepository.save(supplier);
     }
 
@@ -433,16 +439,21 @@ public class PurchaseService {
             throw new RuntimeException("Detail update not supported. Use purchase return or cancel & recreate.");
 
         if (dto.getPaidAmount() != null) {
-            BigDecimal total = purchase.getTotalAmount() != null ? purchase.getTotalAmount() : BigDecimal.ZERO;
-            if (dto.getPaidAmount().compareTo(total) > 0)
-                throw new RuntimeException("Paid amount cannot exceed total.");
             purchase.setPaidAmount(dto.getPaidAmount());
         }
 
-        BigDecimal totalAmount = purchase.getTotalAmount() != null ? purchase.getTotalAmount() : BigDecimal.ZERO;
+        BigDecimal totalAmount = purchase.getNetAmount() != null ? purchase.getNetAmount() :
+                (purchase.getTotalAmount() != null ? purchase.getTotalAmount() : BigDecimal.ZERO);
         BigDecimal paidAmount = purchase.getPaidAmount() != null ? purchase.getPaidAmount() : BigDecimal.ZERO;
         BigDecimal newDue = totalAmount.subtract(paidAmount);
+        BigDecimal supplierCredit = BigDecimal.ZERO;
+        if (newDue.compareTo(BigDecimal.ZERO) < 0) {
+            supplierCredit = newDue.abs().subtract(purchase.getRefundAmount() != null ? purchase.getRefundAmount() : BigDecimal.ZERO);
+            if (supplierCredit.compareTo(BigDecimal.ZERO) < 0) supplierCredit = BigDecimal.ZERO;
+            newDue = BigDecimal.ZERO;
+        }
         purchase.setDueAmount(newDue);
+        purchase.setSupplierCreditAmount(supplierCredit);
         if (newDue.compareTo(BigDecimal.ZERO) > 0 && purchase.getDueDate() == null) {
             LocalDate baseDate = purchase.getPurchaseDate() != null
                     ? purchase.getPurchaseDate().toLocalDate()

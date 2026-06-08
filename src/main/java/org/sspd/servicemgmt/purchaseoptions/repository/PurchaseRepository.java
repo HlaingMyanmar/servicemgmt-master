@@ -29,6 +29,9 @@ public interface PurchaseRepository extends JpaRepository<Purchase, Integer> {
     @Query("SELECT COALESCE(SUM(p.dueAmount), 0) FROM Purchase p WHERE p.supplier.id = :supplierId")
     BigDecimal sumDueAmountBySupplierId(@Param("supplierId") Integer supplierId);
 
+    @Query("SELECT COALESCE(SUM(p.supplierCreditAmount), 0) FROM Purchase p WHERE p.supplier.id = :supplierId")
+    BigDecimal sumSupplierCreditAmountBySupplierId(@Param("supplierId") Integer supplierId);
+
     @Query("SELECT p FROM Purchase p WHERE (:search IS NULL OR :search = '' OR LOWER(p.purchaseCode) LIKE LOWER(CONCAT('%',:search,'%')) OR LOWER(p.supplier.name) LIKE LOWER(CONCAT('%',:search,'%')) OR LOWER(p.staff.name) LIKE LOWER(CONCAT('%',:search,'%')))")
     Page<Purchase> findBySearch(@Param("search") String search, Pageable pageable);
 

@@ -15,7 +15,7 @@ import {
   Save, Hash, Send, Barcode, Camera,
   CheckCircle2, AlertCircle, Filter, RotateCcw,
   ClipboardList, Eye, Info, LayoutList, Wallet,
-  Settings2, AlertTriangle, ArrowLeft, TrendingDown, Shield
+  Settings2, AlertTriangle, ArrowLeft, Shield
 } from 'lucide-react';
 import { useDataEvents } from '../hooks/useDataEvents';
 import Swal from 'sweetalert2';
@@ -82,6 +82,42 @@ const InventoryMetricCard: React.FC<{
         <p className="text-sm font-black tabular-nums truncate">{value}</p>
       </div>
     </div>
+  );
+};
+
+const OpeningStockBadge: React.FC<{ product: ProductDTO }> = ({ product }) => {
+  const qtyStock = Number(product.stockQty ?? product.currentStock ?? 0);
+  const cost = Number(product.costPrice ?? 0);
+  const serialTracked = product.hasSerial !== false;
+
+  if (serialTracked) {
+    return (
+      <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md border bg-amber-50 text-amber-700 border-amber-100 text-[10px] font-black whitespace-nowrap">
+        <Shield size={11} /> Purchase မှ Serial
+      </span>
+    );
+  }
+
+  if (qtyStock > 0) {
+    return (
+      <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md border bg-slate-50 text-slate-600 border-slate-200 text-[10px] font-black whitespace-nowrap">
+        <Package size={11} /> Stock ရှိပြီး
+      </span>
+    );
+  }
+
+  if (cost <= 0) {
+    return (
+      <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md border bg-rose-50 text-rose-700 border-rose-100 text-[10px] font-black whitespace-nowrap">
+        <AlertTriangle size={11} /> Cost လိုသည်
+      </span>
+    );
+  }
+
+  return (
+    <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md border bg-emerald-50 text-emerald-700 border-emerald-100 text-[10px] font-black whitespace-nowrap">
+      <CheckCircle2 size={11} /> Opening Ready
+    </span>
   );
 };
 
@@ -574,7 +610,7 @@ const ProductManagement: React.FC = () => {
         ...formData,
         warrantyMonths: warrantyMonthsComputed,
         hasSerial: formData.hasSerial !== false,
-        stockQty: formData.hasSerial === false ? Number(formData.stockQty || 0) : 0,
+        stockQty: editingProduct ? Number(formData.stockQty ?? editingProduct.stockQty ?? editingProduct.currentStock ?? 0) : 0,
         reorderLevel: Math.max(0, Number(formData.reorderLevel || 0))
       };
       let savedId: number | undefined;
@@ -767,18 +803,15 @@ const ProductManagement: React.FC = () => {
                   </p>
                 </div>
 
-                {/* Opening Qty */}
+                {/* Opening stock is managed from the Opening Stock page. */}
                 {formData.hasSerial === false && (
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">ကနဦး ကုန်သိုလှောင်မှု အရေအတွက်</label>
-                    <div className="relative group">
-                      <Box className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-500 transition-colors" size={15} />
-                      <input type="number" min="0"
-                        value={formData.stockQty ?? 0}
-                        onChange={(e) => setFormData({ ...formData, stockQty: Math.max(0, Number(e.target.value) || 0) })}
-                        className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-indigo-500 focus:bg-white transition-all"
-                        placeholder="0"
-                      />
+                  <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 flex items-start gap-3">
+                    <CheckCircle2 size={16} className="text-emerald-600 mt-0.5 shrink-0" />
+                    <div>
+                      <p className="text-xs font-black text-emerald-800">ကနဦးကုန်လက်ကျန်ကို Opening Stock page တွင်ထည့်ပါ</p>
+                      <p className="text-[10px] font-semibold text-emerald-700 mt-0.5">
+                        Product Master တွင် item အချက်အလက်၊ ဝယ်ဈေး၊ ပြန်မှာယူအဆင့်ကိုသာထိန်းပါမည်။ New product stock သည် 0 ဖြင့်စပါမည်။
+                      </p>
                     </div>
                   </div>
                 )}
@@ -807,12 +840,11 @@ const ProductManagement: React.FC = () => {
                     <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-emerald-500 transition-colors" size={14} />
                     <input type="number" required min="0"
                       value={formData.sellingPrice ?? 0}
-                      readOnly={!!editingProduct}
-                      onChange={(e) => !editingProduct && setFormData({...formData, sellingPrice: Number(e.target.value)})}
-                      className={`w-full pl-9 pr-3 py-3 border rounded-xl text-sm font-semibold outline-none transition-all ${editingProduct ? 'bg-slate-100 border-slate-200 text-slate-500 cursor-default' : 'bg-slate-50 border-slate-200 focus:border-emerald-400 focus:bg-white'}`}
+                      onChange={(e) => setFormData({...formData, sellingPrice: Number(e.target.value)})}
+                      className="w-full pl-9 pr-3 py-3 border rounded-xl text-sm font-semibold outline-none transition-all bg-slate-50 border-slate-200 focus:border-emerald-400 focus:bg-white"
                     />
                   </div>
-                  <p className="text-[9px] text-slate-400 ml-1">MMK</p>
+                  <p className="text-[9px] text-slate-400 ml-1">MMK · Purchase မရှိသေးပါက manual ပြင်နိုင်သည်</p>
                 </div>
 
                 {/* Cost Price */}
@@ -822,12 +854,11 @@ const ProductManagement: React.FC = () => {
                     <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-500 transition-colors" size={14} />
                     <input type="number" min="0"
                       value={formData.costPrice ?? 0}
-                      readOnly={!!editingProduct}
-                      onChange={(e) => !editingProduct && setFormData({...formData, costPrice: Number(e.target.value)})}
-                      className={`w-full pl-9 pr-3 py-3 border rounded-xl text-sm font-semibold outline-none transition-all ${editingProduct ? 'bg-slate-100 border-slate-200 text-slate-500 cursor-default' : 'bg-slate-50 border-slate-200 focus:border-indigo-400 focus:bg-white'}`}
+                      onChange={(e) => setFormData({...formData, costPrice: Number(e.target.value)})}
+                      className="w-full pl-9 pr-3 py-3 border rounded-xl text-sm font-semibold outline-none transition-all bg-slate-50 border-slate-200 focus:border-indigo-400 focus:bg-white"
                     />
                   </div>
-                  <p className="text-[9px] text-slate-400 ml-1">MMK</p>
+                  <p className="text-[9px] text-slate-400 ml-1">MMK · Opening Stock သိမ်းရန် ဝယ်ဈေးလိုအပ်သည်</p>
                 </div>
 
                 {/* Reorder Level */}
@@ -1237,32 +1268,6 @@ const ProductManagement: React.FC = () => {
           </div>
         </div>
 
-        {/* Grouped info panel: Available Value + Low Stock */}
-        <div className="flex items-stretch gap-0 rounded-xl border border-slate-200 overflow-hidden bg-white shadow-sm">
-          <div className="flex items-center gap-3 px-4 py-3 bg-emerald-50 border-r border-emerald-200">
-            <div className="w-8 h-8 bg-emerald-600 text-white rounded-md flex items-center justify-center shrink-0">
-              <Wallet size={16} />
-            </div>
-            <div>
-              <p className="text-[9px] font-bold text-emerald-700 uppercase tracking-wider leading-none mb-1">ရရှိနိုင်သောတန်ဖိုး</p>
-              <p className="text-sm font-bold text-slate-800 leading-none tabular-nums">
-                {totalAvailableStockValue.toLocaleString()} <span className="text-[10px] text-slate-500 font-bold">Ks</span>
-              </p>
-            </div>
-          </div>
-          <div className={`flex items-center gap-3 px-4 py-3 ${lowStockProducts.length > 0 ? 'bg-amber-50' : 'bg-slate-50'}`}>
-            <div className={`w-8 h-8 rounded-md flex items-center justify-center shrink-0 ${lowStockProducts.length > 0 ? 'bg-amber-500 text-white' : 'bg-slate-200 text-slate-400'}`}>
-              <TrendingDown size={16} />
-            </div>
-            <div>
-              <p className={`text-[9px] font-bold uppercase tracking-wider leading-none mb-1 ${lowStockProducts.length > 0 ? 'text-amber-700' : 'text-slate-400'}`}>သိုလှောင်မှု နည်းပါး</p>
-              <p className={`text-sm font-bold leading-none ${lowStockProducts.length > 0 ? 'text-amber-800' : 'text-slate-400'}`}>
-                {lowStockProducts.length} <span className="text-[10px] font-bold">ခု</span>
-              </p>
-            </div>
-          </div>
-        </div>
-
         <div className="flex items-center gap-2">
           <button
             onClick={() => navigate(AppRoute.LABEL_DESIGNER)}
@@ -1591,6 +1596,7 @@ const ProductManagement: React.FC = () => {
                                   </th>
                                   <th className="px-4 py-3 text-xs font-bold text-slate-600 uppercase">မှတ်ချက်</th>
                                   <th className="px-4 py-3 text-xs font-bold text-slate-600 uppercase">စီရီရယ် / အရေအတွက်</th>
+                                  <th className="px-4 py-3 text-xs font-bold text-slate-600 uppercase text-center">ကနဦး</th>
                                   <th className="px-4 py-3 text-xs font-bold text-slate-600 uppercase text-center">အာမခံ</th>
                                   <th className="px-4 py-3 text-xs font-bold text-slate-600 uppercase text-center">အဆင့်</th>
                                   <th className="px-4 py-3 text-xs font-bold text-slate-600 uppercase text-right">ဈေးနှုန်း</th>
@@ -1627,6 +1633,9 @@ const ProductManagement: React.FC = () => {
                                             <Box size={12} />
                                             Qty: {qtyStock}
                                           </span>
+                                        </td>
+                                        <td className="px-4 py-3 text-center">
+                                          <OpeningStockBadge product={p} />
                                         </td>
                                         <td className="px-4 py-3 text-center text-xs font-semibold text-slate-600">
                                           {formatWarranty(p)}
@@ -1679,6 +1688,9 @@ const ProductManagement: React.FC = () => {
                                         </td>
                                         <td className="px-4 py-3"><p className="text-xs text-slate-500 truncate max-w-[180px]">{p.remark || '-'}</p></td>
                                         <td className="px-4 py-3 text-xs text-rose-600 font-semibold">စီရီရယ် မချိတ်ဆက်ရသေး</td>
+                                        <td className="px-4 py-3 text-center">
+                                          <OpeningStockBadge product={p} />
+                                        </td>
                                         <td className="px-4 py-3 text-center text-xs font-semibold text-slate-600">
                                           {formatWarranty(p)}
                                         </td>
@@ -1719,6 +1731,9 @@ const ProductManagement: React.FC = () => {
                                         {idx === 0 ? <p className="text-xs text-slate-500 truncate max-w-[180px]">{p.remark || '-'}</p> : <span className="text-slate-300">-</span>}
                                       </td>
                                       <td className="px-4 py-3 font-bold text-slate-700 text-xs">{s.serialNumber}</td>
+                                      <td className="px-4 py-3 text-center">
+                                        {idx === 0 ? <OpeningStockBadge product={p} /> : <span className="text-slate-300">-</span>}
+                                      </td>
                                       <td className="px-4 py-3 text-center text-xs font-semibold text-slate-600">
                                         {Number(s.warrantyMonths ?? 0) > 0 ? `${s.warrantyMonths} mo` : formatWarranty(p)}
                                       </td>
@@ -1749,7 +1764,7 @@ const ProductManagement: React.FC = () => {
                                 })}
                                 {group.products.filter(p => getNestedFilter(group.groupId) === 'All' || p.productType === getNestedFilter(group.groupId)).length === 0 && (
                                   <tr>
-                                    <td colSpan={8} className="px-6 py-10 text-center text-[10px] font-black text-slate-300 uppercase tracking-widest italic">
+                                    <td colSpan={9} className="px-6 py-10 text-center text-[10px] font-black text-slate-300 uppercase tracking-widest italic">
                                       ဤအခြေအနေနှင့် ကိုက်ညီသောဖြစ်ရပ်မရှိပါ: {getNestedFilter(group.groupId)}
                                     </td>
                                   </tr>

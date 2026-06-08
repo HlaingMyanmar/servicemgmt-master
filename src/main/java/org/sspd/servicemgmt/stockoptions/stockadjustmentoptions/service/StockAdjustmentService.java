@@ -218,9 +218,10 @@ public class StockAdjustmentService {
 
     private void createAdjustmentJournal(StockAdjustment adj, Product product, Staff staff) {
 
-        // Guard 1: cost price check
+        // Guard 1: cost price check — CORRECTION without cost price skips journal only
         BigDecimal costPrice = product.getCostPrice();
         if (costPrice == null || costPrice.compareTo(BigDecimal.ZERO) <= 0) {
+            if (adj.getAdjustmentType() == AdjustmentType.CORRECTION) return;
             throw new RuntimeException(
                 "Cost price not set for product: " + product.getName() +
                 ". Please set cost price before stock adjustment.");

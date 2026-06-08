@@ -18,7 +18,6 @@ public interface PurchaseReturnMapper {
     PurchaseReturnMapper INSTANCE = Mappers.getMapper(PurchaseReturnMapper.class);
 
     @Mapping(source = "purchase.id", target = "purchaseId")
-    @Mapping(target = "refundAmount", ignore = true)
     @Mapping(target = "paymentMethodId", ignore = true)
     @Mapping(target = "transactionNo", ignore = true)
     PurchaseReturnDTO toDto(PurchaseReturn entity);

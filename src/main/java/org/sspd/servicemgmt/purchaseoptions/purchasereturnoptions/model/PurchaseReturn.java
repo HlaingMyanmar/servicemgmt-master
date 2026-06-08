@@ -31,6 +31,9 @@ public class PurchaseReturn {
     @Column(name = "total_return_amount")
     private BigDecimal totalReturnAmount = BigDecimal.ZERO;
 
+    @Column(name = "refund_amount")
+    private BigDecimal refundAmount = BigDecimal.ZERO;
+
     @Column(columnDefinition = "TEXT")
     private String reason;
 

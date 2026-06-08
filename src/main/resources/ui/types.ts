@@ -469,8 +469,13 @@ export interface PurchaseDTO {
   staffId: number;
   staffName?: string;
   purchaseDate?: string;
+  dueDate?: string;
   totalAmount: number;
   paidAmount: number;
+  returnAmount?: number;
+  refundAmount?: number;
+  netAmount?: number;
+  supplierCreditAmount?: number;
   dueAmount: number;
   paymentStatus?: string;
   remark?: string;

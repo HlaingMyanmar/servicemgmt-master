@@ -44,6 +44,14 @@ public class Purchase {
     private BigDecimal totalAmount = BigDecimal.ZERO;
     @Column(name = "paid_amount")
     private BigDecimal paidAmount = BigDecimal.ZERO;
+    @Column(name = "return_amount")
+    private BigDecimal returnAmount = BigDecimal.ZERO;
+    @Column(name = "refund_amount")
+    private BigDecimal refundAmount = BigDecimal.ZERO;
+    @Column(name = "net_amount")
+    private BigDecimal netAmount = BigDecimal.ZERO;
+    @Column(name = "supplier_credit_amount")
+    private BigDecimal supplierCreditAmount = BigDecimal.ZERO;
     private BigDecimal dueAmount = BigDecimal.ZERO;
 
     @Enumerated(EnumType.STRING)

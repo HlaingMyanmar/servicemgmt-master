@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useDataEvents } from '../hooks/useDataEvents';
 import { ArrowLeft, Eye, List, Plus, RefreshCw, RotateCcw, Save, Search, Trash2, X } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import Swal from 'sweetalert2';
 import { purchaseReturnApiService, PurchaseReturnPage } from '../services/purchasereturnapiservice';
 import { purchaseApiService } from '../services/purchaseapiservice';
@@ -15,6 +15,9 @@ type PurchaseProductOption = {
   productId: number;
   productName: string;
   unitPrice: number;
+  purchasedQty: number;
+  returnedQty: number;
+  returnableQty: number;
   serialNumbers: string[];
 };
 
@@ -50,6 +53,7 @@ const nowLocalDateTime = () => toLocalDateTime(new Date().toISOString());
 const money = (v: number) => new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v || 0);
 
 const PurchaseReturnManagement: React.FC = () => {
+  const [searchParams] = useSearchParams();
   const [rows, setRows] = useState<PurchaseReturnDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -60,6 +64,7 @@ const PurchaseReturnManagement: React.FC = () => {
   const [purchases, setPurchases] = useState<PurchaseDTO[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethodDTO[]>([]);
   const [selectedPurchase, setSelectedPurchase] = useState<PurchaseDTO | null>(null);
+  const [selectedPurchaseReturns, setSelectedPurchaseReturns] = useState<PurchaseReturnDTO[]>([]);
 
   const [currentPage, setCurrentPage] = useState(0);
   const [pageSize, setPageSize] = useState(20);
@@ -160,18 +165,36 @@ const PurchaseReturnManagement: React.FC = () => {
   useDataEvents(['Purchase Return', 'Purchase'], () => loadRows(currentPage, pageSize, debouncedSearch));
 
   useEffect(() => {
+    const rawPurchaseId = Number(searchParams.get('purchaseId') || 0);
+    if (!rawPurchaseId || masterLoading || purchases.length === 0 || purchaseId === rawPurchaseId) return;
+    const purchase = purchases.find((p) => p.id === rawPurchaseId);
+    if (!purchase) return;
+    setSupplierId(purchase.supplierId);
+    setSupplierSearch(supplierLabelById(purchase.supplierId));
+    setPurchaseId(rawPurchaseId);
+    setPurchaseSearch(purchaseLabel(purchase));
+    setDetails([emptyDetail()]);
+    setShowForm(true);
+  }, [searchParams, masterLoading, purchases, purchaseId, supplierLabelById, purchaseLabel]);
+
+  useEffect(() => {
     if (purchaseId <= 0) {
       setSelectedPurchase(null);
+      setSelectedPurchaseReturns([]);
       return;
     }
 
     let active = true;
     setPurchaseLoading(true);
 
-    purchaseApiService.getById(purchaseId)
-      .then((data) => {
+    Promise.all([
+      purchaseApiService.getById(purchaseId),
+      purchaseReturnApiService.getByPurchaseId(purchaseId)
+    ])
+      .then(([data, returns]) => {
         if (!active) return;
         setSelectedPurchase(data);
+        setSelectedPurchaseReturns(returns || []);
         if (data.supplierId) {
           setSupplierId(data.supplierId);
           setSupplierSearch(supplierLabelById(data.supplierId));
@@ -181,6 +204,7 @@ const PurchaseReturnManagement: React.FC = () => {
         if (!active) return;
         console.error('Failed to load purchase details', e);
         setSelectedPurchase(null);
+        setSelectedPurchaseReturns([]);
       })
       .finally(() => {
         if (active) setPurchaseLoading(false);
@@ -199,29 +223,48 @@ const PurchaseReturnManagement: React.FC = () => {
   const productOptions = useMemo<PurchaseProductOption[]>(() => {
     if (!selectedPurchase?.details || selectedPurchase.details.length === 0) return [];
 
+    const returnedByProduct = new Map<number, number>();
+    const returnedSerials = new Set<string>();
+    selectedPurchaseReturns.forEach((ret) => {
+      (ret.details || []).forEach((detail) => {
+        returnedByProduct.set(detail.productId, (returnedByProduct.get(detail.productId) || 0) + (Number(detail.qty) || 0));
+        (detail.serialNumbers || []).forEach((sn) => returnedSerials.add(normalizeSerial(sn)));
+      });
+    });
+
     const map = new Map<number, PurchaseProductOption>();
     selectedPurchase.details.forEach((detail) => {
       const existing = map.get(detail.productId);
+      const rawSerials = Array.from(new Set((detail.serialNumbers || []).map((sn) => sanitizeSerial(sn)).filter(Boolean)));
+      const serialNumbers = rawSerials.filter((sn) => !returnedSerials.has(normalizeSerial(sn)));
       if (!existing) {
+        const purchasedQty = Number(detail.qty) || 0;
+        const returnedQty = returnedByProduct.get(detail.productId) || 0;
         map.set(detail.productId, {
           productId: detail.productId,
           productName: detail.productName || `Product #${detail.productId}`,
           unitPrice: detail.unitCost,
-          serialNumbers: Array.from(new Set((detail.serialNumbers || []).map((sn) => sanitizeSerial(sn)).filter(Boolean)))
+          purchasedQty,
+          returnedQty,
+          returnableQty: Math.max(0, purchasedQty - returnedQty),
+          serialNumbers
         });
         return;
       }
 
+      existing.purchasedQty += Number(detail.qty) || 0;
+      existing.returnedQty = returnedByProduct.get(detail.productId) || 0;
+      existing.returnableQty = Math.max(0, existing.purchasedQty - existing.returnedQty);
       existing.serialNumbers = Array.from(new Set([
         ...existing.serialNumbers,
-        ...(detail.serialNumbers || []).map((sn) => sanitizeSerial(sn)).filter(Boolean)
+        ...serialNumbers
       ]));
     });
 
-    return Array.from(map.values());
-  }, [selectedPurchase]);
+    return Array.from(map.values()).filter((option) => option.returnableQty > 0);
+  }, [selectedPurchase, selectedPurchaseReturns]);
 
-  const productLabel = useCallback((p: PurchaseProductOption) => `${p.productName} (#${p.productId})`, []);
+  const productLabel = useCallback((p: PurchaseProductOption) => `${p.productName} (#${p.productId}) · ပြန်ပို့နိုင် ${p.returnableQty}`, []);
 
   const productOptionById = useCallback((productId: number) => {
     return productOptions.find((option) => option.productId === productId);
@@ -257,6 +300,7 @@ const PurchaseReturnManagement: React.FC = () => {
     setPurchaseId(0);
     setPurchaseSearch('');
     setSelectedPurchase(null);
+    setSelectedPurchaseReturns([]);
     setReturnDate(nowLocalDateTime());
     setReason('');
     setRefundAmount('');
@@ -266,17 +310,25 @@ const PurchaseReturnManagement: React.FC = () => {
   };
 
   const total = useMemo(() => details.reduce((s, d) => s + d.subtotal, 0), [details]);
-  const resolvedRefund = useMemo(() => refundAmount.trim() === '' ? total : parseFloat(refundAmount), [refundAmount, total]);
+  const resolvedRefund = useMemo(() => refundAmount.trim() === '' ? 0 : parseFloat(refundAmount), [refundAmount]);
+  const existingReturnAmount = Number(selectedPurchase?.returnAmount || 0);
+  const existingRefundAmount = Number(selectedPurchase?.refundAmount || 0);
+  const maxRefund = useMemo(() => {
+    if (!selectedPurchase) return 0;
+    const netAfterReturn = Math.max(0, Number(selectedPurchase.totalAmount || 0) - existingReturnAmount - total);
+    return Math.max(0, Number(selectedPurchase.paidAmount || 0) - netAfterReturn - existingRefundAmount);
+  }, [selectedPurchase, existingReturnAmount, existingRefundAmount, total]);
   const paymentRequired = !Number.isNaN(resolvedRefund) && resolvedRefund > 0;
-  const validRefund = !Number.isNaN(resolvedRefund) && resolvedRefund >= 0;
+  const validRefund = !Number.isNaN(resolvedRefund) && resolvedRefund >= 0 && resolvedRefund <= maxRefund;
 
   const serialValidation = useMemo(() => {
     const rowsWithProduct = details.filter((row) => row.productId > 0);
-    const serials = rowsWithProduct.flatMap((row) => row.serialNumbers.map((sn) => sanitizeSerial(sn)).filter(Boolean));
+    const serialRows = rowsWithProduct.filter((row) => getProductSerialPool(row.productId).length > 0);
+    const serials = serialRows.flatMap((row) => row.serialNumbers.map((sn) => sanitizeSerial(sn)).filter(Boolean));
     const unique = new Set(serials.map((sn) => sn.toLowerCase()));
 
-    const qtyMatchesSerialCount = rowsWithProduct.every((row) => row.serialNumbers.length === row.qty);
-    const allRowsHaveSerials = rowsWithProduct.every((row) => {
+    const qtyMatchesSerialCount = serialRows.every((row) => row.serialNumbers.length === row.qty);
+    const allRowsHaveSerials = serialRows.every((row) => {
       if (row.qty <= 0) return false;
       if (!row.serialNumbers || row.serialNumbers.length === 0) return false;
       return row.serialNumbers.every((sn) => sanitizeSerial(sn).length > 0);
@@ -284,7 +336,7 @@ const PurchaseReturnManagement: React.FC = () => {
 
     const strictCheckAvailable = rowsWithProduct.some((row) => getProductSerialPool(row.productId).length > 0);
 
-    const belongsToSelectedProduct = rowsWithProduct.every((row) => {
+    const belongsToSelectedProduct = serialRows.every((row) => {
       const pool = getProductSerialPool(row.productId);
       if (pool.length === 0) return true; // backend will verify ownership when purchase serial list is unavailable
       const normalizedPool = new Set(pool.map((sn) => normalizeSerial(sn)));
@@ -303,7 +355,11 @@ const PurchaseReturnManagement: React.FC = () => {
   const validForm = supplierId > 0
     && purchaseId > 0
     && details.length > 0
-    && details.every((d) => d.productId > 0 && d.qty > 0 && d.unitPrice > 0)
+    && details.every((d) => {
+      const option = productOptionById(d.productId);
+      return d.productId > 0 && d.qty > 0 && d.unitPrice > 0 && !!option && d.qty <= option.returnableQty;
+    })
+    && reason.trim().length > 0
     && serialValidation.qtyMatchesSerialCount
     && serialValidation.allRowsHaveSerials
     && serialValidation.uniqueAcrossRows
@@ -316,8 +372,12 @@ const PurchaseReturnManagement: React.FC = () => {
       if (i !== index) return d;
       const next = { ...d };
       if (field === 'qty') {
-        next.qty = Math.max(0, parseInt(value, 10) || 0);
-        next.serialNumbers = ensureSerialCount(next.serialNumbers, next.qty);
+        const option = productOptionById(next.productId);
+        const maxQty = option?.returnableQty ?? 0;
+        next.qty = Math.min(maxQty || 0, Math.max(0, parseInt(value, 10) || 0));
+        next.serialNumbers = getProductSerialPool(next.productId).length > 0
+          ? ensureSerialCount(next.serialNumbers, next.qty)
+          : [];
       }
       if (field === 'unitPrice') next.unitPrice = Math.max(0, parseFloat(value) || 0);
       next.subtotal = next.qty * next.unitPrice;
@@ -330,13 +390,15 @@ const PurchaseReturnManagement: React.FC = () => {
     setDetails((prev) => prev.map((d, i) => {
       if (i !== index) return d;
       const unitPrice = match ? (d.unitPrice > 0 ? d.unitPrice : match.unitPrice) : d.unitPrice;
+      const qty = match ? Math.min(Math.max(1, d.qty || 1), match.returnableQty) : d.qty;
       return {
         ...d,
         productSearch: value,
         productId: match?.productId || 0,
+        qty,
         unitPrice,
-        serialNumbers: ensureSerialCount(d.serialNumbers, d.qty),
-        subtotal: d.qty * unitPrice
+        serialNumbers: match && match.serialNumbers.length > 0 ? ensureSerialCount(d.serialNumbers, qty) : [],
+        subtotal: qty * unitPrice
       };
     }));
   };
@@ -360,6 +422,7 @@ const PurchaseReturnManagement: React.FC = () => {
       setPurchaseId(0);
       setPurchaseSearch('');
       setSelectedPurchase(null);
+      setSelectedPurchaseReturns([]);
       setDetails([emptyDetail()]);
       return;
     }
@@ -374,6 +437,7 @@ const PurchaseReturnManagement: React.FC = () => {
 
     if (nextPurchaseId !== purchaseId) {
       setPurchaseId(nextPurchaseId);
+      setSelectedPurchaseReturns([]);
       setDetails([emptyDetail()]);
     }
 
@@ -410,7 +474,7 @@ const PurchaseReturnManagement: React.FC = () => {
         returnDate: returnDate || undefined,
         reason: reason.trim() || undefined,
         totalReturnAmount: total,
-        refundAmount: refundAmount.trim() === '' ? undefined : Number(refundAmount),
+        refundAmount: resolvedRefund,
         paymentMethodId: paymentRequired ? paymentMethodId : undefined,
         transactionNo: transactionNo.trim() || undefined,
         details: details.map((d) => ({
@@ -419,7 +483,7 @@ const PurchaseReturnManagement: React.FC = () => {
           qty: Number(d.qty),
           unitPrice: Number(d.unitPrice),
           subtotal: Number((d.qty * d.unitPrice).toFixed(2)),
-          serialNumbers: d.serialNumbers.map((sn) => sanitizeSerial(sn))
+          serialNumbers: d.serialNumbers.map((sn) => sanitizeSerial(sn)).filter(Boolean)
         }))
       };
 
@@ -550,6 +614,7 @@ const PurchaseReturnManagement: React.FC = () => {
                   <tbody className="divide-y divide-slate-100">
                     {details.map((d, i) => {
                       const serialOptions = getSerialOptionsForRow(i);
+                      const option = productOptionById(d.productId);
                       return (
                         <React.Fragment key={i}>
                           <tr className="hover:bg-slate-50/60">
@@ -567,7 +632,8 @@ const PurchaseReturnManagement: React.FC = () => {
                               </datalist>
                             </td>
                             <td className="px-4 py-3">
-                              <input type="number" min="1" value={d.qty || ''} onChange={(e) => onDetailChange(i, 'qty', e.target.value)} className="w-full px-2 py-1 bg-transparent border-none text-sm focus:ring-0 focus:outline-none" />
+                              <input type="number" min="1" max={option?.returnableQty || undefined} value={d.qty || ''} onChange={(e) => onDetailChange(i, 'qty', e.target.value)} className="w-full px-2 py-1 bg-transparent border-none text-sm focus:ring-0 focus:outline-none" />
+                              {option && <p className="text-[10px] text-slate-400 mt-0.5">Max {option.returnableQty}</p>}
                             </td>
                             <td className="px-4 py-3">
                               <input type="number" min="0" step="0.01" value={d.unitPrice || ''} onChange={(e) => onDetailChange(i, 'unitPrice', e.target.value)} className="w-full px-2 py-1 bg-transparent border-none text-sm focus:ring-0 focus:outline-none" />
@@ -577,7 +643,7 @@ const PurchaseReturnManagement: React.FC = () => {
                               <button onClick={() => setDetails((prev) => prev.length <= 1 ? prev : prev.filter((_, idx) => idx !== i))} className="p-1.5 text-slate-300 hover:text-rose-500 disabled:opacity-40" disabled={details.length <= 1}><Trash2 size={14} /></button>
                             </td>
                           </tr>
-                          {d.productId > 0 && d.qty > 0 && (
+                          {d.productId > 0 && d.qty > 0 && serialOptions.length > 0 && (
                             <tr className="bg-slate-50/50">
                               <td colSpan={5} className="px-4 py-3">
                                 <div className="space-y-2">
@@ -618,11 +684,12 @@ const PurchaseReturnManagement: React.FC = () => {
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-6 space-y-5 xl:sticky xl:top-20">
               <h3 className="font-bold text-slate-800 text-sm flex items-center gap-2"><RotateCcw size={16} className="text-indigo-500" /> Refund & Summary</h3>
               <div className="flex justify-between items-center text-sm pb-2 border-b border-slate-100"><span className="text-slate-500">Total Return</span><span className="font-bold text-slate-800">{money(total)}</span></div>
+              <div className="flex justify-between items-center text-xs pb-2 border-b border-slate-100"><span className="text-slate-500">Max Refund</span><span className="font-bold text-emerald-700">{money(maxRefund)}</span></div>
 
               <div className="space-y-1.5">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Refund Amount</label>
-                <input type="number" min="0" step="0.01" value={refundAmount} onChange={(e) => setRefundAmount(e.target.value)} placeholder="Leave blank for full refund" className={`w-full px-3 py-2 bg-slate-50 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 ${validRefund ? 'border-slate-200' : 'border-rose-200'}`} />
-                <p className="text-[10px] text-slate-400">Blank means full refund from total return.</p>
+                <input type="number" min="0" max={maxRefund || undefined} step="0.01" value={refundAmount} onChange={(e) => setRefundAmount(e.target.value)} placeholder="0 = supplier credit/payable reduction only" className={`w-full px-3 py-2 bg-slate-50 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 ${validRefund ? 'border-slate-200' : 'border-rose-200'}`} />
+                <p className="text-[10px] text-slate-400">Blank means 0 refund. Refund is allowed only when this purchase has supplier credit.</p>
               </div>
 
               <div className="space-y-1.5">

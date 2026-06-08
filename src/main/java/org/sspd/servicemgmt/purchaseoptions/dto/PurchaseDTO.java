@@ -19,6 +19,10 @@ public class PurchaseDTO {
     private LocalDate dueDate;
     private BigDecimal totalAmount;
     private BigDecimal paidAmount;
+    private BigDecimal returnAmount;
+    private BigDecimal refundAmount;
+    private BigDecimal netAmount;
+    private BigDecimal supplierCreditAmount;
     private BigDecimal dueAmount;
     private String paymentStatus;
     private String remark;
