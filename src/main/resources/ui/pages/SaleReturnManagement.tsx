@@ -51,6 +51,18 @@ const toLocalDateTime = (value?: string) => {
 
 const nowLocalDateTime = () => toLocalDateTime(new Date().toISOString());
 const money = (v: number) => new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v || 0);
+const netUnitPrice = (sale: SaleDTO, detail: { qty: number; unitPrice: number; subtotal: number }) => {
+  const qty = Number(detail.qty) || 0;
+  if (qty <= 0) return Number(detail.unitPrice) || 0;
+  const lineNet = Number(detail.subtotal || 0);
+  const allLineNet = (sale.details || []).reduce((sum, d) => sum + Number(d.subtotal || 0), 0);
+  const overallDiscount = Math.max(0, Number(sale.discountAmount || 0));
+  const allocatedOverallDiscount = allLineNet > 0 && overallDiscount > 0
+    ? (lineNet * overallDiscount) / allLineNet
+    : 0;
+  const returnableNet = Math.max(0, lineNet - allocatedOverallDiscount);
+  return Math.round((returnableNet / qty) * 100) / 100;
+};
 
 const SaleReturnManagement: React.FC = () => {
   const location = useLocation();
@@ -221,7 +233,7 @@ const SaleReturnManagement: React.FC = () => {
       );
       const detailProduct = productById.get(detail.productId);
       const hasSerial = detailProduct ? detailProduct.hasSerial !== false : serialNumbers.length > 0;
-      const unitPrice = Number(detail.unitPrice) || 0;
+      const unitPrice = netUnitPrice(selectedSale, detail);
 
       const existing = map.get(detail.productId);
       if (!existing) {
@@ -237,6 +249,7 @@ const SaleReturnManagement: React.FC = () => {
 
       existing.serialNumbers = Array.from(new Set<string>([...existing.serialNumbers, ...serialNumbers]));
       if (existing.unitPrice <= 0 && unitPrice > 0) existing.unitPrice = unitPrice;
+      else if (unitPrice > 0) existing.unitPrice = Math.round(((existing.unitPrice + unitPrice) / 2) * 100) / 100;
       if (!existing.hasSerial && hasSerial) existing.hasSerial = true;
     });
 

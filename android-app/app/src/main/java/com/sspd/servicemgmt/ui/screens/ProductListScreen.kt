@@ -8,6 +8,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -29,6 +30,7 @@ import com.sspd.servicemgmt.api.ProductDTO
 import com.sspd.servicemgmt.ui.theme.*
 import com.sspd.servicemgmt.ui.components.AppLoading
 import com.sspd.servicemgmt.ui.viewmodel.ProductListViewModel
+import com.sspd.servicemgmt.ui.viewmodel.ProductListViewModel.ProductFilter
 import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -62,10 +64,21 @@ fun ProductListScreen(
         }
     }
 
-    val filtered = if (state.search.isBlank()) state.items
-    else state.items.filter {
-        it.name.contains(state.search, true) ||
-        it.productCode.contains(state.search, true)
+    val filtered = state.items.filter {
+        val matchesSearch = state.search.isBlank() ||
+            it.name.contains(state.search, true) ||
+            it.productCode.contains(state.search, true) ||
+            (it.categoryName ?: "").contains(state.search, true) ||
+            (it.brandName ?: "").contains(state.search, true)
+        val qty = if (it.hasSerial == true) it.availableSerialCount ?: it.stockQty else it.stockQty
+        val matchesFilter = when (state.filter) {
+            ProductFilter.ALL -> true
+            ProductFilter.LOW_STOCK -> qty <= (it.reorderLevel ?: 0) || qty <= 0
+            ProductFilter.SERIAL -> it.hasSerial == true
+            ProductFilter.NO_COST -> (it.costPrice ?: 0L) <= 0L
+            ProductFilter.NO_SELLING_PRICE -> it.sellingPrice <= 0L
+        }
+        matchesSearch && matchesFilter
     }
 
     Box(Modifier.fillMaxSize()) {
@@ -132,6 +145,17 @@ fun ProductListScreen(
                     shape = RoundedCornerShape(12.dp)
                 )
 
+                LazyRow(
+                    modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    item { ProductFilterChip("All", state.filter == ProductFilter.ALL) { vm.setFilter(ProductFilter.ALL) } }
+                    item { ProductFilterChip("Low Stock", state.filter == ProductFilter.LOW_STOCK, Warning) { vm.setFilter(ProductFilter.LOW_STOCK) } }
+                    item { ProductFilterChip("Serial", state.filter == ProductFilter.SERIAL, Violet) { vm.setFilter(ProductFilter.SERIAL) } }
+                    item { ProductFilterChip("No Cost", state.filter == ProductFilter.NO_COST, Danger) { vm.setFilter(ProductFilter.NO_COST) } }
+                    item { ProductFilterChip("No Price", state.filter == ProductFilter.NO_SELLING_PRICE, Danger) { vm.setFilter(ProductFilter.NO_SELLING_PRICE) } }
+                }
+
                 if (state.loading) {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         AppLoading()
@@ -166,6 +190,19 @@ fun ProductListScreen(
             )
         }
     }
+}
+
+@Composable
+private fun ProductFilterChip(label: String, selected: Boolean, color: Color = Primary, onClick: () -> Unit) {
+    AssistChip(
+        onClick = onClick,
+        label = { Text(label, fontSize = 11.sp, fontWeight = FontWeight.Bold) },
+        colors = AssistChipDefaults.assistChipColors(
+            containerColor = if (selected) color.copy(0.12f) else CardBg,
+            labelColor = if (selected) color else TextMuted
+        ),
+        border = BorderStroke(1.dp, if (selected) color.copy(0.35f) else BorderColor)
+    )
 }
 
 @Composable
@@ -228,6 +265,11 @@ private fun ProductCard(p: ProductDTO, onClick: () -> Unit = {}) {
                 if (!p.brandName.isNullOrBlank()) {
                     Text(p.brandName, fontSize = 10.sp, color = TextMuted)
                 }
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.padding(top = 4.dp)) {
+                    if (p.hasSerial == true) ProductMiniBadge("Serial", Violet, Violet.copy(0.10f))
+                    if ((p.costPrice ?: 0L) <= 0L) ProductMiniBadge("No Cost", Danger, DangerBg)
+                    if (p.sellingPrice <= 0L) ProductMiniBadge("No Price", Danger, DangerBg)
+                }
             }
 
             // Type badge / price / stock
@@ -268,6 +310,19 @@ private fun ProductCard(p: ProductDTO, onClick: () -> Unit = {}) {
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun ProductMiniBadge(label: String, color: Color, bg: Color) {
+    Surface(color = bg, shape = RoundedCornerShape(5.dp)) {
+        Text(
+            label,
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp),
+            fontSize = 9.sp,
+            fontWeight = FontWeight.Bold,
+            color = color
+        )
     }
 }
 

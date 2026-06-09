@@ -48,6 +48,7 @@ class ProductListViewModel(application: Application) : AndroidViewModel(applicat
     }
 
     fun setSearch(q: String) = _uiState.update { it.copy(search = q) }
+    fun setFilter(filter: ProductFilter) = _uiState.update { it.copy(filter = filter) }
 
     fun showScanner()    = _uiState.update { it.copy(showScanner = true) }
     fun dismissScanner() = _uiState.update { it.copy(showScanner = false) }
@@ -83,9 +84,12 @@ class ProductListViewModel(application: Application) : AndroidViewModel(applicat
         val items:            List<ProductDTO>   = emptyList(),
         val loading:          Boolean            = true,
         val search:           String             = "",
+        val filter:           ProductFilter      = ProductFilter.ALL,
         val showScanner:      Boolean            = false,
         val scanLoading:      Boolean            = false,
         val scanError:        String?            = null,
         val navigateToDetail: Pair<Int, String>? = null  // productId to serialNumber
     )
+
+    enum class ProductFilter { ALL, LOW_STOCK, SERIAL, NO_COST, NO_SELLING_PRICE }
 }

@@ -1,9 +1,11 @@
 package org.sspd.servicemgmt.servicejoboptions.dto;
 
 import lombok.Data;
+import org.sspd.servicemgmt.accountingoptions.paymenttransactionoptions.dto.PaymentTransactionDTO;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 
 @Data
 public class SettleDTO {
@@ -15,4 +17,5 @@ public class SettleDTO {
     private Integer paymentMethodId;
     private Integer paymentAccountId;
     private String transactionNo;
+    private List<PaymentTransactionDTO> payments;
 }

@@ -42,6 +42,8 @@ public class Purchase {
     private LocalDate dueDate;
 
     private BigDecimal totalAmount = BigDecimal.ZERO;
+    @Column(name = "discount_amount")
+    private BigDecimal discountAmount = BigDecimal.ZERO;
     @Column(name = "paid_amount")
     private BigDecimal paidAmount = BigDecimal.ZERO;
     @Column(name = "return_amount")

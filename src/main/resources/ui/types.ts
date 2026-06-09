@@ -308,6 +308,7 @@ export interface SaleDTO {
   paymentAccountId?: number;
   arAccountId?: number;
   transactionNo?: string;
+  payments?: PaymentTransactionDTO[];
   details: SaleDetailDTO[];
 }
 
@@ -319,6 +320,7 @@ export interface SalePaymentDTO {
   arAccountId?: number;
   staffId?: number;
   note?: string;
+  payments?: PaymentTransactionDTO[];
 }
 
 export interface SaleReturnDetailDTO {
@@ -347,6 +349,10 @@ export interface SaleReturnDTO {
   paymentMethodId?: number;
   paymentMethodName?: string;
   transactionNo?: string;
+  payments?: PaymentTransactionDTO[];
+  status?: string;
+  voidedAt?: string;
+  voidReason?: string;
   reason?: string;
   details: SaleReturnDetailDTO[];
 }
@@ -430,6 +436,15 @@ export interface PaymentTransactionDTO {
   entityName?: string;
 }
 
+export interface AccountTransferDTO {
+  fromPaymentMethodId: number;
+  toPaymentMethodId: number;
+  amount: number;
+  staffId?: number;
+  transactionNo?: string;
+  description?: string;
+}
+
 export interface JournalDetailDTO {
   accountId: number;
   accountName?: string;
@@ -471,6 +486,7 @@ export interface PurchaseDTO {
   purchaseDate?: string;
   dueDate?: string;
   totalAmount: number;
+  discountAmount?: number;
   paidAmount: number;
   returnAmount?: number;
   refundAmount?: number;
@@ -482,6 +498,7 @@ export interface PurchaseDTO {
   details: PurchaseDetailDTO[];
   paymentMethodId?: number;
   transactionNo?: string;
+  payments?: PaymentTransactionDTO[];
 }
 
 export interface PurchaseReturnDetailDTO {
@@ -504,6 +521,7 @@ export interface PurchaseReturnDTO {
   paymentMethodId?: number;
   paymentMethodName?: string;
   transactionNo?: string;
+  payments?: PaymentTransactionDTO[];
   reason?: string;
   supplierName?: string;
   purchaseCode?: string;
@@ -654,6 +672,8 @@ export interface SettleDTO {
   dueDate?: string;
   paymentMethodId?: number;
   paymentAccountId?: number;
+  transactionNo?: string;
+  payments?: PaymentTransactionDTO[];
 }
 
 export interface AuditLogDTO {

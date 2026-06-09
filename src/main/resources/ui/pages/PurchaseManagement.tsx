@@ -75,6 +75,7 @@ const PurchaseManagement: React.FC = () => {
   const [supplierOpen, setSupplierOpen] = useState(false);
   const [staffOpen, setStaffOpen] = useState(false);
   const [paidAmount, setPaidAmount] = useState<number>(0);
+  const [discountAmount, setDiscountAmount] = useState<number>(0);
   const [remark, setRemark] = useState('');
   const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState<number>(0);
   const [transactionNo, setTransactionNo] = useState('');
@@ -294,7 +295,9 @@ const PurchaseManagement: React.FC = () => {
   };
 
   const totalAmount = details.reduce((sum, d) => sum + d.subtotal, 0);
-  const dueAmount = Math.max(0, totalAmount - paidAmount);
+  const safeDiscountAmount = Math.min(Math.max(0, discountAmount || 0), totalAmount);
+  const netAmount = Math.max(0, totalAmount - safeDiscountAmount);
+  const dueAmount = Math.max(0, netAmount - paidAmount);
   const isValid = selectedSupplierId > 0
     && selectedStaffId > 0
     && details.every((d) => {
@@ -306,6 +309,8 @@ const PurchaseManagement: React.FC = () => {
       if (d.assignSerials && d.serialNumbers?.some((sn) => !sn.trim())) return false;
       return true;
     })
+    && safeDiscountAmount <= totalAmount
+    && paidAmount <= netAmount
     && (paidAmount <= 0 || selectedPaymentMethodId > 0);
 
   const handleSave = async () => {
@@ -317,6 +322,8 @@ const PurchaseManagement: React.FC = () => {
         supplierId: selectedSupplierId,
         staffId: selectedStaffId,
         totalAmount,
+        discountAmount: safeDiscountAmount,
+        netAmount,
         paidAmount,
         dueAmount,
         remark,
@@ -360,6 +367,7 @@ const PurchaseManagement: React.FC = () => {
         setSupplierSearch('');
         setStaffSearch('');
         setPaidAmount(0);
+        setDiscountAmount(0);
         setRemark('');
         setSelectedPaymentMethodId(0);
         setTransactionNo('');
@@ -932,8 +940,30 @@ const PurchaseManagement: React.FC = () => {
               <ArrowLeft size={16} />
               စာရင်းသို့ပြန်မည်
             </button>
-            <h2 className="text-xl font-bold text-slate-800 text-center sm:text-left">ဝယ်ယူမှုဘောင်ချာအသစ်</h2>
+            <div className="text-center sm:text-left">
+              <h2 className="text-xl font-bold text-slate-800">ဝယ်ယူမှုဘောင်ချာအသစ်</h2>
+              <p className="text-xs text-slate-500 mt-0.5">ပေးသွင်းသူ၊ ပစ္စည်း၊ serial/warranty၊ ငွေပေးချေမှုကို တစ်ချက်ချင်းပြီးအောင် စီမံပါ။</p>
+            </div>
             <div className="hidden sm:block w-24" />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+            <div className={`rounded-xl border p-3 ${selectedSupplierId > 0 ? 'bg-emerald-50 border-emerald-200' : 'bg-white border-slate-200'}`}>
+              <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">1. Supplier</p>
+              <p className={`text-sm font-bold mt-1 ${selectedSupplierId > 0 ? 'text-emerald-700' : 'text-slate-700'}`}>{selectedSupplierId > 0 ? 'ရွေးပြီး' : 'ရွေးရန်လို'}</p>
+            </div>
+            <div className={`rounded-xl border p-3 ${details.some(d => d.productId > 0) ? 'bg-emerald-50 border-emerald-200' : 'bg-white border-slate-200'}`}>
+              <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">2. Items</p>
+              <p className="text-sm font-bold mt-1 text-slate-700">{details.filter(d => d.productId > 0).length} line(s)</p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-white p-3">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">3. Net Amount</p>
+              <p className="text-sm font-bold mt-1 text-slate-800">{new Intl.NumberFormat('en-US', { minimumFractionDigits: 2 }).format(netAmount)}</p>
+            </div>
+            <div className={`rounded-xl border p-3 ${dueAmount > 0 ? 'bg-amber-50 border-amber-200' : 'bg-emerald-50 border-emerald-200'}`}>
+              <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">4. Payment</p>
+              <p className={`text-sm font-bold mt-1 ${dueAmount > 0 ? 'text-amber-700' : 'text-emerald-700'}`}>{dueAmount > 0 ? 'ပေးရန်ကျန်ရှိ' : 'ငွေချေပြီး'}</p>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -1013,11 +1043,11 @@ const PurchaseManagement: React.FC = () => {
               <table className="w-full min-w-[760px] text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50 text-slate-500 uppercase text-[10px] font-bold tracking-wider">
-                    <th className="px-4 py-3 border-b border-slate-100">Product</th>
+                    <th className="px-4 py-3 border-b border-slate-100">ပစ္စည်း</th>
                     <th className="px-4 py-3 border-b border-slate-100 w-24">Qty</th>
-                    <th className="px-4 py-3 border-b border-slate-100 w-32">Unit Cost</th>
-                    <th className="px-4 py-3 border-b border-slate-100 w-24">Warranty (mo)</th>
-                    <th className="px-4 py-3 border-b border-slate-100 w-32 text-right">Subtotal</th>
+                    <th className="px-4 py-3 border-b border-slate-100 w-32">ဝယ်ဈေး</th>
+                    <th className="px-4 py-3 border-b border-slate-100 w-24">Warranty (လ)</th>
+                    <th className="px-4 py-3 border-b border-slate-100 w-32 text-right">စုစုပေါင်း</th>
                     <th className="px-4 py-3 border-b border-slate-100 w-12"></th>
                   </tr>
                 </thead>
@@ -1036,7 +1066,7 @@ const PurchaseManagement: React.FC = () => {
                               list={`product-options-${dIndex}`}
                               value={detail.productSearch && detail.productSearch.length > 0 ? detail.productSearch : getProductLabelById(detail.productId)}
                               onChange={(e) => handleProductSearchChange(dIndex, e.target.value)}
-                              placeholder="Search product..."
+                              placeholder="ပစ္စည်းရှာပါ..."
                               className="w-full px-2 py-1 bg-transparent border-none text-sm focus:ring-0 focus:outline-none font-medium"
                             />
                             <datalist id={`product-options-${dIndex}`}>
@@ -1334,7 +1364,7 @@ const PurchaseManagement: React.FC = () => {
               className="inline-flex w-full sm:w-auto justify-center items-center gap-2 px-4 py-2 text-indigo-600 hover:bg-indigo-50 rounded-lg text-sm font-bold transition-all"
             >
               <Plus size={16} />
-              Add Product Row
+              ပစ္စည်းအတန်းထပ်ထည့်
             </button>
           </div>
         </div>
@@ -1344,14 +1374,35 @@ const PurchaseManagement: React.FC = () => {
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-6 space-y-6 lg:sticky lg:top-20">
             <h3 className="font-bold text-slate-800 text-sm flex items-center gap-2">
               <DollarSign size={16} className="text-indigo-500" />
-              Payment & Summary
+              ငွေပေးချေမှုနှင့် စုစုပေါင်း
             </h3>
 
             <div className="space-y-4">
               <div className="flex justify-between items-center text-sm">
-                <span className="text-slate-500">Total Amount</span>
+                <span className="text-slate-500">ကုန်ဖိုးစုစုပေါင်း</span>
                 <span className="font-bold text-slate-800">
                   {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalAmount)}
+                </span>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Discount Amount</label>
+                <input
+                  type="number"
+                  min="0"
+                  max={totalAmount || undefined}
+                  value={discountAmount || ''}
+                  onChange={(e) => setDiscountAmount(Math.min(totalAmount, Math.max(0, parseFloat(e.target.value) || 0)))}
+                  placeholder="0.00"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-amber-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                />
+                <p className="text-[10px] text-slate-400">Return amount will use discounted net cost.</p>
+              </div>
+
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-slate-500">Discount ပြီးကျသင့်ငွေ</span>
+                <span className="font-bold text-indigo-700">
+                  {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(netAmount)}
                 </span>
               </div>
 
@@ -1374,7 +1425,13 @@ const PurchaseManagement: React.FC = () => {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Paid Amount</label>
+                  <div className="flex items-center justify-between gap-2">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Paid Amount</label>
+                    <div className="flex items-center gap-1">
+                      <button type="button" onClick={() => setPaidAmount(netAmount)} className="px-2 py-1 rounded bg-emerald-600 text-white text-[10px] font-bold hover:bg-emerald-700">Full</button>
+                      <button type="button" onClick={() => setPaidAmount(0)} className="px-2 py-1 rounded bg-amber-500 text-white text-[10px] font-bold hover:bg-amber-600">Credit</button>
+                    </div>
+                  </div>
                   <input 
                     type="number" 
                     value={paidAmount || ''}
@@ -1401,7 +1458,7 @@ const PurchaseManagement: React.FC = () => {
               </div>
 
               <div className="flex justify-between items-center text-sm pt-2 border-t border-slate-100">
-                <span className="text-slate-500">Due Amount</span>
+                <span className="text-slate-500">ပေးရန်ကျန်</span>
                 <span className={`font-bold ${dueAmount > 0 ? 'text-rose-500' : 'text-emerald-600'}`}>
                   {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(dueAmount)}
                 </span>
@@ -1435,7 +1492,7 @@ const PurchaseManagement: React.FC = () => {
                     Processing... ထပ်မနှိပ်ပါနှင့်
                   </>
                 ) : (
-                  <><Save size={18} /> Complete Purchase</>
+                  <><Save size={18} /> ဝယ်ယူမှု သိမ်းမည်</>
                 )}
               </button>
             </div>
@@ -1537,6 +1594,8 @@ const PurchaseManagement: React.FC = () => {
                 <p className="text-slate-600"><span className="font-medium text-slate-500">Staff:</span> {viewPurchase.staffName}</p>
                 <p className="text-slate-600"><span className="font-medium text-slate-500">Date:</span> {viewPurchase.purchaseDate ? new Date(viewPurchase.purchaseDate).toLocaleString() : '-'}</p>
                 <p className="text-slate-600"><span className="font-medium text-slate-500">Total:</span> {new Intl.NumberFormat('en-US', { minimumFractionDigits: 2 }).format(viewPurchase.totalAmount)}</p>
+                <p className="text-slate-600"><span className="font-medium text-slate-500">Discount:</span> {new Intl.NumberFormat('en-US', { minimumFractionDigits: 2 }).format(viewPurchase.discountAmount || 0)}</p>
+                <p className="text-slate-600"><span className="font-medium text-slate-500">Net:</span> {new Intl.NumberFormat('en-US', { minimumFractionDigits: 2 }).format(viewPurchase.netAmount ?? (viewPurchase.totalAmount - (viewPurchase.discountAmount || 0)))}</p>
                 <p className="text-slate-600"><span className="font-medium text-slate-500">Paid:</span> {new Intl.NumberFormat('en-US', { minimumFractionDigits: 2 }).format(viewPurchase.paidAmount)}</p>
                 <p className="text-slate-600"><span className="font-medium text-slate-500">Due:</span> {new Intl.NumberFormat('en-US', { minimumFractionDigits: 2 }).format(viewPurchase.dueAmount)}</p>
                 {viewPurchase.paymentMethodId && (

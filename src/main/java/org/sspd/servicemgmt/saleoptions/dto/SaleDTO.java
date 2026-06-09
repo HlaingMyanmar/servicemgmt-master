@@ -1,6 +1,7 @@
 package org.sspd.servicemgmt.saleoptions.dto;
 
 import lombok.Data;
+import org.sspd.servicemgmt.accountingoptions.paymenttransactionoptions.dto.PaymentTransactionDTO;
 import org.sspd.servicemgmt.saleoptions.saledetails.dto.SaleDetailDTO;
 
 import java.math.BigDecimal;
@@ -33,6 +34,7 @@ public class SaleDTO {
     private Integer paymentAccountId; // Cash=5, Bank=6 (for journal)
     private Integer paymentMethodId; // required when paidAmount > 0
     private String transactionNo;
+    private List<PaymentTransactionDTO> payments;
     private Integer arAccountId; // for credit/partial sales
     private List<SaleDetailDTO> details;
 

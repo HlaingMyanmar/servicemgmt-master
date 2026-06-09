@@ -1,6 +1,7 @@
 package org.sspd.servicemgmt.saleoptions.salereturnoptions.dto;
 
 import lombok.Data;
+import org.sspd.servicemgmt.accountingoptions.paymenttransactionoptions.dto.PaymentTransactionDTO;
 import org.sspd.servicemgmt.saleoptions.salereturndetails.dto.SaleReturnDetailDTO;
 
 import java.math.BigDecimal;
@@ -21,6 +22,7 @@ public class SaleReturnDTO {
     private BigDecimal refundAmount;
     private Integer paymentMethodId;
     private String transactionNo;
+    private List<PaymentTransactionDTO> payments;
     private String reason;
     private List<SaleReturnDetailDTO> details;
 }

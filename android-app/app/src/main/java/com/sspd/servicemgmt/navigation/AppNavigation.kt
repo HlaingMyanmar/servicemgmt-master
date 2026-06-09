@@ -431,6 +431,30 @@ fun AppNavigation() {
                         PurchaseDetailScreen(onBack = { nav.popBackStack() })
                     }
 
+                    screen(Screen.PurchaseReturns.route) {
+                        PurchaseReturnListScreen(
+                            onBack = { nav.popBackStack() },
+                            onReturnClick = { id -> nav.navigate(Screen.PurchaseReturnDetail.createRoute(id)) },
+                            onNewReturn = { nav.navigate(Screen.NewPurchaseReturn.route) }
+                        )
+                    }
+                    screen(Screen.NewPurchaseReturn.route) {
+                        PurchaseReturnFormScreen(
+                            onBack = { nav.popBackStack() },
+                            onSuccess = { id ->
+                                nav.navigate(Screen.PurchaseReturnDetail.createRoute(id)) {
+                                    popUpTo(Screen.NewPurchaseReturn.route) { inclusive = true }
+                                }
+                            }
+                        )
+                    }
+                    composable(
+                        route = Screen.PurchaseReturnDetail.route,
+                        arguments = listOf(navArgument("returnId") { type = NavType.IntType })
+                    ) {
+                        PurchaseReturnDetailScreen(onBack = { nav.popBackStack() })
+                    }
+
                     screen(Screen.Bookings.route) {
                         BookingListScreen(
                             onBack         = { nav.popBackStack() },
@@ -635,6 +659,7 @@ fun AppNavigation() {
                     screen(Screen.IncomeReport.route)   { IncomeReportScreen       { nav.popBackStack() } }
                     screen(Screen.SalesRanking.route)   { SalesRankingScreen      { nav.popBackStack() } }
                     screen(Screen.AuditLog.route)       { AuditLogScreen          { nav.popBackStack() } }
+                    screen(Screen.JournalEntries.route) { JournalEntryScreen      { nav.popBackStack() } }
                     screen(Screen.Chat.route)           { ChatScreen              { nav.popBackStack() } }
                     screen(Screen.Account.route)        { AccountSettingsScreen   { nav.popBackStack() } }
                     screen(Screen.About.route)          { AboutScreen             { nav.popBackStack() } }

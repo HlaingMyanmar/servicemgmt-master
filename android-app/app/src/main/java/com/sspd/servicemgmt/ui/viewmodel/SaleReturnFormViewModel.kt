@@ -66,11 +66,22 @@ class SaleReturnFormViewModel(
 
     private fun buildItems(sale: SaleDTO?, existingReturn: SaleReturnDTO?): List<ReturnItem> {
         val details = sale?.details ?: return emptyList()
+        val lineNetSubtotal = details.sumOf { item ->
+            val qty = item.qty ?: 0
+            val gross = (item.unitPrice ?: 0.0) * qty
+            maxOf(0.0, gross - (item.discountAmount ?: 0.0))
+        }
+        val overallDiscount = sale.discountAmount ?: 0.0
         return details.mapNotNull { saleItem ->
             val productId    = saleItem.productId ?: return@mapNotNull null
             val retDetail    = existingReturn?.details?.find { it.productId == productId }
             val saleSerials  = saleItem.serialNumbers ?: emptyList()
             val retQty       = retDetail?.qty ?: 0
+            val saleQty      = saleItem.qty ?: 1
+            val lineGross    = (saleItem.unitPrice ?: 0.0) * saleQty
+            val lineNet      = maxOf(0.0, lineGross - (saleItem.discountAmount ?: 0.0))
+            val lineShareDiscount = if (lineNetSubtotal > 0.0) overallDiscount * (lineNet / lineNetSubtotal) else 0.0
+            val netUnitPrice = if (saleQty > 0) maxOf(0.0, lineNet - lineShareDiscount) / saleQty else 0.0
             // Auto-populate serials for edit mode from sale's serials up to retQty
             val autoSerials  = if (saleSerials.isNotEmpty()) saleSerials.take(retQty)
                                else retDetail?.serialNumbers ?: emptyList()
@@ -78,7 +89,7 @@ class SaleReturnFormViewModel(
                 productId      = productId,
                 productName    = saleItem.productName ?: "",
                 maxQty         = saleItem.qty ?: 1,
-                unitPrice      = saleItem.unitPrice ?: 0.0,
+                unitPrice      = netUnitPrice,
                 qty            = retQty,
                 serialNumbers  = autoSerials,
                 saleSerialNums = saleSerials,

@@ -46,6 +46,7 @@ import org.springframework.data.domain.Sort;
 import org.sspd.servicemgmt.api.PageResponse;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -163,14 +164,18 @@ public class SaleReturnService {
                 productRepository.save(product);
             }
 
-            BigDecimal subtotal = dDto.getUnitPrice().multiply(BigDecimal.valueOf(qty));
+            BigDecimal returnUnitPrice = discountedUnitPrice(sale, product.getId(), serials);
+            if (returnUnitPrice.compareTo(BigDecimal.ZERO) < 0) {
+                throw new RuntimeException("Return unit price cannot be resolved for product: " + product.getName());
+            }
+            BigDecimal subtotal = returnUnitPrice.multiply(BigDecimal.valueOf(qty));
             total = total.add(subtotal);
 
             SaleReturnDetail detail = SaleReturnDetail.builder()
                     .saleReturn(entity)
                     .product(product)
                     .qty(qty)
-                    .unitPrice(dDto.getUnitPrice())
+                    .unitPrice(returnUnitPrice)
                     .subtotal(subtotal)
                     .serialNumber(joinSerials(serials))
                     .build();
@@ -465,6 +470,55 @@ public class SaleReturnService {
             map.merge(d.getProduct().getId(), d.getQty() != null ? d.getQty() : 0, Integer::sum);
         }
         return map;
+    }
+
+    private BigDecimal discountedUnitPrice(Sale sale, Integer productId, List<String> serials) {
+        List<SaleDetail> allSaleDetails = saleDetailRepository.findAllBySaleId(sale.getId());
+        List<SaleDetail> saleDetails = allSaleDetails.stream()
+                .filter(d -> d.getProduct() != null && productId.equals(d.getProduct().getId()))
+                .toList();
+        if (saleDetails.isEmpty()) return BigDecimal.ZERO;
+
+        Set<String> requestedSerials = new HashSet<>();
+        if (serials != null) {
+            for (String serial : serials) {
+                if (serial != null && !serial.isBlank()) requestedSerials.add(serial.trim().toUpperCase());
+            }
+        }
+
+        List<SaleDetail> pricedLines = requestedSerials.isEmpty()
+                ? saleDetails
+                : saleDetails.stream()
+                    .filter(d -> {
+                        if (d.getSerialNumber() == null) return false;
+                        return Arrays.stream(d.getSerialNumber().split(","))
+                                .map(s -> s.trim().toUpperCase())
+                                .anyMatch(requestedSerials::contains);
+                    })
+                    .toList();
+        if (pricedLines.isEmpty()) pricedLines = saleDetails;
+
+        int qty = pricedLines.stream().mapToInt(d -> d.getQty() != null ? d.getQty() : 0).sum();
+        if (qty <= 0) return BigDecimal.ZERO;
+
+        BigDecimal allLineNet = allSaleDetails.stream()
+                .map(d -> d.getSubtotal() != null ? d.getSubtotal() : BigDecimal.ZERO)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal lineNet = pricedLines.stream()
+                .map(d -> d.getSubtotal() != null ? d.getSubtotal() : BigDecimal.ZERO)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal overallDiscount = sale.getDiscountAmount() != null ? sale.getDiscountAmount() : BigDecimal.ZERO;
+        if (overallDiscount.compareTo(BigDecimal.ZERO) < 0) overallDiscount = BigDecimal.ZERO;
+
+        BigDecimal allocatedOverallDiscount = BigDecimal.ZERO;
+        if (allLineNet.compareTo(BigDecimal.ZERO) > 0 && overallDiscount.compareTo(BigDecimal.ZERO) > 0) {
+            allocatedOverallDiscount = lineNet.multiply(overallDiscount)
+                    .divide(allLineNet, 2, RoundingMode.HALF_UP);
+        }
+
+        BigDecimal returnableNet = lineNet.subtract(allocatedOverallDiscount);
+        if (returnableNet.compareTo(BigDecimal.ZERO) < 0) returnableNet = BigDecimal.ZERO;
+        return returnableNet.divide(BigDecimal.valueOf(qty), 2, RoundingMode.HALF_UP);
     }
 
     private Map<String, Integer> buildSaleSerialMap(Integer saleId) {

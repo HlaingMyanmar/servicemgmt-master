@@ -51,6 +51,13 @@ const toLocalDateTime = (value?: string) => {
 
 const nowLocalDateTime = () => toLocalDateTime(new Date().toISOString());
 const money = (v: number) => new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v || 0);
+const discountedUnitCost = (purchase: PurchaseDTO, detail: { productId: number; qty: number; unitCost: number; subtotal: number }) => {
+  const gross = Number(purchase.totalAmount || 0);
+  const net = Number(purchase.netAmount ?? (gross - Number(purchase.discountAmount || 0)));
+  if (gross <= 0 || detail.qty <= 0) return Number(detail.unitCost || 0);
+  const lineNet = Number(detail.subtotal || 0) * (net / gross);
+  return Math.round((lineNet / detail.qty) * 100) / 100;
+};
 
 const PurchaseReturnManagement: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -236,6 +243,7 @@ const PurchaseReturnManagement: React.FC = () => {
     selectedPurchase.details.forEach((detail) => {
       const existing = map.get(detail.productId);
       const rawSerials = Array.from(new Set((detail.serialNumbers || []).map((sn) => sanitizeSerial(sn)).filter(Boolean)));
+      const netUnitCost = discountedUnitCost(selectedPurchase, detail);
       const serialNumbers = rawSerials.filter((sn) => !returnedSerials.has(normalizeSerial(sn)));
       if (!existing) {
         const purchasedQty = Number(detail.qty) || 0;
@@ -243,7 +251,7 @@ const PurchaseReturnManagement: React.FC = () => {
         map.set(detail.productId, {
           productId: detail.productId,
           productName: detail.productName || `Product #${detail.productId}`,
-          unitPrice: detail.unitCost,
+          unitPrice: netUnitCost,
           purchasedQty,
           returnedQty,
           returnableQty: Math.max(0, purchasedQty - returnedQty),
@@ -255,6 +263,7 @@ const PurchaseReturnManagement: React.FC = () => {
       existing.purchasedQty += Number(detail.qty) || 0;
       existing.returnedQty = returnedByProduct.get(detail.productId) || 0;
       existing.returnableQty = Math.max(0, existing.purchasedQty - existing.returnedQty);
+      existing.unitPrice = Math.round(((existing.unitPrice * (existing.purchasedQty - (Number(detail.qty) || 0))) + (netUnitCost * (Number(detail.qty) || 0))) / Math.max(1, existing.purchasedQty) * 100) / 100;
       existing.serialNumbers = Array.from(new Set([
         ...existing.serialNumbers,
         ...serialNumbers
@@ -315,7 +324,8 @@ const PurchaseReturnManagement: React.FC = () => {
   const existingRefundAmount = Number(selectedPurchase?.refundAmount || 0);
   const maxRefund = useMemo(() => {
     if (!selectedPurchase) return 0;
-    const netAfterReturn = Math.max(0, Number(selectedPurchase.totalAmount || 0) - existingReturnAmount - total);
+    const purchaseNet = Number(selectedPurchase.netAmount ?? (Number(selectedPurchase.totalAmount || 0) - Number(selectedPurchase.discountAmount || 0)));
+    const netAfterReturn = Math.max(0, purchaseNet - existingReturnAmount - total);
     return Math.max(0, Number(selectedPurchase.paidAmount || 0) - netAfterReturn - existingRefundAmount);
   }, [selectedPurchase, existingReturnAmount, existingRefundAmount, total]);
   const paymentRequired = !Number.isNaN(resolvedRefund) && resolvedRefund > 0;
@@ -461,6 +471,31 @@ const PurchaseReturnManagement: React.FC = () => {
     }
   };
 
+  const onVoid = async (row: PurchaseReturnDTO) => {
+    if (!row.id || row.status === 'VOIDED') return;
+    const result = await Swal.fire({
+      icon: 'warning',
+      title: `${row.returnNo || `#${row.id}`} ကို Void လုပ်မည်`,
+      input: 'textarea',
+      inputLabel: 'Void reason',
+      inputPlaceholder: 'ဘာကြောင့် void လုပ်တာလဲ ရေးပါ',
+      showCancelButton: true,
+      confirmButtonText: 'Void လုပ်မည်',
+      confirmButtonColor: '#e11d48',
+      cancelButtonText: 'မလုပ်တော့ပါ',
+      inputValidator: (value) => value && value.trim().length > 0 ? null : 'Void reason လိုအပ်ပါသည်'
+    });
+    if (!result.isConfirmed) return;
+    try {
+      await purchaseReturnApiService.voidReturn(row.id, String(result.value || '').trim());
+      await loadRows(currentPage, pageSize, debouncedSearch);
+      if (viewRow?.id === row.id) setViewRow(null);
+      Swal.fire({ icon: 'success', title: 'Purchase return void လုပ်ပြီးပါပြီ', toast: true, position: 'top-end', showConfirmButton: false, timer: 1800 });
+    } catch (e: any) {
+      Swal.fire('Error', e.message || 'Failed to void purchase return', 'error');
+    }
+  };
+
 
   const onSave = async () => {
     if (!validForm) {
@@ -526,11 +561,14 @@ const PurchaseReturnManagement: React.FC = () => {
     });
   }, [dateFrom, dateTo, rows]);
 
-  const stats = useMemo(() => ({
-    count: totalElements,
-    total: rows.reduce((s, r) => s + (r.totalReturnAmount || 0), 0),
-    refund: rows.reduce((s, r) => s + (r.refundAmount ?? r.totalReturnAmount ?? 0), 0)
-  }), [totalElements, rows]);
+  const stats = useMemo(() => {
+    const activeRows = rows.filter((r) => r.status !== 'VOIDED');
+    return {
+      count: totalElements,
+      total: activeRows.reduce((s, r) => s + (r.totalReturnAmount || 0), 0),
+      refund: activeRows.reduce((s, r) => s + (r.refundAmount ?? 0), 0)
+    };
+  }, [totalElements, rows]);
 
   if (showForm) {
     return (
@@ -787,13 +825,16 @@ const PurchaseReturnManagement: React.FC = () => {
                   <th className="px-4 py-3 border-b border-slate-100">Date</th>
                   <th className="px-4 py-3 border-b border-slate-100 text-right">Total</th>
                   <th className="px-4 py-3 border-b border-slate-100 text-right">Refund</th>
+                  <th className="px-4 py-3 border-b border-slate-100 text-center">Status</th>
                   <th className="px-4 py-3 border-b border-slate-100">Reason</th>
                   <th className="px-4 py-3 border-b border-slate-100 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filtered.length > 0 ? filtered.map((r) => (
-                  <tr key={r.id || r.returnNo} className="hover:bg-slate-50 text-xs">
+                {filtered.length > 0 ? filtered.map((r) => {
+                  const voided = r.status === 'VOIDED';
+                  return (
+                  <tr key={r.id || r.returnNo} className={`hover:bg-slate-50 text-xs ${voided ? 'bg-slate-50/70' : ''}`}>
                     <td className="px-4 py-3 font-medium text-slate-800">{r.returnNo || `#${r.id}`}</td>
                     <td className="px-4 py-3 text-slate-600">
                       {r.purchaseId > 0 ? (
@@ -811,13 +852,19 @@ const PurchaseReturnManagement: React.FC = () => {
                     <td className="px-4 py-3 text-slate-600">{r.supplierName || supplierLabelById(purchases.find((p) => p.id === r.purchaseId)?.supplierId)}</td>
                     <td className="px-4 py-3 text-slate-600">{r.returnDate ? new Date(r.returnDate).toLocaleString() : '-'}</td>
                     <td className="px-4 py-3 text-right font-bold text-slate-700">{money(r.totalReturnAmount || 0)}</td>
-                    <td className="px-4 py-3 text-right font-bold text-emerald-700">{money(r.refundAmount ?? r.totalReturnAmount ?? 0)}</td>
+                    <td className={`px-4 py-3 text-right font-bold ${voided ? 'text-slate-400' : 'text-emerald-700'}`}>{money(r.refundAmount ?? 0)}</td>
+                    <td className="px-4 py-3 text-center">
+                      <span className={`inline-flex px-2 py-0.5 rounded-md border text-[10px] font-black ${voided ? 'bg-slate-100 text-slate-500 border-slate-200' : 'bg-emerald-50 text-emerald-700 border-emerald-100'}`}>
+                        {voided ? 'VOIDED' : 'CONFIRMED'}
+                      </span>
+                    </td>
                     <td className="px-4 py-3 text-slate-500 max-w-[260px] truncate">{r.reason || '-'}</td>
                     <td className="px-4 py-3 text-right"><div className="inline-flex items-center gap-1">
                       <button onClick={() => r.id && openView(r.id)} className="p-1.5 text-slate-400 hover:text-indigo-600 rounded-lg hover:bg-indigo-50" title="View"><Eye size={15} /></button>
+                      {!voided && <button onClick={() => onVoid(r)} className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50" title="Void"><X size={15} /></button>}
                     </div></td>
                   </tr>
-                )) : <tr><td colSpan={8} className="px-4 py-10 text-center text-slate-400">No purchase returns match the current filters.</td></tr>}
+                );}) : <tr><td colSpan={9} className="px-4 py-10 text-center text-slate-400">No purchase returns match the current filters.</td></tr>}
               </tbody>
             </table>
           )}

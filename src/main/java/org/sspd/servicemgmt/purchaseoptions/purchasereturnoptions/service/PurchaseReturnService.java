@@ -21,6 +21,7 @@ import org.sspd.servicemgmt.purchaseoptions.purchasereturnoptions.dto.PurchaseRe
 import org.sspd.servicemgmt.purchaseoptions.purchasereturnoptions.mapper.PurchaseReturnMapper;
 import org.sspd.servicemgmt.purchaseoptions.purchasereturnoptions.model.PurchaseReturn;
 import org.sspd.servicemgmt.purchaseoptions.purchasereturnoptions.repository.PurchaseReturnRepository;
+import org.sspd.servicemgmt.purchaseoptions.purchasedetails.model.PurchaseDetailWarranty;
 import org.sspd.servicemgmt.purchaseoptions.purchasereturndetails.dto.PurchaseReturnDetailDTO;
 import org.sspd.servicemgmt.purchaseoptions.purchasereturndetails.model.PurchaseReturnDetail;
 import org.sspd.servicemgmt.purchaseoptions.repository.PurchaseRepository;
@@ -64,6 +65,8 @@ public class PurchaseReturnService {
     private final ProductSerialRepository productSerialRepository;
 
     private static final String PURCHASE_RETURN_TOPIC = "/topic/purchase-return";
+    private static final String STATUS_CONFIRMED = "CONFIRMED";
+    private static final String STATUS_VOIDED = "VOIDED";
 
     @PreAuthorize("hasAuthority('CAN_ACCESS_PURCHASE_RETURN_CREATE')")
     @Transactional
@@ -94,6 +97,7 @@ public class PurchaseReturnService {
         PurchaseReturn entity = mapper.toEntity(dto);
         entity.setReturnNo(generateReturnNo());
         entity.setPurchase(purchase);
+        entity.setStatus(STATUS_CONFIRMED);
 
         if (entity.getReturnDate() == null) {
             entity.setReturnDate(LocalDateTime.now());
@@ -110,10 +114,6 @@ public class PurchaseReturnService {
             if (qty <= 0) {
                 throw new RuntimeException("Return qty must be greater than zero for product: " + product.getName());
             }
-            if (dDto.getUnitPrice() == null || dDto.getUnitPrice().compareTo(BigDecimal.ZERO) <= 0) {
-                throw new RuntimeException("Unit price is required for product: " + product.getName());
-            }
-
             int purchasedQty = purchasedQty(purchase, product.getId());
             if (purchasedQty <= 0) {
                 throw new RuntimeException("Product does not belong to selected purchase: " + product.getName());
@@ -161,14 +161,18 @@ public class PurchaseReturnService {
                 serials = List.of();
             }
 
-            BigDecimal subtotal = dDto.getUnitPrice().multiply(BigDecimal.valueOf(qty));
+            BigDecimal returnUnitPrice = discountedUnitCost(purchase, product.getId());
+            if (returnUnitPrice.compareTo(BigDecimal.ZERO) <= 0) {
+                throw new RuntimeException("Return unit price cannot be resolved for product: " + product.getName());
+            }
+            BigDecimal subtotal = returnUnitPrice.multiply(BigDecimal.valueOf(qty));
             total = total.add(subtotal);
 
             PurchaseReturnDetail detail = PurchaseReturnDetail.builder()
                     .purchaseReturn(entity)
                     .product(product)
                     .qty(qty)
-                    .unitPrice(dDto.getUnitPrice())
+                    .unitPrice(returnUnitPrice)
                     .subtotal(subtotal)
                     .serialNumber(joinSerials(serials))
                     .build();
@@ -176,7 +180,9 @@ public class PurchaseReturnService {
         }
 
         BigDecimal previousReturns = safe(purchase.getReturnAmount());
-        BigDecimal purchaseTotal = safe(purchase.getTotalAmount());
+        BigDecimal purchaseTotal = purchase.getNetAmount() != null && purchase.getNetAmount().compareTo(BigDecimal.ZERO) > 0
+                ? safe(purchase.getNetAmount())
+                : safe(purchase.getTotalAmount()).subtract(safe(purchase.getDiscountAmount()));
         BigDecimal paidAmount = safe(purchase.getPaidAmount());
         BigDecimal netAfterThisReturn = purchaseTotal.subtract(previousReturns.add(total));
         if (netAfterThisReturn.compareTo(BigDecimal.ZERO) < 0) {
@@ -283,6 +289,76 @@ public class PurchaseReturnService {
         throw new RuntimeException("Confirmed purchase return cannot be edited. Create a reversal/void workflow instead.");
     }
 
+    @PreAuthorize("hasAuthority('CAN_ACCESS_PURCHASE_RETURN_UPDATE')")
+    @Transactional
+    public PurchaseReturnDTO voidReturn(Integer id, PurchaseReturnDTO dto) {
+        PurchaseReturn existing = purchaseReturnRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Purchase return not found with id: " + id));
+        if (STATUS_VOIDED.equalsIgnoreCase(existing.getStatus())) {
+            throw new RuntimeException("Purchase return is already voided.");
+        }
+        String reason = dto != null ? dto.getVoidReason() : null;
+        if (reason == null || reason.isBlank()) {
+            reason = dto != null ? dto.getReason() : null;
+        }
+        if (reason == null || reason.isBlank()) {
+            throw new RuntimeException("Void reason is required");
+        }
+
+        Purchase purchase = existing.getPurchase();
+        Supplier supplier = purchase != null ? purchase.getSupplier() : null;
+
+        for (PurchaseReturnDetail detail : existing.getDetails()) {
+            Product product = detail.getProduct();
+            int qty = detail.getQty() != null ? detail.getQty() : 0;
+            List<String> serials = normalizeSerials(detail.getSerialNumber() == null ? List.of() : List.of(detail.getSerialNumber()));
+
+            if (!serials.isEmpty()) {
+                for (String sn : serials) {
+                    if (productSerialRepository.existsBySerialNumber(sn)) {
+                        throw new RuntimeException("Cannot void return. Serial already exists in inventory: " + sn);
+                    }
+                    PurchaseDetailWarranty warranty = findPurchaseWarranty(purchase, product.getId(), sn);
+                    productSerialRepository.save(ProductSerial.builder()
+                            .product(product)
+                            .serialNumber(sn)
+                            .status(SerialStatus.Available)
+                            .warrantyMonths(warranty != null ? warranty.getWarrantyMonths() : null)
+                            .warrantyStartDate(warranty != null ? warranty.getWarrantyStartDate() : null)
+                            .warrantyEndDate(warranty != null ? warranty.getWarrantyEndDate() : null)
+                            .build());
+                }
+            } else {
+                int current = product.getStockQty() != null ? product.getStockQty() : 0;
+                product.setStockQty(current + qty);
+                productRepository.save(product);
+            }
+
+            stockMovementService.recordMovement(StockMovement.builder()
+                    .product(product)
+                    .movementType(MovementType.IN)
+                    .qty(qty)
+                    .referenceId(existing.getId())
+                    .referenceType("PurchaseReturnVoid")
+                    .build());
+        }
+
+        existing.setStatus(STATUS_VOIDED);
+        existing.setVoidedAt(LocalDateTime.now());
+        existing.setVoidReason(reason);
+        PurchaseReturn saved = purchaseReturnRepository.save(existing);
+
+        if (purchase != null) {
+            recalculatePurchaseFinancials(purchase);
+            if (supplier != null) syncSupplierBalance(supplier);
+            Integer staffId = purchase.getStaff() != null ? purchase.getStaff().getId() : null;
+            createVoidJournal(saved, staffId, supplier != null ? supplier.getName() : "");
+        }
+
+        messagingTemplate.convertAndSend(PURCHASE_RETURN_TOPIC, "PURCHASE_RETURN_VOIDED");
+        return mapper.toDto(saved);
+    }
+
     @PreAuthorize("hasAuthority('CAN_ACCESS_PURCHASE_RETURN_DELETE')")
     @Transactional
     public void delete(Integer id) {
@@ -301,13 +377,17 @@ public class PurchaseReturnService {
 
     private void recalculatePurchaseFinancials(Purchase purchase) {
         BigDecimal returnAmount = purchaseReturnRepository.findByPurchaseId(purchase.getId()).stream()
+                .filter(this::isConfirmed)
                 .map(r -> safe(r.getTotalReturnAmount()))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal refundedAmount = purchaseReturnRepository.findByPurchaseId(purchase.getId()).stream()
+                .filter(this::isConfirmed)
                 .map(r -> safe(r.getRefundAmount()))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        BigDecimal total = safe(purchase.getTotalAmount());
+        BigDecimal total = purchase.getNetAmount() != null && purchase.getNetAmount().compareTo(BigDecimal.ZERO) > 0
+                ? safe(purchase.getNetAmount())
+                : safe(purchase.getTotalAmount()).subtract(safe(purchase.getDiscountAmount()));
         BigDecimal paid = safe(purchase.getPaidAmount());
         BigDecimal net = total.subtract(returnAmount);
         if (net.compareTo(BigDecimal.ZERO) < 0) net = BigDecimal.ZERO;
@@ -346,8 +426,29 @@ public class PurchaseReturnService {
                 .sum();
     }
 
+    private BigDecimal discountedUnitCost(Purchase purchase, Integer productId) {
+        if (purchase.getDetails() == null) return BigDecimal.ZERO;
+        int qty = purchasedQty(purchase, productId);
+        if (qty <= 0) return BigDecimal.ZERO;
+
+        BigDecimal productGross = purchase.getDetails().stream()
+                .filter(d -> d.getProduct() != null && productId.equals(d.getProduct().getId()))
+                .map(d -> safe(d.getSubtotal()))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal purchaseGross = safe(purchase.getTotalAmount());
+        BigDecimal purchaseNet = purchase.getNetAmount() != null && purchase.getNetAmount().compareTo(BigDecimal.ZERO) > 0
+                ? safe(purchase.getNetAmount())
+                : purchaseGross.subtract(safe(purchase.getDiscountAmount()));
+        if (purchaseGross.compareTo(BigDecimal.ZERO) <= 0) {
+            return productGross.divide(BigDecimal.valueOf(qty), 2, java.math.RoundingMode.HALF_UP);
+        }
+        BigDecimal productNet = productGross.multiply(purchaseNet).divide(purchaseGross, 2, java.math.RoundingMode.HALF_UP);
+        return productNet.divide(BigDecimal.valueOf(qty), 2, java.math.RoundingMode.HALF_UP);
+    }
+
     private int returnedQty(Integer purchaseId, Integer productId, Integer excludeReturnId) {
         return purchaseReturnRepository.findByPurchaseId(purchaseId).stream()
+                .filter(this::isConfirmed)
                 .filter(r -> excludeReturnId == null || !excludeReturnId.equals(r.getId()))
                 .flatMap(r -> r.getDetails().stream())
                 .filter(d -> d.getProduct() != null && productId.equals(d.getProduct().getId()))
@@ -372,11 +473,28 @@ public class PurchaseReturnService {
     private boolean isSerialAlreadyReturned(Integer purchaseId, Integer productId, String serial, Integer excludeReturnId) {
         String normalized = serial == null ? "" : serial.trim().toUpperCase();
         return purchaseReturnRepository.findByPurchaseId(purchaseId).stream()
+                .filter(this::isConfirmed)
                 .filter(r -> excludeReturnId == null || !excludeReturnId.equals(r.getId()))
                 .flatMap(r -> r.getDetails().stream())
                 .filter(d -> d.getProduct() != null && productId.equals(d.getProduct().getId()))
                 .flatMap(d -> normalizeSerials(d.getSerialNumber() == null ? List.of() : List.of(d.getSerialNumber())).stream())
                 .anyMatch(sn -> sn.equalsIgnoreCase(normalized));
+    }
+
+    private boolean isConfirmed(PurchaseReturn purchaseReturn) {
+        return purchaseReturn != null && !STATUS_VOIDED.equalsIgnoreCase(purchaseReturn.getStatus());
+    }
+
+    private PurchaseDetailWarranty findPurchaseWarranty(Purchase purchase, Integer productId, String serial) {
+        if (purchase == null || purchase.getDetails() == null || serial == null) return null;
+        String normalized = serial.trim().toUpperCase();
+        return purchase.getDetails().stream()
+                .filter(d -> d.getProduct() != null && productId.equals(d.getProduct().getId()))
+                .filter(d -> d.getWarrantyItems() != null)
+                .flatMap(d -> d.getWarrantyItems().stream())
+                .filter(w -> w.getSerialNumber() != null && normalized.equals(w.getSerialNumber().trim().toUpperCase()))
+                .findFirst()
+                .orElse(null);
     }
 
     private List<String> normalizeSerials(List<String> serials) {
@@ -445,5 +563,54 @@ public class PurchaseReturnService {
             journalDTO.setDetails(details);
             journalWriter.write(journalDTO);
         }
+    }
+
+    private void createVoidJournal(PurchaseReturn pr, Integer staffId, String supplierName) {
+        BigDecimal total = safe(pr.getTotalReturnAmount());
+        if (total.compareTo(BigDecimal.ZERO) <= 0) return;
+
+        BigDecimal refund = safe(pr.getRefundAmount());
+        BigDecimal payableReversal = total.subtract(refund);
+        if (payableReversal.compareTo(BigDecimal.ZERO) < 0) payableReversal = BigDecimal.ZERO;
+
+        JournalEntryDTO journalDTO = new JournalEntryDTO();
+        journalDTO.setReferenceNo(pr.getReturnNo() + "-VOID");
+        journalDTO.setEntryDate(LocalDateTime.now());
+        journalDTO.setDescription("Void Purchase Return from Supplier: " + supplierName);
+        journalDTO.setStaffId(staffId);
+
+        List<JournalDetailDTO> details = new ArrayList<>();
+
+        JournalDetailDTO drPurchaseReturn = new JournalDetailDTO();
+        drPurchaseReturn.setAccountId(accountResolver.purchaseRtn().getId());
+        drPurchaseReturn.setDebit(total);
+        drPurchaseReturn.setCredit(BigDecimal.ZERO);
+        details.add(drPurchaseReturn);
+
+        if (payableReversal.compareTo(BigDecimal.ZERO) > 0) {
+            JournalDetailDTO crPayable = new JournalDetailDTO();
+            crPayable.setAccountId(accountResolver.payable().getId());
+            crPayable.setDebit(BigDecimal.ZERO);
+            crPayable.setCredit(payableReversal);
+            details.add(crPayable);
+        }
+
+        if (refund.compareTo(BigDecimal.ZERO) > 0) {
+            PaymentTransaction tx = paymentTransactionRepository
+                    .findByReferenceIdAndReferenceType(pr.getId(), ReferenceType.Purchase_Return)
+                    .stream()
+                    .findFirst()
+                    .orElse(null);
+            if (tx != null && tx.getPaymentMethod() != null && tx.getPaymentMethod().getAccount() != null) {
+                JournalDetailDTO crCash = new JournalDetailDTO();
+                crCash.setAccountId(tx.getPaymentMethod().getAccount().getId());
+                crCash.setDebit(BigDecimal.ZERO);
+                crCash.setCredit(refund);
+                details.add(crCash);
+            }
+        }
+
+        journalDTO.setDetails(details);
+        journalWriter.write(journalDTO);
     }
 }

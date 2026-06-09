@@ -6,6 +6,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.sspd.servicemgmt.accountingoptions.coaoptions.AccountResolver;
 import org.sspd.servicemgmt.accountingoptions.paymentmethodoptions.model.PaymentMethod;
 import org.sspd.servicemgmt.accountingoptions.paymentmethodoptions.repository.PaymentMethodRepository;
+import org.sspd.servicemgmt.accountingoptions.paymenttransactionoptions.dto.PaymentTransactionDTO;
 import org.sspd.servicemgmt.accountingoptions.paymenttransactionoptions.model.PaymentTransaction;
 import org.sspd.servicemgmt.accountingoptions.paymenttransactionoptions.model.ReferenceType;
 import org.sspd.servicemgmt.accountingoptions.paymenttransactionoptions.repository.PaymentTransactionRepository;
@@ -233,7 +234,7 @@ public class ServiceJobService {
         BigDecimal discount = dto.getDiscountAmount() != null ? dto.getDiscountAmount() : BigDecimal.ZERO;
         boolean isFoc = Boolean.TRUE.equals(dto.getFoc());
         BigDecimal netAmt = isFoc ? BigDecimal.ZERO : grossAmount.subtract(discount).max(BigDecimal.ZERO);
-        BigDecimal paid = dto.getPaidAmount() != null ? dto.getPaidAmount().min(netAmt) : netAmt;
+        BigDecimal paid = paymentTotal(dto.getPayments(), dto.getPaidAmount() != null ? dto.getPaidAmount() : netAmt).min(netAmt);
         BigDecimal due = netAmt.subtract(paid);
 
         // Credit checks when there is outstanding due
@@ -282,11 +283,11 @@ public class ServiceJobService {
 
         // Journal covers both cash and credit portions (revenue recognised at settlement)
         if (!isFoc && netAmt.compareTo(BigDecimal.ZERO) > 0) {
-            createJournalEntry(saved, dto.getPaymentAccountId(), pm, paid, due);
+            createJournalEntry(saved, dto.getPaymentAccountId(), pm, paid, due, dto.getPayments());
         }
         // Payment transaction only for money actually received
         if (paid.compareTo(BigDecimal.ZERO) > 0) {
-            createPaymentTransaction(saved, pm, paid, dto.getTransactionNo());
+            createPaymentTransactions(saved, pm, paid, dto.getTransactionNo(), dto.getPayments());
         }
         return toDto(saved);
     }
@@ -300,10 +301,10 @@ public class ServiceJobService {
         if (currentDue.compareTo(BigDecimal.ZERO) <= 0)
             throw new RuntimeException("No outstanding due for this service job.");
 
-        BigDecimal incoming = dto.getPaidAmount() != null ? dto.getPaidAmount() : BigDecimal.ZERO;
+        BigDecimal incoming = paymentTotal(dto.getPayments(), dto.getPaidAmount());
         if (incoming.compareTo(BigDecimal.ZERO) <= 0)
             throw new RuntimeException("Paid amount must be greater than zero.");
-        if (dto.getPaymentMethodId() == null)
+        if (dto.getPaymentMethodId() == null && (dto.getPayments() == null || dto.getPayments().isEmpty()))
             throw new RuntimeException("Payment Method ရွေးပါ");
 
         BigDecimal applied = incoming.min(currentDue);
@@ -326,26 +327,26 @@ public class ServiceJobService {
         ServiceJob saved = repo.save(job);
 
         // Journal: DR Cash/Bank, CR Accounts Receivable
-        createPayDueJournal(saved, dto.getPaymentAccountId(), pm, applied);
-        createPaymentTransaction(saved, pm, applied, dto.getTransactionNo());
+        createPayDueJournal(saved, dto.getPaymentAccountId(), pm, applied, dto.getPayments());
+        createPaymentTransactions(saved, pm, applied, dto.getTransactionNo(), dto.getPayments());
 
         messagingTemplate.convertAndSend("/topic/service-jobs", "JOB_PAY_DUE");
         return toDto(saved);
     }
 
     private void createPayDueJournal(ServiceJob job, Integer paymentAccountId,
-                                     PaymentMethod pm, BigDecimal applied) {
+                                     PaymentMethod pm, BigDecimal applied, List<PaymentTransactionDTO> payments) {
         if (applied.compareTo(BigDecimal.ZERO) <= 0) return;
 
-        Integer cashAccountId = resolveCashAccount(pm, paymentAccountId);
         List<JournalDetailDTO> details = new ArrayList<>();
 
-        // DR Cash / Bank
-        JournalDetailDTO drCash = new JournalDetailDTO();
-        drCash.setAccountId(cashAccountId);
-        drCash.setDebit(applied);
-        drCash.setCredit(BigDecimal.ZERO);
-        details.add(drCash);
+        for (PaymentLine line : resolvePaymentLines(payments, applied, pm)) {
+            JournalDetailDTO drCash = new JournalDetailDTO();
+            drCash.setAccountId(line.method().getAccount().getId());
+            drCash.setDebit(line.amount());
+            drCash.setCredit(BigDecimal.ZERO);
+            details.add(drCash);
+        }
 
         // CR Accounts Receivable
         JournalDetailDTO crAr = new JournalDetailDTO();
@@ -569,7 +570,7 @@ public class ServiceJobService {
     }
 
     private void createJournalEntry(ServiceJob job, Integer paymentAccountId,
-                                    PaymentMethod pm, BigDecimal paid, BigDecimal due) {
+                                    PaymentMethod pm, BigDecimal paid, BigDecimal due, List<PaymentTransactionDTO> payments) {
         // Revenue = full net amount (labor + products); sale record is inventory-only
         BigDecimal revenueAmt = paid.add(due);
         if (revenueAmt.compareTo(BigDecimal.ZERO) <= 0) return;
@@ -577,16 +578,17 @@ public class ServiceJobService {
         BigDecimal cashPortion = paid;
         BigDecimal arPortion  = due;
 
-        Integer cashAccountId = resolveCashAccount(pm, paymentAccountId);
         List<JournalDetailDTO> details = new ArrayList<>();
 
         // DR Cash / Bank (only when money was actually received)
         if (cashPortion.compareTo(BigDecimal.ZERO) > 0) {
-            JournalDetailDTO drCash = new JournalDetailDTO();
-            drCash.setAccountId(cashAccountId);
-            drCash.setDebit(cashPortion);
-            drCash.setCredit(BigDecimal.ZERO);
-            details.add(drCash);
+            for (PaymentLine line : resolvePaymentLines(payments, cashPortion, pm)) {
+                JournalDetailDTO drCash = new JournalDetailDTO();
+                drCash.setAccountId(line.method().getAccount().getId());
+                drCash.setDebit(line.amount());
+                drCash.setCredit(BigDecimal.ZERO);
+                details.add(drCash);
+            }
         }
 
         // DR Accounts Receivable (credit portion not yet paid)
@@ -616,17 +618,52 @@ public class ServiceJobService {
         journalWriter.write(entry);
     }
 
-    private void createPaymentTransaction(ServiceJob job, PaymentMethod pm, BigDecimal amount, String userTransactionNo) {
-        PaymentTransaction tx = new PaymentTransaction();
-        tx.setReferenceId(job.getId());
-        tx.setReferenceType(ReferenceType.Service);
-        tx.setPaymentMethod(pm);
-        tx.setAmount(amount);
-        tx.setPaymentDate(LocalDateTime.now());
-        tx.setTransactionNo(userTransactionNo != null && !userTransactionNo.isBlank()
-                ? userTransactionNo : generateTxnNo());
-        paymentTransactionRepo.save(tx);
+    private void createPaymentTransactions(ServiceJob job, PaymentMethod pm, BigDecimal amount, String userTransactionNo,
+                                           List<PaymentTransactionDTO> payments) {
+        for (PaymentLine line : resolvePaymentLines(payments, amount, pm)) {
+            PaymentTransaction tx = new PaymentTransaction();
+            tx.setReferenceId(job.getId());
+            tx.setReferenceType(ReferenceType.Service);
+            tx.setPaymentMethod(line.method());
+            tx.setAmount(line.amount());
+            tx.setPaymentDate(LocalDateTime.now());
+            tx.setTransactionNo(line.transactionNo() != null && !line.transactionNo().isBlank()
+                    ? line.transactionNo()
+                    : (userTransactionNo != null && !userTransactionNo.isBlank() ? userTransactionNo : generateTxnNo()));
+            paymentTransactionRepo.save(tx);
+        }
     }
+
+    private BigDecimal paymentTotal(List<PaymentTransactionDTO> payments, BigDecimal fallback) {
+        if (payments == null || payments.isEmpty()) return fallback != null ? fallback : BigDecimal.ZERO;
+        return payments.stream()
+                .map(PaymentTransactionDTO::getAmount)
+                .filter(java.util.Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    private List<PaymentLine> resolvePaymentLines(List<PaymentTransactionDTO> payments, BigDecimal expectedTotal, PaymentMethod fallbackMethod) {
+        if (payments == null || payments.isEmpty()) {
+            if (fallbackMethod == null) throw new RuntimeException("Payment Method is required.");
+            return List.of(new PaymentLine(fallbackMethod, expectedTotal, null));
+        }
+        BigDecimal total = paymentTotal(payments, BigDecimal.ZERO);
+        if (expectedTotal != null && total.compareTo(expectedTotal) != 0) {
+            throw new RuntimeException("Split payment total must equal paid amount.");
+        }
+        List<PaymentLine> lines = new ArrayList<>();
+        for (PaymentTransactionDTO payment : payments) {
+            BigDecimal amount = payment.getAmount() != null ? payment.getAmount() : BigDecimal.ZERO;
+            if (amount.compareTo(BigDecimal.ZERO) <= 0) continue;
+            PaymentMethod method = paymentMethodRepo.findById(payment.getPaymentMethodId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Payment Method not found"));
+            if (method.getAccount() == null) throw new RuntimeException("Payment Method must have linked account.");
+            lines.add(new PaymentLine(method, amount, payment.getTransactionNo()));
+        }
+        return lines;
+    }
+
+    private record PaymentLine(PaymentMethod method, BigDecimal amount, String transactionNo) {}
 
     private Integer resolveCashAccount(PaymentMethod pm, Integer overrideAccountId) {
         if (overrideAccountId != null) return overrideAccountId;

@@ -37,6 +37,7 @@ import org.sspd.servicemgmt.journaloption.entry.service.JournalWriter;
 import org.sspd.servicemgmt.accountingoptions.paymentmethodoptions.model.PaymentMethod;
 import org.sspd.servicemgmt.accountingoptions.paymentmethodoptions.repository.PaymentMethodRepository;
 import org.sspd.servicemgmt.accountingoptions.paymentmethodoptions.service.PaymentBalanceValidator;
+import org.sspd.servicemgmt.accountingoptions.paymenttransactionoptions.dto.PaymentTransactionDTO;
 import org.sspd.servicemgmt.accountingoptions.paymenttransactionoptions.model.PaymentTransaction;
 import org.sspd.servicemgmt.accountingoptions.paymenttransactionoptions.model.ReferenceType;
 import org.sspd.servicemgmt.accountingoptions.paymenttransactionoptions.repository.PaymentTransactionRepository;
@@ -97,7 +98,7 @@ public class SaleService {
             throw new RuntimeException("No due amount to pay for this sale.");
         }
 
-        BigDecimal incomingPaid = dto.getPaidAmount() != null ? dto.getPaidAmount() : BigDecimal.ZERO;
+        BigDecimal incomingPaid = paymentTotal(dto.getPayments(), dto.getPaidAmount());
         if (incomingPaid.compareTo(BigDecimal.ZERO) <= 0) {
             throw new RuntimeException("Paid amount must be greater than zero.");
         }
@@ -113,8 +114,9 @@ public class SaleService {
 
         Sale saved = saleRepository.save(sale);
 
-        createPaymentTransaction(saved, toSaleDtoForPayment(dto, applied));
-        createSaleJournalForPayment(saved, applied, dto.getPaymentAccountId(), dto.getArAccountId(), dto.getPaymentMethodId());
+        SaleDTO paymentDto = toSaleDtoForPayment(dto, applied);
+        createPaymentTransaction(saved, paymentDto);
+        createSaleJournalForPayment(saved, applied, dto.getPaymentAccountId(), dto.getArAccountId(), dto.getPaymentMethodId(), paymentDto.getPayments());
         recordCustomerPayment(saved, dto, applied);
         creditAlertService.evaluateDueAlerts(saved);
 
@@ -154,7 +156,7 @@ public class SaleService {
         // Internal service-job sales: treat as fully paid (inventory-only, payment tracked at job level)
         boolean isServiceJobSale = dto.isServiceJobSale();
         BigDecimal paidPreview = isServiceJobSale ? netPreview
-                : (dto.getPaidAmount() != null ? dto.getPaidAmount() : BigDecimal.ZERO);
+                : paymentTotal(dto.getPayments(), dto.getPaidAmount());
         BigDecimal duePreview = netPreview.subtract(paidPreview).max(BigDecimal.ZERO);
 
         if (!isServiceJobSale) {
@@ -182,7 +184,7 @@ public class SaleService {
         // Payment tracking: skip for internal service-job sales (handled at ServiceJob level)
         if (!isServiceJobSale) {
             createPaymentTransaction(saved, dto);
-            createSaleJournal(saved, dto.getPaymentAccountId(), dto.getArAccountId(), dto.getPaymentMethodId());
+            createSaleJournal(saved, dto.getPaymentAccountId(), dto.getArAccountId(), dto.getPaymentMethodId(), dto.getPayments());
             recordCustomerPayment(saved, dto, saved.getPaidAmount());
             creditAlertService.evaluateDueAlerts(saved);
             checkLargeCreditAlert(saved);
@@ -522,6 +524,7 @@ public class SaleService {
         dto.setPaymentAccountId(payDto.getPaymentAccountId());
         dto.setTransactionNo(payDto.getTransactionNo());
         dto.setArAccountId(payDto.getArAccountId());
+        dto.setPayments(scalePaymentsToApplied(payDto.getPayments(), appliedAmount));
         return dto;
     }
 
@@ -532,6 +535,7 @@ public class SaleService {
         dto.setPaymentAccountId(source.getPaymentAccountId());
         dto.setTransactionNo(source.getTransactionNo());
         dto.setArAccountId(source.getArAccountId());
+        dto.setPayments(scalePaymentsToApplied(source.getPayments(), paidDiff));
         dto.setStaffId(source.getStaffId() != null ? source.getStaffId()
                 : (sale.getStaff() != null ? sale.getStaff().getId() : null));
         dto.setRemark(source.getRemark());
@@ -551,7 +555,7 @@ public class SaleService {
         }
     }
 
-    private void createSaleJournal(Sale sale, Integer paymentAccountId, Integer arAccountId, Integer paymentMethodId) {
+    private void createSaleJournal(Sale sale, Integer paymentAccountId, Integer arAccountId, Integer paymentMethodId, List<PaymentTransactionDTO> payments) {
         if (sale.getNetAmount() == null) return;
         BigDecimal net = sale.getNetAmount();
         BigDecimal paid = sale.getPaidAmount() != null ? sale.getPaidAmount() : BigDecimal.ZERO;
@@ -563,7 +567,16 @@ public class SaleService {
 
         List<JournalDetailDTO> details = new ArrayList<>();
 
-        if (paid.compareTo(BigDecimal.ZERO) > 0) {
+        List<PaymentLine> paymentLines = resolvePaymentLines(payments, paid, paymentMethodId, paymentAccountId);
+        if (!paymentLines.isEmpty()) {
+            for (PaymentLine line : paymentLines) {
+                JournalDetailDTO drCash = new JournalDetailDTO();
+                drCash.setAccountId(line.method().getAccount().getId());
+                drCash.setDebit(line.amount());
+                drCash.setCredit(BigDecimal.ZERO);
+                details.add(drCash);
+            }
+        } else if (paid.compareTo(BigDecimal.ZERO) > 0) {
             Integer cashOrBankAccount = resolveCashAccount(paymentMethodId, paymentAccountId);
             JournalDetailDTO drCash = new JournalDetailDTO();
             drCash.setAccountId(cashOrBankAccount);
@@ -599,19 +612,30 @@ public class SaleService {
         journalWriter.write(journalDTO);
     }
 
-    private void createSaleJournalForPayment(Sale sale, BigDecimal appliedPaid, Integer paymentAccountId, Integer arAccountId, Integer paymentMethodId) {
+    private void createSaleJournalForPayment(Sale sale, BigDecimal appliedPaid, Integer paymentAccountId, Integer arAccountId, Integer paymentMethodId, List<PaymentTransactionDTO> payments) {
         if (appliedPaid.compareTo(BigDecimal.ZERO) <= 0) return;
-        Integer cashOrBankAccount = resolveCashAccount(paymentMethodId, paymentAccountId);
         Integer arId = arAccountId != null ? arAccountId
                 : accountResolver.receivable().getId();
 
         List<JournalDetailDTO> details = new ArrayList<>();
 
-        JournalDetailDTO drCash = new JournalDetailDTO();
-        drCash.setAccountId(cashOrBankAccount);
-        drCash.setDebit(appliedPaid);
-        drCash.setCredit(BigDecimal.ZERO);
-        details.add(drCash);
+        List<PaymentLine> paymentLines = resolvePaymentLines(payments, appliedPaid, paymentMethodId, paymentAccountId);
+        if (!paymentLines.isEmpty()) {
+            for (PaymentLine line : paymentLines) {
+                JournalDetailDTO drCash = new JournalDetailDTO();
+                drCash.setAccountId(line.method().getAccount().getId());
+                drCash.setDebit(line.amount());
+                drCash.setCredit(BigDecimal.ZERO);
+                details.add(drCash);
+            }
+        } else {
+            Integer cashOrBankAccount = resolveCashAccount(paymentMethodId, paymentAccountId);
+            JournalDetailDTO drCash = new JournalDetailDTO();
+            drCash.setAccountId(cashOrBankAccount);
+            drCash.setDebit(appliedPaid);
+            drCash.setCredit(BigDecimal.ZERO);
+            details.add(drCash);
+        }
 
         JournalDetailDTO crAR = new JournalDetailDTO();
         crAR.setAccountId(arId);
@@ -675,6 +699,23 @@ public class SaleService {
     private void createPaymentTransaction(Sale sale, SaleDTO dto) {
         BigDecimal paid = dto.getPaidAmount() != null ? dto.getPaidAmount() : BigDecimal.ZERO;
         if (paid.compareTo(BigDecimal.ZERO) <= 0) return;
+        List<PaymentLine> lines = resolvePaymentLines(dto.getPayments(), paid, dto.getPaymentMethodId(), dto.getPaymentAccountId());
+        if (!lines.isEmpty()) {
+            for (PaymentLine line : lines) {
+                PaymentTransaction paymentTx = new PaymentTransaction();
+                paymentTx.setReferenceId(sale.getId());
+                paymentTx.setReferenceType(ReferenceType.Sale);
+                paymentTx.setPaymentMethod(line.method());
+                paymentTx.setAmount(line.amount());
+                paymentTx.setPaymentDate(LocalDateTime.now());
+                paymentTx.setTransactionNo(line.transactionNo() == null || line.transactionNo().isBlank()
+                        ? generateTransactionNo()
+                        : line.transactionNo());
+                paymentTransactionRepository.save(paymentTx);
+            }
+            return;
+        }
+
         PaymentMethod method = resolvePaymentMethod(dto);
 
         PaymentTransaction paymentTx = new PaymentTransaction();
@@ -689,6 +730,64 @@ public class SaleService {
         paymentTx.setTransactionNo(txnNo);
         paymentTransactionRepository.save(paymentTx);
     }
+
+    private BigDecimal paymentTotal(List<PaymentTransactionDTO> payments, BigDecimal fallback) {
+        if (payments == null || payments.isEmpty()) return fallback != null ? fallback : BigDecimal.ZERO;
+        return payments.stream()
+                .map(PaymentTransactionDTO::getAmount)
+                .filter(java.util.Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    private List<PaymentLine> resolvePaymentLines(List<PaymentTransactionDTO> payments, BigDecimal expectedTotal,
+                                                  Integer fallbackMethodId, Integer fallbackAccountId) {
+        if (payments == null || payments.isEmpty()) return List.of();
+        BigDecimal total = paymentTotal(payments, BigDecimal.ZERO);
+        if (expectedTotal != null && total.compareTo(expectedTotal) != 0) {
+            throw new RuntimeException("Split payment total must equal paid amount.");
+        }
+        List<PaymentLine> lines = new ArrayList<>();
+        for (PaymentTransactionDTO payment : payments) {
+            BigDecimal amount = payment.getAmount() != null ? payment.getAmount() : BigDecimal.ZERO;
+            if (amount.compareTo(BigDecimal.ZERO) <= 0) continue;
+            Integer methodId = payment.getPaymentMethodId() != null ? payment.getPaymentMethodId() : fallbackMethodId;
+            if (methodId == null) throw new RuntimeException("Payment Method is required for each split payment line.");
+            PaymentMethod method = paymentMethodRepository.findById(methodId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Payment Method not found"));
+            ensureCashBankAccount(method.getAccount());
+            lines.add(new PaymentLine(method, amount, payment.getTransactionNo()));
+        }
+        if (lines.isEmpty() && expectedTotal != null && expectedTotal.compareTo(BigDecimal.ZERO) > 0 && fallbackMethodId == null && fallbackAccountId == null) {
+            throw new RuntimeException("Payment Method is required when paidAmount > 0");
+        }
+        return lines;
+    }
+
+    private List<PaymentTransactionDTO> scalePaymentsToApplied(List<PaymentTransactionDTO> payments, BigDecimal appliedAmount) {
+        if (payments == null || payments.isEmpty()) return null;
+        BigDecimal total = paymentTotal(payments, BigDecimal.ZERO);
+        if (total.compareTo(BigDecimal.ZERO) <= 0) return payments;
+        if (total.compareTo(appliedAmount) == 0) return payments;
+        List<PaymentTransactionDTO> scaled = new ArrayList<>();
+        BigDecimal remaining = appliedAmount;
+        for (int i = 0; i < payments.size(); i++) {
+            PaymentTransactionDTO source = payments.get(i);
+            BigDecimal sourceAmount = source.getAmount() != null ? source.getAmount() : BigDecimal.ZERO;
+            BigDecimal amount = i == payments.size() - 1
+                    ? remaining
+                    : sourceAmount.multiply(appliedAmount).divide(total, 2, java.math.RoundingMode.HALF_UP);
+            remaining = remaining.subtract(amount);
+            PaymentTransactionDTO target = new PaymentTransactionDTO();
+            target.setPaymentMethodId(source.getPaymentMethodId());
+            target.setPaymentMethodName(source.getPaymentMethodName());
+            target.setAmount(amount);
+            target.setTransactionNo(source.getTransactionNo());
+            scaled.add(target);
+        }
+        return scaled;
+    }
+
+    private record PaymentLine(PaymentMethod method, BigDecimal amount, String transactionNo) {}
 
     private PaymentMethod resolvePaymentMethod(SaleDTO dto) {
         if (dto.getPaymentMethodId() != null) {
@@ -772,15 +871,21 @@ public class SaleService {
 
     private void recordCustomerPayment(Sale sale, SaleDTO dto, BigDecimal appliedPaid) {
         if (appliedPaid == null || appliedPaid.compareTo(BigDecimal.ZERO) <= 0) return;
-        if (dto.getPaymentMethodId() == null) {
+        Integer methodId = dto.getPaymentMethodId();
+        String txnNo = dto.getTransactionNo();
+        if ((methodId == null || methodId == 0) && dto.getPayments() != null && !dto.getPayments().isEmpty()) {
+            methodId = dto.getPayments().get(0).getPaymentMethodId();
+            txnNo = dto.getPayments().get(0).getTransactionNo();
+        }
+        if (methodId == null) {
             throw new RuntimeException("Payment Method is required when recording received payment");
         }
         CustomerPaymentDTO paymentDTO = new CustomerPaymentDTO();
         paymentDTO.setCustomerId(sale.getCustomer().getId());
         paymentDTO.setSaleId(sale.getId());
         paymentDTO.setAmount(appliedPaid);
-        paymentDTO.setPaymentMethodId(dto.getPaymentMethodId());
-        paymentDTO.setTransactionNo(dto.getTransactionNo());
+        paymentDTO.setPaymentMethodId(methodId);
+        paymentDTO.setTransactionNo(txnNo);
         paymentDTO.setNote(dto.getRemark());
         Integer staffId = dto.getStaffId() != null ? dto.getStaffId()
                 : (sale.getStaff() != null ? sale.getStaff().getId() : null);
@@ -791,15 +896,21 @@ public class SaleService {
 
     private void recordCustomerPayment(Sale sale, SalePaymentDTO dto, BigDecimal appliedPaid) {
         if (appliedPaid == null || appliedPaid.compareTo(BigDecimal.ZERO) <= 0) return;
-        if (dto.getPaymentMethodId() == null) {
+        Integer methodId = dto.getPaymentMethodId();
+        String txnNo = dto.getTransactionNo();
+        if ((methodId == null || methodId == 0) && dto.getPayments() != null && !dto.getPayments().isEmpty()) {
+            methodId = dto.getPayments().get(0).getPaymentMethodId();
+            txnNo = dto.getPayments().get(0).getTransactionNo();
+        }
+        if (methodId == null) {
             throw new RuntimeException("Payment Method is required when recording received payment");
         }
         CustomerPaymentDTO paymentDTO = new CustomerPaymentDTO();
         paymentDTO.setCustomerId(sale.getCustomer().getId());
         paymentDTO.setSaleId(sale.getId());
         paymentDTO.setAmount(appliedPaid);
-        paymentDTO.setPaymentMethodId(dto.getPaymentMethodId());
-        paymentDTO.setTransactionNo(dto.getTransactionNo());
+        paymentDTO.setPaymentMethodId(methodId);
+        paymentDTO.setTransactionNo(txnNo);
         paymentDTO.setNote(dto.getNote());
         Integer staffId = dto.getStaffId() != null ? dto.getStaffId()
                 : (sale.getStaff() != null ? sale.getStaff().getId() : null);

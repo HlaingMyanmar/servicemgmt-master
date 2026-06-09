@@ -186,12 +186,24 @@ public class PurchaseService {
 
         purchase.setDetails(detailEntities);
         purchase.setTotalAmount(calculatedTotal);
-        purchase.setPaidAmount(dto.getPaidAmount() != null ? dto.getPaidAmount() : BigDecimal.ZERO);
+        BigDecimal discountAmount = dto.getDiscountAmount() != null ? dto.getDiscountAmount() : BigDecimal.ZERO;
+        if (discountAmount.compareTo(BigDecimal.ZERO) < 0) {
+            throw new RuntimeException("Discount amount cannot be negative.");
+        }
+        if (discountAmount.compareTo(calculatedTotal) > 0) {
+            throw new RuntimeException("Discount amount cannot exceed purchase total.");
+        }
+        BigDecimal netAmount = calculatedTotal.subtract(discountAmount);
+        purchase.setDiscountAmount(discountAmount);
+        purchase.setPaidAmount(paymentTotal(dto.getPayments(), dto.getPaidAmount()));
+        if (purchase.getPaidAmount().compareTo(netAmount) > 0) {
+            throw new RuntimeException("Paid amount cannot exceed net purchase amount.");
+        }
         purchase.setReturnAmount(BigDecimal.ZERO);
         purchase.setRefundAmount(BigDecimal.ZERO);
-        purchase.setNetAmount(calculatedTotal);
+        purchase.setNetAmount(netAmount);
         purchase.setSupplierCreditAmount(BigDecimal.ZERO);
-        purchase.setDueAmount(calculatedTotal.subtract(purchase.getPaidAmount()));
+        purchase.setDueAmount(netAmount.subtract(purchase.getPaidAmount()));
 
         if (purchase.getDueAmount().compareTo(BigDecimal.ZERO) <= 0)
             purchase.setPaymentStatus(PaymentStatus.Paid);
@@ -209,28 +221,10 @@ public class PurchaseService {
         savedPurchase.setPurchaseCode(generatePurchaseCode(savedPurchase.getId()));
         savedPurchase = purchaseRepository.save(savedPurchase);
 
-        if (purchase.getPaidAmount().compareTo(BigDecimal.ZERO) > 0) {
-            if (dto.getPaymentMethodId() == null)
-                throw new RuntimeException("Payment Method is required!");
-
-            PaymentMethod method = paymentMethodRepository.findById(dto.getPaymentMethodId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Payment Method not found"));
-            paymentBalanceValidator.validateSufficientBalance(method, purchase.getPaidAmount());
-
-            PaymentTransaction paymentTx = new PaymentTransaction();
-            paymentTx.setReferenceId(savedPurchase.getId());
-            paymentTx.setReferenceType(ReferenceType.Purchase);
-            paymentTx.setPaymentMethod(method);
-            paymentTx.setAmount(purchase.getPaidAmount());
-            paymentTx.setPaymentDate(LocalDateTime.now());
-            String txNo = (dto.getTransactionNo() == null || dto.getTransactionNo().isEmpty())
-                    ? generateTransactionNo() : dto.getTransactionNo();
-            paymentTx.setTransactionNo(txNo);
-            paymentTransactionRepository.save(paymentTx);
-        }
+        createPurchasePaymentTransactions(savedPurchase, dto);
 
         // ✅ Journal Entry — Periodic System
-        createPurchaseJournal(savedPurchase, dto.getPaymentMethodId());
+        createPurchaseJournal(savedPurchase, dto);
 
         messagingTemplate.convertAndSend(PURCHASE_TOPIC, "PURCHASE_CREATED");
         return enrichWarrantyItems(mapper.toDto(savedPurchase), savedPurchase);
@@ -252,7 +246,7 @@ public class PurchaseService {
      *   CR: Accounts Payable (LIA-002)  dueAmount
      *   CR: Cash/Bank/KPay              paidAmount
      */
-    private void createPurchaseJournal(Purchase p, Integer paymentMethodId) {
+    private void createPurchaseJournal(Purchase p, PurchaseDTO dto) {
         JournalEntryDTO journalDTO = new JournalEntryDTO();
         journalDTO.setReferenceNo(p.getPurchaseCode());
         journalDTO.setEntryDate(LocalDateTime.now());
@@ -264,7 +258,7 @@ public class PurchaseService {
         // ✅ DR: Purchases — Periodic system တွင် ဝယ်သောအခါ Purchases account DR
         JournalDetailDTO drPurchases = new JournalDetailDTO();
         drPurchases.setAccountId(accounts.purchases().getId());  // EXP-007, id=20
-        drPurchases.setDebit(p.getTotalAmount());
+        drPurchases.setDebit(p.getNetAmount() != null ? p.getNetAmount() : p.getTotalAmount());
         drPurchases.setCredit(BigDecimal.ZERO);
         details.add(drPurchases);
 
@@ -279,13 +273,23 @@ public class PurchaseService {
 
         // ✅ CR: Cash/Bank/KPay/WavePay — လက်ငင်းပေးချေမှုရှိလျှင်
         if (p.getPaidAmount().compareTo(BigDecimal.ZERO) > 0) {
-            PaymentMethod method = paymentMethodRepository.findById(paymentMethodId)
+            if (dto.getPayments() != null && !dto.getPayments().isEmpty()) {
+                for (PaymentLine line : resolvePaymentLines(dto.getPayments(), p.getPaidAmount(), dto.getPaymentMethodId(), true)) {
+                    JournalDetailDTO crPayment = new JournalDetailDTO();
+                    crPayment.setAccountId(line.method().getAccount().getId());
+                    crPayment.setDebit(BigDecimal.ZERO);
+                    crPayment.setCredit(line.amount());
+                    details.add(crPayment);
+                }
+            } else {
+            PaymentMethod method = paymentMethodRepository.findById(dto.getPaymentMethodId())
                     .orElseThrow(() -> new ResourceNotFoundException("Payment Method not found"));
             JournalDetailDTO crPayment = new JournalDetailDTO();
             crPayment.setAccountId(method.getAccount().getId()); // ASS-002/003/006/007 အလိုအလျောက်
             crPayment.setDebit(BigDecimal.ZERO);
             crPayment.setCredit(p.getPaidAmount());
             details.add(crPayment);
+            }
         }
 
         journalDTO.setDetails(details);
@@ -393,6 +397,64 @@ public class PurchaseService {
         Long count = paymentTransactionRepository.count();
         return String.format("TXN-%06d", count + 1);
     }
+
+    private void createPurchasePaymentTransactions(Purchase purchase, PurchaseDTO dto) {
+        BigDecimal paid = purchase.getPaidAmount() != null ? purchase.getPaidAmount() : BigDecimal.ZERO;
+        if (paid.compareTo(BigDecimal.ZERO) <= 0) return;
+
+        for (PaymentLine line : resolvePaymentLines(dto.getPayments(), paid, dto.getPaymentMethodId(), true)) {
+            paymentBalanceValidator.validateSufficientBalance(line.method(), line.amount());
+
+            PaymentTransaction paymentTx = new PaymentTransaction();
+            paymentTx.setReferenceId(purchase.getId());
+            paymentTx.setReferenceType(ReferenceType.Purchase);
+            paymentTx.setPaymentMethod(line.method());
+            paymentTx.setAmount(line.amount());
+            paymentTx.setPaymentDate(LocalDateTime.now());
+            paymentTx.setTransactionNo(line.transactionNo() == null || line.transactionNo().isBlank()
+                    ? generateTransactionNo()
+                    : line.transactionNo());
+            paymentTransactionRepository.save(paymentTx);
+        }
+    }
+
+    private BigDecimal paymentTotal(List<PaymentTransactionDTO> payments, BigDecimal fallback) {
+        if (payments == null || payments.isEmpty()) return fallback != null ? fallback : BigDecimal.ZERO;
+        return payments.stream()
+                .map(PaymentTransactionDTO::getAmount)
+                .filter(java.util.Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    private List<PaymentLine> resolvePaymentLines(List<PaymentTransactionDTO> payments, BigDecimal expectedTotal,
+                                                  Integer fallbackMethodId, boolean requireMethod) {
+        List<PaymentTransactionDTO> source = payments;
+        if (source == null || source.isEmpty()) {
+            PaymentTransactionDTO fallback = new PaymentTransactionDTO();
+            fallback.setPaymentMethodId(fallbackMethodId);
+            fallback.setAmount(expectedTotal);
+            source = List.of(fallback);
+        }
+
+        BigDecimal total = paymentTotal(source, BigDecimal.ZERO);
+        if (expectedTotal != null && total.compareTo(expectedTotal) != 0) {
+            throw new RuntimeException("Split payment total must equal paid amount.");
+        }
+
+        List<PaymentLine> lines = new ArrayList<>();
+        for (PaymentTransactionDTO payment : source) {
+            BigDecimal amount = payment.getAmount() != null ? payment.getAmount() : BigDecimal.ZERO;
+            if (amount.compareTo(BigDecimal.ZERO) <= 0) continue;
+            Integer methodId = payment.getPaymentMethodId() != null ? payment.getPaymentMethodId() : fallbackMethodId;
+            if (methodId == null && requireMethod) throw new RuntimeException("Payment Method is required for each payment line.");
+            PaymentMethod method = paymentMethodRepository.findById(methodId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Payment Method not found"));
+            lines.add(new PaymentLine(method, amount, payment.getTransactionNo()));
+        }
+        return lines;
+    }
+
+    private record PaymentLine(PaymentMethod method, BigDecimal amount, String transactionNo) {}
 
     @Transactional(readOnly = true)
     public PageResponse<PurchaseDTO> findAll(String search, int page, int size) {

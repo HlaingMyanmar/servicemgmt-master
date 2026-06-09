@@ -49,7 +49,9 @@ import {
   StaffDTO
 } from '../types';
 
-type ListFilter = 'ALL' | 'PENDING' | 'PARTIAL' | 'PAID' | 'OVERDUE';
+type SaleState = 'PENDING' | 'PARTIAL' | 'PAID' | 'OVERDUE';
+type ListFilter = 'ALL' | 'DUE' | SaleState;
+type DateShortcut = 'TODAY' | 'WEEK' | 'MONTH' | 'ALL' | 'CUSTOM';
 type DetailForm = SaleDetailDTO;
 type NewCustomerForm = { name: string; phone: string; address: string };
 const emptyDetail = (): DetailForm => ({
@@ -71,6 +73,23 @@ const fitSerialCount = (serials: string[] | undefined, qty: number) => {
   return next;
 };
 const money = (v: number) => new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v || 0);
+const dateInput = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const getTodayRange = () => {
+  const today = new Date();
+  return { from: dateInput(today), to: dateInput(today) };
+};
+const getThisWeekRange = () => {
+  const today = new Date();
+  const start = new Date(today);
+  const day = start.getDay();
+  start.setDate(start.getDate() - (day === 0 ? 6 : day - 1));
+  return { from: dateInput(start), to: dateInput(today) };
+};
+const getThisMonthRange = () => {
+  const today = new Date();
+  return { from: dateInput(new Date(today.getFullYear(), today.getMonth(), 1)), to: dateInput(today) };
+};
 const fmtDate = (v?: string) => {
   if (!v) return '-';
   const d = new Date(v);
@@ -87,7 +106,7 @@ const formatProductWarranty = (product?: ProductDTO, detail?: Partial<SaleDetail
   return 'No warranty';
 };
 
-const getSaleState = (row: SaleDTO): ListFilter => {
+const getSaleState = (row: SaleDTO): SaleState => {
   const due = Number(row.dueAmount) || 0;
   const paid = Number(row.paidAmount) || 0;
   if (due <= 0) return 'PAID';
@@ -117,11 +136,17 @@ const canCurrentUserBackdateSale = () => {
   }
 };
 
-const badgeByState: Record<Exclude<ListFilter, 'ALL'>, string> = {
+const badgeByState: Record<SaleState, string> = {
   PENDING: 'bg-sky-100 text-sky-700 border border-sky-200',
   PARTIAL: 'bg-amber-100 text-amber-700 border border-amber-200',
   PAID: 'bg-emerald-100 text-emerald-700 border border-emerald-200',
   OVERDUE: 'bg-rose-100 text-rose-700 border border-rose-200'
+};
+const saleStateLabel: Record<SaleState, string> = {
+  PENDING: 'မပေးရသေး',
+  PARTIAL: 'တချို့ပေးပြီး',
+  PAID: 'ပေးပြီး',
+  OVERDUE: 'ရက်ကျော်'
 };
 
 const SaleManagement: React.FC = () => {
@@ -146,12 +171,15 @@ const SaleManagement: React.FC = () => {
   const [saleTotalPages, setSaleTotalPages] = useState(0);
 
   const [search, setSearch] = useState('');
+  const [voucherLookup, setVoucherLookup] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [filter, setFilter] = useState<ListFilter>('ALL');
-  const todayStr = new Date().toISOString().slice(0, 10);
-  const [dateFrom, setDateFrom] = useState(todayStr);
-  const [dateTo, setDateTo]   = useState(todayStr);
+  const todayStr = dateInput(new Date());
+  const defaultDateRange = getThisMonthRange();
+  const [dateFrom, setDateFrom] = useState(defaultDateRange.from);
+  const [dateTo, setDateTo] = useState(defaultDateRange.to);
+  const [dateShortcut, setDateShortcut] = useState<DateShortcut>('MONTH');
   const [staffFilter, setStaffFilter] = useState(0);
 
   const [customerId, setCustomerId] = useState(0);
@@ -658,7 +686,8 @@ const SaleManagement: React.FC = () => {
   const filteredRows = useMemo(() => {
     return rows.filter((row) => {
       const state = getSaleState(row);
-      if (filter !== 'ALL' && state !== filter) return false;
+      if (filter === 'DUE' && (Number(row.dueAmount) || 0) <= 0) return false;
+      if (filter !== 'ALL' && filter !== 'DUE' && state !== filter) return false;
       if (staffFilter && row.staffId !== staffFilter) return false;
       return true;
     });
@@ -705,6 +734,50 @@ const SaleManagement: React.FC = () => {
     } finally {
       setViewReturnsLoading(false);
     }
+  };
+
+  const handleVoucherLookup = async () => {
+    const keyword = voucherLookup.trim();
+    if (!keyword) return;
+    try {
+      const result = await saleApiService.getAllPaged(0, 10, keyword, '', '');
+      const normalized = keyword.replace(/^#/, '').trim().toLowerCase();
+      const exact = result.content.find((sale) =>
+        String(sale.saleCode || '').toLowerCase() === normalized ||
+        String(sale.saleCode || '').toLowerCase() === keyword.toLowerCase() ||
+        String(sale.id || '') === normalized
+      );
+      if (exact?.id) {
+        await openDetail(exact.id);
+        return;
+      }
+      if (result.content.length === 1 && result.content[0].id) {
+        await openDetail(result.content[0].id);
+        return;
+      }
+      setSearch(keyword);
+      setDebouncedSearch(keyword);
+      setSalePage(0);
+      Swal.fire({ icon: 'info', title: 'ဘောင်ချာကို တိတိကျကျ မတွေ့ပါ', text: 'ကိုက်ညီနိုင်သော sale များကို စာရင်းထဲတွင် ပြထားပါသည်။', timer: 1800, showConfirmButton: false });
+    } catch (e: any) {
+      Swal.fire('Error', e?.message || 'Voucher ရှာမရပါ', 'error');
+    }
+  };
+
+  const applyDateShortcut = (shortcut: Exclude<DateShortcut, 'CUSTOM'>) => {
+    setDateShortcut(shortcut);
+    if (shortcut === 'ALL') {
+      setDateFrom('');
+      setDateTo('');
+      return;
+    }
+    const range = shortcut === 'TODAY'
+      ? getTodayRange()
+      : shortcut === 'WEEK'
+        ? getThisWeekRange()
+        : getThisMonthRange();
+    setDateFrom(range.from);
+    setDateTo(range.to);
   };
 
   useEffect(() => {
@@ -793,10 +866,32 @@ const SaleManagement: React.FC = () => {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <button onClick={closeCreateSale} className="inline-flex w-full sm:w-auto justify-center sm:justify-start items-center gap-2 px-3 py-1.5 text-slate-600 hover:bg-slate-100 rounded-lg text-sm font-medium">
             <ArrowLeft size={16} />
-            Back to list
+            စာရင်းသို့ပြန်မည်
           </button>
-          <h2 className="text-xl font-bold text-slate-800 text-center sm:text-left">New Sale Voucher</h2>
+          <div className="text-center sm:text-left">
+            <h2 className="text-xl font-bold text-slate-800">ရောင်းချမှုဘောင်ချာအသစ်</h2>
+            <p className="text-xs text-slate-500 mt-0.5">ဖောက်သည်ရွေး၊ barcode/serial ဖြင့်ပစ္စည်းထည့်၊ cash/credit ကို checkout မှာသတ်မှတ်ပါ။</p>
+          </div>
           <div className="hidden sm:block w-24" />
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <div className={`rounded-xl border p-3 ${customerId > 0 ? 'bg-emerald-50 border-emerald-200' : 'bg-white border-slate-200'}`}>
+            <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">1. Customer</p>
+            <p className={`text-sm font-bold mt-1 ${customerId > 0 ? 'text-emerald-700' : 'text-slate-700'}`}>{customerId > 0 ? 'ရွေးပြီး' : 'ရွေးရန်လို'}</p>
+          </div>
+          <div className={`rounded-xl border p-3 ${details.some(d => d.productId > 0) ? 'bg-emerald-50 border-emerald-200' : 'bg-white border-slate-200'}`}>
+            <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">2. Items</p>
+            <p className="text-sm font-bold mt-1 text-slate-700">{details.filter(d => d.productId > 0).length} line(s)</p>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-white p-3">
+            <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">3. Net Amount</p>
+            <p className="text-sm font-bold mt-1 text-slate-800">{money(netAmount)}</p>
+          </div>
+          <div className={`rounded-xl border p-3 ${dueAmount > 0 ? 'bg-amber-50 border-amber-200' : 'bg-emerald-50 border-emerald-200'}`}>
+            <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">4. Payment</p>
+            <p className={`text-sm font-bold mt-1 ${dueAmount > 0 ? 'text-amber-700' : 'text-emerald-700'}`}>{dueAmount > 0 ? 'ရရန်ကျန်ရှိ' : 'ငွေရပြီး'}</p>
+          </div>
         </div>
 
         <div>
@@ -804,13 +899,13 @@ const SaleManagement: React.FC = () => {
           <div className="grid grid-cols-1 xl:grid-cols-4 gap-3">
             <div>
               <div className="mb-1.5 flex items-center justify-between">
-                <label className="text-xs font-semibold text-slate-600">Customer <span className="text-rose-500">*</span></label>
+                <label className="text-xs font-semibold text-slate-600">ဖောက်သည် <span className="text-rose-500">*</span></label>
                 <button
                   type="button"
                   onClick={() => { setShowAddCustomer(true); setCustomerOpen(false); }}
                   className="inline-flex items-center gap-1 px-2 py-1 rounded border border-indigo-200 text-indigo-700 text-[11px] font-semibold hover:bg-indigo-50"
                 >
-                  <Plus size={11} /> New
+                  <Plus size={11} /> အသစ်
                 </button>
               </div>
               <div className="relative">
@@ -819,7 +914,7 @@ const SaleManagement: React.FC = () => {
                   onChange={(e) => onCustomerSearch(e.target.value)}
                   onFocus={() => setCustomerOpen(true)}
                   onBlur={() => setTimeout(() => setCustomerOpen(false), 120)}
-                  placeholder="Search by name or phone..."
+                  placeholder="အမည် / ဖုန်းနံပါတ်ဖြင့်ရှာပါ..."
                   className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:border-indigo-400"
                 />
                 {customerOpen && (
@@ -836,15 +931,15 @@ const SaleManagement: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1.5">Staff</label>
+              <label className="block text-xs font-semibold text-slate-600 mb-1.5">ရောင်းသူ</label>
               <select value={staffId} onChange={(e) => setStaffId(Number(e.target.value) || 0)} className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:border-indigo-400">
-                <option value={0}>- Select staff -</option>
+                <option value={0}>- ရောင်းသူရွေးပါ -</option>
                 {staffs.map((s) => <option key={s.id} value={s.id}>{s.name} ({s.role})</option>)}
               </select>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1.5">Sale Date</label>
+              <label className="block text-xs font-semibold text-slate-600 mb-1.5">ရောင်းသည့်ရက်</label>
               <input
                 type="date"
                 value={saleDate}
@@ -852,12 +947,12 @@ const SaleManagement: React.FC = () => {
                 onChange={(e) => setSaleDate(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:border-indigo-400"
               />
-              {!canBackdateSale && <p className="text-[10px] text-slate-400 mt-1">Back date requires permission.</p>}
+              {!canBackdateSale && <p className="text-[10px] text-slate-400 mt-1">နောက်ရက်စွဲဖြင့်ထည့်ရန် permission လိုအပ်သည်။</p>}
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1.5">Remark</label>
-              <input value={remark} onChange={(e) => setRemark(e.target.value)} placeholder="Optional note" className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:border-indigo-400" />
+              <label className="block text-xs font-semibold text-slate-600 mb-1.5">မှတ်ချက်</label>
+              <input value={remark} onChange={(e) => setRemark(e.target.value)} placeholder="လိုအပ်ပါကမှတ်ချက်ရေးပါ" className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:border-indigo-400" />
             </div>
           </div>
 
@@ -887,7 +982,7 @@ const SaleManagement: React.FC = () => {
               value={barcodeInput}
               onChange={e => setBarcodeInput(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleBarcodeScan(barcodeInput); } }}
-              placeholder="Scan barcode or type serial / product code"
+              placeholder="Barcode scan သို့မဟုတ် serial / product code ရိုက်ပြီး Enter"
               className="flex-1 bg-transparent outline-none text-sm font-medium text-violet-800 placeholder:text-violet-300 min-w-0"
               autoComplete="off"
             />
@@ -905,13 +1000,13 @@ const SaleManagement: React.FC = () => {
             <table className="w-full min-w-[980px] text-xs">
               <thead className="bg-slate-100 border-b border-slate-200 text-[11px] font-semibold text-slate-500 uppercase tracking-wide">
                 <tr>
-                  <th className="px-3 py-2.5 text-left">Product</th>
+                  <th className="px-3 py-2.5 text-left">ပစ္စည်း</th>
                   <th className="px-3 py-2.5 text-left w-20">Qty</th>
-                  <th className="px-3 py-2.5 text-left w-32">Unit Price</th>
-                  <th className="px-3 py-2.5 text-left w-28">Discount</th>
+                  <th className="px-3 py-2.5 text-left w-32">ရောင်းဈေး</th>
+                  <th className="px-3 py-2.5 text-left w-28">Line Discount</th>
                   <th className="px-3 py-2.5 text-center w-14">FOC</th>
-                  <th className="px-3 py-2.5 text-left w-28">Stock / Pool</th>
-                  <th className="px-3 py-2.5 text-right w-32">Subtotal</th>
+                  <th className="px-3 py-2.5 text-left w-28">လက်ကျန်</th>
+                  <th className="px-3 py-2.5 text-right w-32">စုစုပေါင်း</th>
                   <th className="px-3 py-2.5 w-10"></th>
                 </tr>
               </thead>
@@ -929,7 +1024,7 @@ const SaleManagement: React.FC = () => {
                             list={`product-opt-${rowIndex}`}
                             value={productSearches[rowIndex] || ''}
                             onChange={(e) => onProductSearch(rowIndex, e.target.value)}
-                            placeholder="Search product..."
+                            placeholder="ပစ္စည်းရှာပါ..."
                             className="w-full px-2 py-1.5 rounded border border-slate-200 bg-white focus:outline-none focus:border-indigo-400"
                           />
                           <datalist id={`product-opt-${rowIndex}`}>
@@ -995,7 +1090,7 @@ const SaleManagement: React.FC = () => {
 
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-slate-100 pt-4">
             <button type="button" onClick={addRow} className="inline-flex flex-shrink-0 items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700">
-              <Plus size={14} /> Add Item
+              <Plus size={14} /> ပစ္စည်းထပ်ထည့်
             </button>
             <div className="flex items-center gap-4 ml-auto">
               <div className="text-right">
@@ -1004,23 +1099,23 @@ const SaleManagement: React.FC = () => {
               </div>
               {discount > 0 && (
                 <div className="text-right">
-                  <p className="text-[11px] text-rose-400 uppercase font-semibold">Discount</p>
+                  <p className="text-[11px] text-rose-400 uppercase font-semibold">Overall Discount</p>
                   <p className="text-sm font-bold text-rose-600">- {money(discount)}</p>
                 </div>
               )}
               <div className="text-right border-l border-slate-200 pl-4">
-                <p className="text-[11px] text-slate-400 uppercase font-semibold">Net Total</p>
+                <p className="text-[11px] text-slate-400 uppercase font-semibold">ကျသင့်ငွေ</p>
                 <p className="text-lg font-black text-slate-900">{money(netAmount)}</p>
               </div>
               <div className="flex items-center gap-2">
-                <button type="button" onClick={resetCreateForm} className="px-4 py-2 rounded-lg border border-slate-200 text-slate-600 text-sm font-medium hover:bg-slate-50">Clear</button>
+                <button type="button" onClick={resetCreateForm} className="px-4 py-2 rounded-lg border border-slate-200 text-slate-600 text-sm font-medium hover:bg-slate-50">ရှင်းမည်</button>
                 <button
                   type="button"
                   onClick={() => setPayModalOpen(true)}
                   disabled={details.every(d => d.productId <= 0)}
                   className="px-5 py-2 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 disabled:opacity-50 inline-flex items-center gap-2"
                 >
-                  <CreditCard size={14} /> Checkout
+                  <CreditCard size={14} /> ငွေရှင်းမည်
                 </button>
               </div>
             </div>
@@ -1036,7 +1131,7 @@ const SaleManagement: React.FC = () => {
               <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
                 <div className="flex items-center gap-2">
                   <CreditCard size={18} className="text-emerald-600" />
-                  <h3 className="text-base font-bold text-slate-800">Checkout</h3>
+                  <h3 className="text-base font-bold text-slate-800">ငွေရှင်းခြင်း</h3>
                 </div>
                 <button type="button" onClick={() => setPayModalOpen(false)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600">
                   <X size={16} />
@@ -1047,7 +1142,7 @@ const SaleManagement: React.FC = () => {
                 {/* Items summary */}
                 <div className="rounded-xl border border-slate-200 overflow-hidden">
                   <div className="bg-slate-50 px-3 py-2 border-b border-slate-200">
-                    <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">Order Items</p>
+                    <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">ရောင်းမည့်ပစ္စည်းများ</p>
                   </div>
                   <div className="divide-y divide-slate-100">
                     {details.filter(d => d.productId > 0).map((d, i) => {
@@ -1071,7 +1166,7 @@ const SaleManagement: React.FC = () => {
 
                 {/* Discount */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">Discount</label>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">Overall Discount</label>
                   <input
                     type="number" min="0" step="0.01"
                     value={discountInput}
@@ -1085,12 +1180,12 @@ const SaleManagement: React.FC = () => {
                 <div className="rounded-xl bg-slate-50 border border-slate-200 px-4 py-3 space-y-1.5 text-sm">
                   <div className="flex justify-between text-slate-600"><span>Subtotal</span><span className="font-semibold text-slate-800">{money(totalAmount)}</span></div>
                   {discount > 0 && <div className="flex justify-between text-slate-600"><span>Discount</span><span className="font-semibold text-rose-600">- {money(discount)}</span></div>}
-                  <div className="flex justify-between font-bold text-slate-900 border-t border-slate-200 pt-1.5 text-base"><span>Net Amount</span><span>{money(netAmount)}</span></div>
+                  <div className="flex justify-between font-bold text-slate-900 border-t border-slate-200 pt-1.5 text-base"><span>ကျသင့်ငွေ</span><span>{money(netAmount)}</span></div>
                 </div>
 
                 {/* Paid Amount */}
                 <div className="rounded-xl border-2 border-emerald-300 bg-emerald-50 px-4 py-3 space-y-3">
-                  <label className="block text-[11px] font-bold text-emerald-700 uppercase tracking-wide">Paid Amount</label>
+                  <label className="block text-[11px] font-bold text-emerald-700 uppercase tracking-wide">ရရှိငွေ</label>
                   <div className="flex gap-2">
                     <input
                       type="number" min="0" step="0.01"
@@ -1102,19 +1197,19 @@ const SaleManagement: React.FC = () => {
                     <button type="button" onClick={() => setPaidInput(netAmount > 0 ? String(netAmount.toFixed(2)) : '0')}
                       className="px-3 py-2 rounded-lg bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 shrink-0">Full</button>
                     <button type="button" onClick={() => setPaidInput('0')}
-                      className="px-3 py-2 rounded-lg bg-sky-500 text-white text-xs font-bold hover:bg-sky-600 shrink-0">Credit</button>
+                      className="px-3 py-2 rounded-lg bg-sky-500 text-white text-xs font-bold hover:bg-sky-600 shrink-0">အကြွေး</button>
                   </div>
 
                   {/* Payment method */}
                   <div>
-                    <label className="block text-[10px] font-semibold text-emerald-700 uppercase mb-1">Payment Method</label>
+                    <label className="block text-[10px] font-semibold text-emerald-700 uppercase mb-1">ငွေလက်ခံနည်း</label>
                     <select
                       value={paymentMethodId}
                       onChange={(e) => setPaymentMethodId(Number(e.target.value) || 0)}
                       disabled={paid <= 0}
                       className="w-full px-3 py-2 rounded-lg border border-emerald-300 bg-white text-sm focus:outline-none focus:border-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed"
                     >
-                      <option value={0}>- Select method -</option>
+                      <option value={0}>- ငွေလက်ခံနည်းရွေးပါ -</option>
                       {methods.map((m) => <option key={m.id} value={m.id}>{m.methodName}</option>)}
                     </select>
                     {paid <= 0 && <p className="text-[10px] text-emerald-600 mt-0.5">Credit sale — ငွေပေးချေမှုမရှိပါ</p>}
@@ -1122,9 +1217,9 @@ const SaleManagement: React.FC = () => {
 
                   {/* Paid / Due summary */}
                   <div className="border-t border-emerald-200 pt-2 space-y-1 text-sm">
-                    <div className="flex justify-between text-slate-600"><span>Paid</span><span className="font-semibold text-emerald-700">{money(paid)}</span></div>
+                    <div className="flex justify-between text-slate-600"><span>ရရှိငွေ</span><span className="font-semibold text-emerald-700">{money(paid)}</span></div>
                     <div className={`flex justify-between font-bold text-base ${dueAmount > 0 ? 'text-rose-700' : 'text-emerald-700'}`}>
-                      <span>Due</span><span>{money(dueAmount)}</span>
+                      <span>ရရန်ကျန်</span><span>{money(dueAmount)}</span>
                     </div>
                   </div>
                 </div>
@@ -1132,7 +1227,7 @@ const SaleManagement: React.FC = () => {
                 {/* Due date — only when credit */}
                 {dueAmount > 0 && (
                   <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">Due Date <span className="text-slate-400 font-normal">(credit only)</span></label>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">ရရန်နောက်ဆုံးရက် <span className="text-slate-400 font-normal">(အကြွေးရောင်း)</span></label>
                     <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:border-indigo-400" />
                   </div>
                 )}
@@ -1149,7 +1244,7 @@ const SaleManagement: React.FC = () => {
               {/* Modal footer */}
               <div className="px-5 py-4 border-t border-slate-100 flex gap-3">
                 <button type="button" onClick={() => setPayModalOpen(false)} className="flex-1 px-4 py-2.5 rounded-lg border border-slate-200 text-slate-600 text-sm font-medium hover:bg-slate-50">
-                  Cancel
+                  ပယ်ဖျက်
                 </button>
                 <button
                   type="button"
@@ -1157,7 +1252,7 @@ const SaleManagement: React.FC = () => {
                   disabled={saving}
                   className="flex-1 px-4 py-2.5 rounded-lg bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 disabled:opacity-60 inline-flex items-center justify-center gap-2"
                 >
-                  {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} Save Sale
+                  {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} ဘောင်ချာသိမ်းမည်
                 </button>
               </div>
             </div>
@@ -1212,34 +1307,34 @@ const SaleManagement: React.FC = () => {
     <div className="w-full max-w-none space-y-5">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h2 className="text-xl font-bold text-slate-800">Sale Management</h2>
-          <p className="text-sm text-slate-500 mt-0.5">Review sales first, track top-selling items, and open a new sale when needed.</p>
+          <h2 className="text-xl font-bold text-slate-800">ရောင်းချမှု စီမံခန့်ခွဲမှု</h2>
+          <p className="text-sm text-slate-500 mt-0.5">ယခုလ ရောင်းချမှုများကိုကြည့်ပြီး ဘောင်ချာ၊ ဖောက်သည်၊ ပေးရန်ကျန်များကို လျင်မြန်စွာစစ်ဆေးပါ။</p>
         </div>
         <div className="flex w-full sm:w-auto gap-2">
           <button onClick={() => loadSales(salePage, salePageSize, debouncedSearch, dateFrom, dateTo)} className="inline-flex flex-1 sm:flex-none justify-center items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-600 hover:bg-slate-50">
-            <RefreshCw size={14} /> Refresh
+            <RefreshCw size={14} /> ပြန်တင်
           </button>
           <button onClick={openCreateSale} className="inline-flex flex-1 sm:flex-none justify-center items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700">
-            <Plus size={14} /> New Sale
+            <Plus size={14} /> ရောင်းချမှုအသစ်
           </button>
         </div>
       </div>
 
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
         <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">Total Vouchers</p>
+          <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">ဘောင်ချာအရေအတွက်</p>
           <p className="text-2xl font-bold text-slate-800 mt-1">{stats.count}</p>
         </div>
         <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">Net Revenue</p>
+          <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">ရောင်းရငွေ စုစုပေါင်း</p>
           <p className="text-2xl font-bold text-slate-800 mt-1">{money(stats.net)}</p>
         </div>
         <div className="rounded-xl border border-amber-100 bg-amber-50 p-4">
-          <p className="text-[11px] font-semibold text-amber-400 uppercase tracking-wide">Outstanding</p>
+          <p className="text-[11px] font-semibold text-amber-400 uppercase tracking-wide">ရရန်ကျန်</p>
           <p className="text-2xl font-bold text-amber-700 mt-1">{money(stats.due)}</p>
         </div>
         <div className="rounded-xl border border-rose-100 bg-rose-50 p-4">
-          <p className="text-[11px] font-semibold text-rose-400 uppercase tracking-wide">Overdue Sales</p>
+          <p className="text-[11px] font-semibold text-rose-400 uppercase tracking-wide">ရက်ကျော်ဘောင်ချာ</p>
           <p className="text-2xl font-bold text-rose-700 mt-1">{stats.overdue}</p>
         </div>
       </div>
@@ -1247,10 +1342,10 @@ const SaleManagement: React.FC = () => {
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
         <div className="border-b border-slate-200 px-4 py-3 flex items-center justify-between gap-3">
           <h3 className="text-sm font-bold text-slate-800">
-            Sale List <span className="ml-1.5 text-[10px] font-bold bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded-full">{rows.length}</span>
+            ရောင်းချမှု ဘောင်ချာစာရင်း <span className="ml-1.5 text-[10px] font-bold bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded-full">{rows.length}</span>
           </h3>
           <button onClick={openCreateSale} className="inline-flex justify-center items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-bold hover:bg-indigo-700">
-            <Plus size={16} /> New Sale
+            <Plus size={16} /> ရောင်းချမှုအသစ်
           </button>
         </div>
 
@@ -1508,10 +1603,40 @@ const SaleManagement: React.FC = () => {
           </div>
         ) : (
           <div className="p-4 space-y-3">
+            <div className="grid grid-cols-1 xl:grid-cols-[1.1fr_1fr] gap-3">
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">Quick Search</label>
+                <div className="relative mt-1.5">
+                  <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input value={search} onChange={e => setSearch(e.target.value)}
+                    placeholder="ဘောင်ချာနံပါတ် / ဖောက်သည် / ရောင်းသူ"
+                    className="w-full pl-8 pr-8 py-2 text-sm bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-400" />
+                  {loading && search && (
+                    <span className="absolute right-2.5 top-1/2 -translate-y-1/2">
+                      <svg className="animate-spin h-3.5 w-3.5 text-indigo-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div className="rounded-lg border border-indigo-100 bg-indigo-50 p-3">
+                <label className="text-[11px] font-bold text-indigo-600 uppercase tracking-wide">Voucher No Direct Search</label>
+                <div className="flex gap-2 mt-1.5">
+                  <input value={voucherLookup}
+                    onChange={(e) => setVoucherLookup(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleVoucherLookup(); } }}
+                    placeholder="ဥပမာ SALE-0001"
+                    className="flex-1 min-w-0 px-3 py-2 text-sm bg-white border border-indigo-200 rounded-lg focus:outline-none focus:border-indigo-500" />
+                  <button type="button" onClick={handleVoucherLookup}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700">
+                    <Eye size={13} /> ဖွင့်
+                  </button>
+                </div>
+              </div>
+            </div>
             {/* Filter row */}
             <div className="flex flex-wrap gap-2 items-end">
               {/* Search */}
-              <div className="relative flex-1 min-w-[180px] max-w-xs">
+              <div className="hidden">
                 <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input value={search} onChange={e => setSearch(e.target.value)}
                   placeholder="Search all sales..."
@@ -1525,13 +1650,13 @@ const SaleManagement: React.FC = () => {
               {/* Date From */}
               <div className="flex flex-col gap-0.5">
                 <label className="text-[10px] font-semibold text-slate-500">From</label>
-                <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
+                <input type="date" value={dateFrom} onChange={e => { setDateFrom(e.target.value); setDateShortcut('CUSTOM'); }}
                   className="border border-slate-200 rounded px-2 py-1.5 text-xs text-slate-700 bg-slate-50 focus:outline-none focus:border-indigo-400" />
               </div>
               {/* Date To */}
               <div className="flex flex-col gap-0.5">
                 <label className="text-[10px] font-semibold text-slate-500">To</label>
-                <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
+                <input type="date" value={dateTo} onChange={e => { setDateTo(e.target.value); setDateShortcut('CUSTOM'); }}
                   className="border border-slate-200 rounded px-2 py-1.5 text-xs text-slate-700 bg-slate-50 focus:outline-none focus:border-indigo-400" />
               </div>
               {/* Staff */}
@@ -1539,24 +1664,45 @@ const SaleManagement: React.FC = () => {
                 <label className="text-[10px] font-semibold text-slate-500">Staff</label>
                 <select value={staffFilter} onChange={e => setStaffFilter(Number(e.target.value))}
                   className="border border-slate-200 rounded px-2 py-1.5 text-xs text-slate-700 bg-slate-50 focus:outline-none focus:border-indigo-400">
-                  <option value={0}>All Staff</option>
+                  <option value={0}>ရောင်းသူအားလုံး</option>
                   {staffs.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </select>
               </div>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  { key: 'TODAY', label: 'Today' },
+                  { key: 'WEEK', label: 'This Week' },
+                  { key: 'MONTH', label: 'This Month' },
+                  { key: 'ALL', label: 'All' }
+                ].map((item) => (
+                  <button key={item.key} type="button"
+                    onClick={() => applyDateShortcut(item.key as Exclude<DateShortcut, 'CUSTOM'>)}
+                    className={`px-3 py-1.5 rounded-lg text-[11px] font-bold border ${dateShortcut === item.key ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>
+                    {item.label}
+                  </button>
+                ))}
+              </div>
               {/* Clear */}
-              {(dateFrom !== todayStr || dateTo !== todayStr || staffFilter > 0 || search) && (
-                <button onClick={() => { setDateFrom(todayStr); setDateTo(todayStr); setStaffFilter(0); setSearch(''); }}
+              {(dateShortcut !== 'MONTH' || staffFilter > 0 || search || voucherLookup || filter !== 'ALL') && (
+                <button onClick={() => { const range = getThisMonthRange(); setDateFrom(range.from); setDateTo(range.to); setDateShortcut('MONTH'); setStaffFilter(0); setSearch(''); setVoucherLookup(''); setFilter('ALL'); }}
                   className="text-xs text-rose-500 hover:text-rose-700 font-semibold px-2 py-1.5 border border-rose-200 rounded bg-rose-50">
-                  Clear
+                  Reset
                 </button>
               )}
             </div>
             {/* Status filter pills */}
             <div className="flex flex-wrap gap-1.5">
-              {(['ALL', 'PENDING', 'PARTIAL', 'PAID', 'OVERDUE'] as ListFilter[]).map(f => (
-                <button key={f} onClick={() => setFilter(f)}
-                  className={`px-3 py-1 rounded-full text-[11px] font-bold border ${filter === f ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>
-                  {f}
+              {([
+                ['ALL', 'အားလုံး'],
+                ['DUE', 'ရရန်ကျန်'],
+                ['PENDING', 'မပေးရသေး'],
+                ['PARTIAL', 'တချို့ပေးပြီး'],
+                ['PAID', 'ပေးပြီး'],
+                ['OVERDUE', 'ရက်ကျော်']
+              ] as [ListFilter, string][]).map(([key, label]) => (
+                <button key={key} onClick={() => setFilter(key)}
+                  className={`px-3 py-1 rounded-full text-[11px] font-bold border ${filter === key ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>
+                  {label}
                 </button>
               ))}
               <span className="ml-auto text-[10px] text-slate-400 self-center">
@@ -1568,20 +1714,20 @@ const SaleManagement: React.FC = () => {
               <table className="w-full min-w-[920px] text-sm">
                 <thead className="sticky top-0 bg-slate-100 border-b border-slate-200 text-[11px] font-semibold text-slate-500 uppercase tracking-wide">
                   <tr>
-                    <th className="px-4 py-3 text-left">Invoice</th>
-                    <th className="px-4 py-3 text-left">Date</th>
-                    <th className="px-4 py-3 text-left">Customer</th>
-                    <th className="px-4 py-3 text-left">Staff</th>
-                    <th className="px-4 py-3 text-right">Net</th>
-                    <th className="px-4 py-3 text-right">Paid</th>
-                    <th className="px-4 py-3 text-right">Due</th>
-                    <th className="px-4 py-3 text-center">Status</th>
-                    <th className="px-4 py-3 text-right">Actions</th>
+                    <th className="px-4 py-3 text-left">ဘောင်ချာ</th>
+                    <th className="px-4 py-3 text-left">ရက်စွဲ</th>
+                    <th className="px-4 py-3 text-left">ဖောက်သည်</th>
+                    <th className="px-4 py-3 text-left">ရောင်းသူ</th>
+                    <th className="px-4 py-3 text-right">စုစုပေါင်း</th>
+                    <th className="px-4 py-3 text-right">ရပြီး</th>
+                    <th className="px-4 py-3 text-right">ရရန်ကျန်</th>
+                    <th className="px-4 py-3 text-center">အခြေအနေ</th>
+                    <th className="px-4 py-3 text-right">လုပ်ဆောင်ချက်</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {filteredRows.length === 0 ? (
-                    <tr><td colSpan={9} className="px-4 py-12 text-center text-slate-400">No sales found.</td></tr>
+                    <tr><td colSpan={9} className="px-4 py-12 text-center text-slate-400">ရောင်းချမှု မတွေ့ပါ။</td></tr>
                   ) : filteredRows.map((r) => {
                     const state = getSaleState(r);
                     const isDue = (Number(r.dueAmount) || 0) > 0;
@@ -1595,16 +1741,16 @@ const SaleManagement: React.FC = () => {
                         <td className="px-4 py-3 text-right font-semibold text-emerald-600">{money(Number(r.paidAmount) || 0)}</td>
                         <td className={`px-4 py-3 text-right font-bold ${isDue ? 'text-rose-600' : 'text-slate-300'}`}>{isDue ? money(Number(r.dueAmount) || 0) : '—'}</td>
                         <td className="px-4 py-3 text-center">
-                          <span className={`inline-flex px-2.5 py-1 rounded-full text-[10px] font-bold ${badgeByState[state]}`}>{state}</span>
+                          <span className={`inline-flex px-2.5 py-1 rounded-full text-[10px] font-bold ${badgeByState[state]}`}>{saleStateLabel[state]}</span>
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center justify-end gap-1.5">
                             <button onClick={() => r.id && openDetail(r.id)} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 text-slate-600 text-xs font-medium hover:bg-slate-50">
-                              <Eye size={12} /> View
+                              <Eye size={12} /> ကြည့်ရန်
                             </button>
                             {isDue && (
                               <button onClick={() => r.id && openDetail(r.id)} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-emerald-200 text-emerald-700 text-xs font-medium hover:bg-emerald-50">
-                                <CreditCard size={12} /> Pay
+                                <CreditCard size={12} /> ငွေသွင်း
                               </button>
                             )}
                           </div>

@@ -4,6 +4,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -21,6 +22,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sspd.servicemgmt.ui.theme.*
 import com.sspd.servicemgmt.ui.components.AppLoading
 import com.sspd.servicemgmt.ui.viewmodel.ExpenseViewModel
+import com.sspd.servicemgmt.ui.viewmodel.ExpenseViewModel.DateShortcut
 import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -140,6 +142,15 @@ fun ExpenseScreen(
             }
 
             // ── Date filter row ──────────────────────────────────────────────
+            LazyRow(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp).padding(bottom = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                item { DateShortcutChip("Today", state.dateShortcut == DateShortcut.TODAY) { vm.applyDateShortcut(DateShortcut.TODAY) } }
+                item { DateShortcutChip("This Week", state.dateShortcut == DateShortcut.WEEK) { vm.applyDateShortcut(DateShortcut.WEEK) } }
+                item { DateShortcutChip("This Month", state.dateShortcut == DateShortcut.MONTH) { vm.applyDateShortcut(DateShortcut.MONTH) } }
+                item { DateShortcutChip("All", state.dateShortcut == DateShortcut.ALL) { vm.applyDateShortcut(DateShortcut.ALL) } }
+            }
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -161,11 +172,6 @@ fun ExpenseScreen(
                     onClick   = { showToPicker = true },
                     label     = { Text(state.toDate ?: "အထိ ရက်", fontSize = 11.sp) },
                     modifier  = Modifier.weight(1f)
-                )
-                FilterChip(
-                    selected  = false,
-                    onClick   = { vm.setToday() },
-                    label     = { Text("Today", fontSize = 11.sp) }
                 )
                 if (state.fromDate != null || state.toDate != null) {
                     IconButton(
@@ -259,6 +265,19 @@ fun ExpenseScreen(
             }
         }
     }
+}
+
+@Composable
+private fun DateShortcutChip(label: String, selected: Boolean, onClick: () -> Unit) {
+    AssistChip(
+        onClick = onClick,
+        label = { Text(label, fontSize = 11.sp, fontWeight = FontWeight.Bold) },
+        colors = AssistChipDefaults.assistChipColors(
+            containerColor = if (selected) Primary.copy(0.12f) else CardBg,
+            labelColor = if (selected) Primary else TextMuted
+        ),
+        border = BorderStroke(1.dp, if (selected) Primary.copy(0.35f) else BorderColor)
+    )
 }
 
 @Composable

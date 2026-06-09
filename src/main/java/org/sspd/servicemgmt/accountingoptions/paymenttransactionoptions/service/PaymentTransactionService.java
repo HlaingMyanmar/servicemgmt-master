@@ -7,12 +7,16 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.sspd.servicemgmt.accountingoptions.paymentmethodoptions.model.PaymentMethod;
 import org.sspd.servicemgmt.accountingoptions.paymentmethodoptions.repository.PaymentMethodRepository;
+import org.sspd.servicemgmt.accountingoptions.paymenttransactionoptions.dto.AccountTransferDTO;
 import org.sspd.servicemgmt.accountingoptions.paymenttransactionoptions.dto.PaymentTransactionDTO;
 import org.sspd.servicemgmt.accountingoptions.paymenttransactionoptions.mapper.PaymentTransactionMapper;
 import org.sspd.servicemgmt.accountingoptions.paymenttransactionoptions.model.PaymentTransaction;
 import org.sspd.servicemgmt.accountingoptions.paymenttransactionoptions.model.ReferenceType;
 import org.sspd.servicemgmt.accountingoptions.paymenttransactionoptions.repository.PaymentTransactionRepository;
 import org.sspd.servicemgmt.exceptionhandler.ResourceNotFoundException;
+import org.sspd.servicemgmt.journaloption.detail.dto.JournalDetailDTO;
+import org.sspd.servicemgmt.journaloption.entry.dto.JournalEntryDTO;
+import org.sspd.servicemgmt.journaloption.entry.service.JournalWriter;
 import org.sspd.servicemgmt.purchaseoptions.model.Purchase;
 import org.sspd.servicemgmt.purchaseoptions.repository.PurchaseRepository;
 import org.sspd.servicemgmt.saleoptions.model.Sale;
@@ -25,6 +29,8 @@ import org.sspd.servicemgmt.supplieroptions.model.Supplier;
 import org.sspd.servicemgmt.supplieroptions.repository.SupplierRepository;
 
 import java.util.List;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 @Service
 @RequiredArgsConstructor
@@ -39,6 +45,7 @@ public class PaymentTransactionService {
     private final SaleRepository saleRepository;
     private final SaleReturnRepository saleReturnRepository;
     private final ServiceJobRepository serviceJobRepository;
+    private final JournalWriter journalWriter;
 
     private static final String TRANSACTION_TOPIC = "/topic/payment-transaction";
 
@@ -93,6 +100,74 @@ public class PaymentTransactionService {
                 .map(PaymentTransaction::getId)
                 .orElse(0);
         return String.format("TXN-%06d", lastId + 1);
+    }
+
+    @PreAuthorize("hasAuthority('CAN_ACCESS_PAYMENT_TRANSACTION_CREATE')")
+    @Transactional
+    public PaymentTransactionDTO transfer(AccountTransferDTO dto) {
+        if (dto.getFromPaymentMethodId() == null || dto.getToPaymentMethodId() == null) {
+            throw new RuntimeException("From and To payment methods are required.");
+        }
+        if (dto.getFromPaymentMethodId().equals(dto.getToPaymentMethodId())) {
+            throw new RuntimeException("From and To payment methods must be different.");
+        }
+        BigDecimal amount = dto.getAmount() != null ? dto.getAmount() : BigDecimal.ZERO;
+        if (amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new RuntimeException("Transfer amount must be greater than zero.");
+        }
+
+        PaymentMethod from = paymentMethodRepository.findById(dto.getFromPaymentMethodId())
+                .orElseThrow(() -> new ResourceNotFoundException("From Payment Method not found"));
+        PaymentMethod to = paymentMethodRepository.findById(dto.getToPaymentMethodId())
+                .orElseThrow(() -> new ResourceNotFoundException("To Payment Method not found"));
+        if (from.getAccount() == null || to.getAccount() == null) {
+            throw new RuntimeException("Payment methods must have linked cash/bank accounts.");
+        }
+
+        String txNo = dto.getTransactionNo() == null || dto.getTransactionNo().isBlank()
+                ? generateTransactionNo()
+                : dto.getTransactionNo();
+
+        PaymentTransaction out = new PaymentTransaction();
+        out.setReferenceId(0);
+        out.setReferenceType(ReferenceType.Transfer);
+        out.setPaymentMethod(from);
+        out.setAmount(amount.negate());
+        out.setPaymentDate(LocalDateTime.now());
+        out.setTransactionNo(txNo + "-OUT");
+        repository.save(out);
+
+        PaymentTransaction in = new PaymentTransaction();
+        in.setReferenceId(0);
+        in.setReferenceType(ReferenceType.Transfer);
+        in.setPaymentMethod(to);
+        in.setAmount(amount);
+        in.setPaymentDate(LocalDateTime.now());
+        in.setTransactionNo(txNo + "-IN");
+        PaymentTransaction saved = repository.save(in);
+
+        JournalDetailDTO drTo = new JournalDetailDTO();
+        drTo.setAccountId(to.getAccount().getId());
+        drTo.setDebit(amount);
+        drTo.setCredit(BigDecimal.ZERO);
+
+        JournalDetailDTO crFrom = new JournalDetailDTO();
+        crFrom.setAccountId(from.getAccount().getId());
+        crFrom.setDebit(BigDecimal.ZERO);
+        crFrom.setCredit(amount);
+
+        JournalEntryDTO journal = new JournalEntryDTO();
+        journal.setReferenceNo(txNo);
+        journal.setEntryDate(LocalDateTime.now());
+        journal.setDescription(dto.getDescription() != null && !dto.getDescription().isBlank()
+                ? dto.getDescription()
+                : "Money transfer: " + from.getMethodName() + " to " + to.getMethodName());
+        journal.setStaffId(dto.getStaffId());
+        journal.setDetails(List.of(drTo, crFrom));
+        journalWriter.write(journal);
+
+        messagingTemplate.convertAndSend(TRANSACTION_TOPIC, "TRANSFER_CREATED");
+        return mapper.toDto(saved);
     }
 
     @PreAuthorize("hasAuthority('CAN_ACCESS_PAYMENT_TRANSACTION_READ')")

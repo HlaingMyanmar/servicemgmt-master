@@ -1,5 +1,5 @@
 import { api } from './api';
-import { ApiResponse, AccountBalanceDTO, PaymentTransactionDTO } from '../types';
+import { ApiResponse, AccountBalanceDTO, AccountTransferDTO, PaymentTransactionDTO } from '../types';
 
 export const accountingApiService = {
   getAllBalances: async (): Promise<AccountBalanceDTO[]> => {
@@ -52,6 +52,11 @@ export const accountingApiService = {
     transactionNo?: string;
   }): Promise<PaymentTransactionDTO> => {
     const res = await api.post<any, ApiResponse<PaymentTransactionDTO>>('/v1/payment-transactions/pay-purchase-debt', payload);
+    return res.data;
+  },
+
+  transferPaymentMethodBalance: async (payload: AccountTransferDTO): Promise<PaymentTransactionDTO> => {
+    const res = await api.post<any, ApiResponse<PaymentTransactionDTO>>('/v1/payment-transactions/transfer', payload);
     return res.data;
   }
 };

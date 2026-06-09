@@ -117,6 +117,14 @@ export const purchaseReturnApiService = {
     return normalizePurchaseReturn((res.data || {}) as AnyRecord);
   },
 
+  voidReturn: async (id: number, reason: string): Promise<PurchaseReturnDTO> => {
+    const res = await api.post<any, ApiResponse<PurchaseReturnDTO>>(`/v1/purchase-returns/${id}/void`, {
+      voidReason: reason,
+      reason
+    });
+    return normalizePurchaseReturn((res.data || {}) as AnyRecord);
+  },
+
   delete: async (id: number): Promise<void> => {
     await api.delete<any, ApiResponse<void>>(`/v1/purchase-returns/${id}`);
   }

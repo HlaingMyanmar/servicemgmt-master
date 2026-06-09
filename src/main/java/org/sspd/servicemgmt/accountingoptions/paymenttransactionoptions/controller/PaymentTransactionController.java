@@ -6,6 +6,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.sspd.servicemgmt.api.ApiResponse;
+import org.sspd.servicemgmt.accountingoptions.paymenttransactionoptions.dto.AccountTransferDTO;
 import org.sspd.servicemgmt.accountingoptions.paymenttransactionoptions.dto.PaymentTransactionDTO;
 import org.sspd.servicemgmt.accountingoptions.paymenttransactionoptions.service.PaymentTransactionService;
 import org.sspd.servicemgmt.purchaseoptions.service.PurchaseService;
@@ -55,6 +56,16 @@ public class PaymentTransactionController {
         PaymentTransactionDTO created = service.save(dto);
         return ResponseEntity.status(201).body(
                 new ApiResponse<>(true, "Transaction Recorded Successfully", created)
+        );
+    }
+
+    @PreAuthorize("hasAuthority('CAN_ACCESS_PAYMENT_TRANSACTION_CREATE')")
+    @PostMapping("/transfer")
+    public ResponseEntity<ApiResponse<PaymentTransactionDTO>> transfer(
+            @Valid @RequestBody AccountTransferDTO dto) {
+        PaymentTransactionDTO created = service.transfer(dto);
+        return ResponseEntity.status(201).body(
+                new ApiResponse<>(true, "Transfer Recorded Successfully", created)
         );
     }
 

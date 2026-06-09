@@ -155,6 +155,7 @@ data class SaleReturnDTO(
     val paymentMethodId:   Int?                    = null,
     val paymentMethodName: String?                 = null,
     val transactionNo:     String?                 = null,
+    val payments:          List<PaymentTransactionDTO>? = null,
     val reason:            String?                 = null,
     val details:           List<SaleReturnDetailDTO>? = null
 )
@@ -176,9 +177,11 @@ data class PaymentTransactionDTO(
 
 data class SalePaymentRequest(
     val paidAmount:      Double,
-    val paymentMethodId: Int,
+    val paymentMethodId: Int? = null,
     val note:            String? = null,
-    val staffId:         Int?    = null
+    val staffId:         Int?    = null,
+    val transactionNo:   String? = null,
+    val payments:        List<PaymentTransactionDTO>? = null
 )
 
 data class SaleItemDTO(
@@ -225,6 +228,7 @@ data class SaleDTO(
     val paymentStatus: String? = null,
     val paymentMethodId: Int? = null,
     val paymentMethodName: String? = null,
+    val payments: List<PaymentTransactionDTO>? = null,
     val dueDate: String? = null,
     val remark: String? = null,
     val details: List<SaleItemDTO>? = null
@@ -344,13 +348,15 @@ data class SettleJobRequest(
     val paidAmount:       Double,
     val paymentMethodId:  Int?    = null,
     val transactionNo:    String? = null,
+    val payments:         List<PaymentTransactionDTO>? = null,
     val dueDate:          String? = null
 )
 
 data class ServiceJobPayDueRequest(
     val paidAmount:      Double,
-    val paymentMethodId: Int,
+    val paymentMethodId: Int? = null,
     val transactionNo:   String? = null,
+    val payments:        List<PaymentTransactionDTO>? = null,
     val note:            String? = null
 )
 
@@ -386,6 +392,7 @@ data class ServiceJobDTO(
     val paymentStatus: String? = null,
     val paymentMethodId: Int? = null,
     val paymentMethodName: String? = null,
+    val payments: List<PaymentTransactionDTO>? = null,
     val receivedDate: String? = null,
     val estimatedCompletion: String? = null,
     val completedDate: String? = null,
@@ -463,13 +470,19 @@ data class PurchaseDTO(
     val purchaseDate: String? = null,
     val dueDate: String? = null,
     val totalAmount: Double? = null,
+    val discountAmount: Double? = null,
     val paidAmount: Double? = null,
+    val returnAmount: Double? = null,
+    val refundAmount: Double? = null,
+    val netAmount: Double? = null,
+    val supplierCreditAmount: Double? = null,
     val dueAmount: Double? = null,
     val paymentStatus: String? = null,
     val remark: String? = null,
     val details: List<PurchaseItemDTO>? = null,
     val paymentMethodId: Int? = null,
     val paymentMethodName: String? = null,
+    val payments: List<PaymentTransactionDTO>? = null,
     val transactionNo: String? = null
 )
 
@@ -485,6 +498,36 @@ data class PurchaseItemDTO(
     val serialNumbers: List<String>? = null,
     val serialConditions: List<String>? = null,
     val serialPhotos: List<String>? = null
+)
+
+data class PurchaseReturnDetailDTO(
+    val returnId: Int? = null,
+    val productId: Int? = null,
+    val productName: String? = null,
+    val qty: Int? = null,
+    val unitPrice: Double? = null,
+    val subtotal: Double? = null,
+    val serialNumbers: List<String>? = null
+)
+
+data class PurchaseReturnDTO(
+    val id: Int? = null,
+    val purchaseId: Int? = null,
+    val purchaseCode: String? = null,
+    val supplierName: String? = null,
+    val returnNo: String? = null,
+    val returnDate: String? = null,
+    val totalReturnAmount: Double? = null,
+    val refundAmount: Double? = null,
+    val paymentMethodId: Int? = null,
+    val paymentMethodName: String? = null,
+    val transactionNo: String? = null,
+    val payments: List<PaymentTransactionDTO>? = null,
+    val status: String? = null,
+    val voidedAt: String? = null,
+    val voidReason: String? = null,
+    val reason: String? = null,
+    val details: List<PurchaseReturnDetailDTO>? = null
 )
 
 // ─── Expenses / Income ───────────────────────────────────────────────────────
@@ -525,6 +568,23 @@ data class IncomeDTO(
 )
 
 // ─── Reports ─────────────────────────────────────────────────────────────────
+
+data class JournalDetailDTO(
+    val accountId:   Int?    = null,
+    val accountName: String? = null,
+    val debit:       Double? = null,
+    val credit:      Double? = null
+)
+
+data class JournalEntryDTO(
+    val id:          Int?    = null,
+    val entryDate:   String? = null,
+    val referenceNo: String? = null,
+    val description: String? = null,
+    val staffId:     Int?    = null,
+    val staffName:   String? = null,
+    val details:     List<JournalDetailDTO>? = null
+)
 
 data class SalesRankingDTO(
     val staffId: Int? = null,

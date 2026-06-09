@@ -235,6 +235,46 @@ interface ApiService {
         @Body body: PurchaseDTO
     ): Response<ApiResponse<PurchaseDTO>>
 
+    @GET("purchase-returns")
+    suspend fun getPurchaseReturns(
+        @Header("Authorization") auth: String,
+        @Query("page") page: Int = 0,
+        @Query("size") size: Int = 50,
+        @Query("search") search: String = ""
+    ): Response<ApiResponse<PagedResponse<PurchaseReturnDTO>>>
+
+    @GET("purchase-returns/by-purchase/{purchaseId}")
+    suspend fun getPurchaseReturnsByPurchase(
+        @Header("Authorization") auth: String,
+        @Path("purchaseId") purchaseId: Int
+    ): Response<ApiResponse<List<PurchaseReturnDTO>>>
+
+    @GET("purchase-returns/{id}")
+    suspend fun getPurchaseReturnById(
+        @Header("Authorization") auth: String,
+        @Path("id") id: Int
+    ): Response<ApiResponse<PurchaseReturnDTO>>
+
+    @POST("purchase-returns")
+    suspend fun createPurchaseReturn(
+        @Header("Authorization") auth: String,
+        @Body body: PurchaseReturnDTO
+    ): Response<ApiResponse<PurchaseReturnDTO>>
+
+    @PUT("purchase-returns/{id}")
+    suspend fun updatePurchaseReturn(
+        @Header("Authorization") auth: String,
+        @Path("id") id: Int,
+        @Body body: PurchaseReturnDTO
+    ): Response<ApiResponse<PurchaseReturnDTO>>
+
+    @POST("purchase-returns/{id}/void")
+    suspend fun voidPurchaseReturn(
+        @Header("Authorization") auth: String,
+        @Path("id") id: Int,
+        @Body body: PurchaseReturnDTO
+    ): Response<ApiResponse<PurchaseReturnDTO>>
+
     @GET("credit-terms/customer/{customerId}")
     suspend fun getCreditTerm(
         @Header("Authorization") auth: String,
@@ -493,6 +533,9 @@ interface ApiService {
 
     @GET("audit-logs")
     suspend fun getAuditLogs(@Header("Authorization") auth: String): Response<ApiResponse<List<AuditLogDTO>>>
+
+    @GET("journal-entries")
+    suspend fun getJournalEntries(@Header("Authorization") auth: String): Response<ApiResponse<List<JournalEntryDTO>>>
 
     @GET("reports/sales-ranking")
     suspend fun getSalesRanking(

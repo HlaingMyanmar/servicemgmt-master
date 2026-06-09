@@ -34,6 +34,15 @@ public class PurchaseReturn {
     @Column(name = "refund_amount")
     private BigDecimal refundAmount = BigDecimal.ZERO;
 
+    @Column(name = "status", length = 20)
+    private String status = "CONFIRMED";
+
+    @Column(name = "voided_at")
+    private LocalDateTime voidedAt;
+
+    @Column(name = "void_reason", columnDefinition = "TEXT")
+    private String voidReason;
+
     @Column(columnDefinition = "TEXT")
     private String reason;
 

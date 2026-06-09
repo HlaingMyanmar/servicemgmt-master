@@ -67,6 +67,17 @@ public class PurchaseReturnController {
         );
     }
 
+    @PreAuthorize("hasAuthority('CAN_ACCESS_PURCHASE_RETURN_UPDATE')")
+    @PostMapping("/{id}/void")
+    public ResponseEntity<ApiResponse<PurchaseReturnDTO>> voidReturn(
+            @PathVariable Integer id,
+            @RequestBody PurchaseReturnDTO dto) {
+        PurchaseReturnDTO updated = service.voidReturn(id, dto);
+        return ResponseEntity.ok(
+                new ApiResponse<>(true, "Purchase Return Voided Successfully", updated)
+        );
+    }
+
     @PreAuthorize("hasAuthority('CAN_ACCESS_PURCHASE_RETURN_DELETE')")
     @DeleteMapping("/{id}")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable Integer id) {
