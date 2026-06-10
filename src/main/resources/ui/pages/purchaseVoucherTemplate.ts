@@ -87,60 +87,72 @@ export const buildPurchaseVoucherHtml = ({
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>Purchase Voucher ${escapeHtml(purchase.purchaseCode || purchase.id)}</title>
+  <title></title>
   <style>
-    @page { size: A4 portrait; margin: 10mm; }
+    @page { size: A4 portrait; margin: 0; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Segoe UI', Arial, sans-serif; color: #1e293b; font-size: 12px; line-height: 1.5; background: #fff; }
+    body { font-family: Pyidaungsu, 'Segoe UI', Arial, sans-serif; color: #111827; font-size: 12px; line-height: 1.42; background: #fff; padding: 10mm; }
 
     .header {
       display: flex; justify-content: space-between; align-items: flex-start; gap: 16px;
-      padding: 18px 20px 14px; background: ${headerColor}; border-radius: 10px 10px 0 0;
+      padding: 12px 16px 10px; background: #fff; border: 1px solid #d1d5db; border-bottom: 3px solid ${headerColor};
     }
-    .brand-name { font-size: 22px; font-weight: 800; color: #fff; }
-    .brand-sub { margin-top: 3px; font-size: 10px; color: #94a3b8; max-width: 340px; line-height: 1.4; }
-    .inv-box { text-align: right; flex-shrink: 0; }
-    .inv-label { font-size: 9px; text-transform: uppercase; letter-spacing: 1px; color: #64748b; }
-    .inv-code { font-size: 18px; font-weight: 800; color: #fff; margin-top: 2px; }
-    .inv-date { font-size: 10px; color: #94a3b8; margin-top: 2px; }
+    .brand-name { font-size: 19px; font-weight: 800; color: #111827; line-height: 1.15; }
+    .brand-sub { margin-top: 4px; font-size: 10px; color: #6b7280; max-width: 360px; line-height: 1.45; }
+    .inv-box { text-align: right; flex-shrink: 0; min-width: 170px; border-left: 1px solid #d1d5db; padding-left: 14px; }
+    .inv-label { font-size: 9px; text-transform: uppercase; letter-spacing: 1px; color: #6b7280; }
+    .inv-code { font-size: 18px; font-weight: 800; color: #111827; margin-top: 3px; }
+    .inv-date { font-size: 10px; color: #6b7280; margin-top: 2px; }
 
-    .body-wrap { border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 10px 10px; padding: 14px 20px; }
+    .body-wrap { border: 1px solid #d1d5db; border-top: none; padding: 14px 16px 12px; }
 
-    .blocks { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; padding-bottom: 14px; border-bottom: 1px dashed #e2e8f0; }
-    .block { padding: 10px 12px; background: #f8fafc; border-radius: 7px; border: 1px solid #e2e8f0; }
-    .block-title { font-size: 9px; text-transform: uppercase; letter-spacing: 0.8px; color: #64748b; margin-bottom: 6px; padding-bottom: 4px; border-bottom: 1px solid #e2e8f0; }
+    .blocks { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid #d1d5db; }
+    .block { padding: 8px 10px; background: #fff; border-radius: 3px; border: 1px solid #d1d5db; border-left: 3px solid ${headerColor}; }
+    .block-title { font-size: 9px; text-transform: uppercase; letter-spacing: 0.6px; color: #111827; margin-bottom: 6px; padding-bottom: 4px; border-bottom: 1px solid #e5e7eb; font-weight: 700; }
     .block-row { display: flex; justify-content: space-between; gap: 8px; margin-top: 4px; }
     .block-row:first-of-type { margin-top: 0; }
-    .bl { color: #64748b; font-size: 10px; }
-    .bv { font-weight: 600; font-size: 11px; text-align: right; }
+    .bl { color: #6b7280; font-size: 10px; }
+    .bv { font-weight: 700; font-size: 11px; text-align: right; }
 
     .badge { display: inline-block; padding: 1px 7px; border-radius: 20px; font-size: 10px; font-weight: 600; background: #dcfce7; color: #166534; }
     .badge.partial { background: #fef9c3; color: #854d0e; }
     .badge.pending { background: #f1f5f9; color: #475569; }
 
-    .table-wrap { border: 1px solid #e2e8f0; border-radius: 7px; overflow: hidden; margin-bottom: 12px; }
-    table { width: 100%; border-collapse: collapse; }
-    th { background: #f1f5f9; color: #475569; font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.6px; padding: 6px 8px; border-bottom: 1px solid #e2e8f0; font-weight: 700; }
-    td { padding: 6px 8px; border-bottom: 1px solid #f1f5f9; vertical-align: top; }
+    .table-wrap { border: 1px solid #d1d5db; border-radius: 3px; overflow: visible; margin-bottom: 12px; }
+    table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+    thead { display: table-header-group; }
+    tfoot { display: table-footer-group; }
+    th { background: #f3f4f6; color: #111827; font-size: 9px; text-transform: uppercase; letter-spacing: 0.4px; padding: 6px 7px; border-bottom: 1px solid #d1d5db; font-weight: 700; }
+    td { padding: 5px 7px; border-bottom: 1px solid #e5e7eb; vertical-align: top; }
     tr:last-child td { border-bottom: none; }
-    tr:nth-child(even) td { background: #fafbfd; }
+    tr:nth-child(even) td { background: #fff; }
+    tr { break-inside: avoid; page-break-inside: avoid; }
     .num { text-align: right; white-space: nowrap; }
     .center { text-align: center; }
     .item-sn { font-size: 9.5px; color: #64748b; margin-top: 1px; }
 
-    .bottom-area { display: flex; justify-content: flex-end; align-items: flex-start; gap: 16px; }
-    .summary-box { width: 250px; flex-shrink: 0; border: 1px solid #e2e8f0; border-radius: 7px; overflow: hidden; }
-    .s-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 12px; border-bottom: 1px solid #f1f5f9; font-size: 12px; }
+    .bottom-area { display: flex; justify-content: flex-end; align-items: flex-start; gap: 16px; break-inside: avoid; page-break-inside: avoid; }
+    .summary-box { width: 245px; flex-shrink: 0; border: 1px solid #d1d5db; border-radius: 3px; overflow: hidden; }
+    .s-row { display: flex; justify-content: space-between; align-items: center; padding: 5px 10px; border-bottom: 1px solid #e5e7eb; font-size: 11px; }
     .s-row:last-child { border-bottom: none; }
     .s-row.highlight { background: ${headerColor}; color: #fff; font-weight: 700; }
     .s-row.sub-highlight { background: #f1f5f9; font-weight: 600; }
     .s-val { font-weight: 600; }
 
-    .remark-box { margin-top: 12px; border: 1px solid #e2e8f0; border-radius: 7px; padding: 8px 10px; min-height: 34px; font-size: 11px; color: #475569; }
-    .section-label { font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.7px; color: #64748b; font-weight: 700; margin-bottom: 6px; }
-    .signatures { margin-top: 24px; display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
-    .sign { padding-top: 30px; border-top: 1px solid #cbd5e1; text-align: center; font-size: 10px; color: #64748b; }
-    .footer-bar { margin-top: 12px; padding-top: 8px; border-top: 1px dashed #e2e8f0; text-align: center; font-size: 9.5px; color: #94a3b8; }
+    .remark-box { margin-top: 12px; border: 1px solid #d1d5db; border-radius: 3px; padding: 7px 9px; min-height: 34px; font-size: 11px; color: #4b5563; break-inside: avoid; page-break-inside: avoid; }
+    .section-label { font-size: 9px; text-transform: uppercase; letter-spacing: 0.6px; color: #111827; font-weight: 700; margin-bottom: 6px; }
+    .signatures { margin-top: 22px; display: grid; grid-template-columns: 1fr 1fr; gap: 28px; break-inside: avoid; page-break-inside: avoid; }
+    .sign { padding-top: 28px; border-top: 1px solid #9ca3af; text-align: center; font-size: 10px; color: #6b7280; }
+    .footer-bar { margin-top: 10px; padding-top: 6px; border-top: 1px dashed #d1d5db; text-align: center; font-size: 9px; color: #6b7280; break-inside: avoid; page-break-inside: avoid; }
+    @media print {
+      body { margin: 0 !important; }
+      .header, .blocks, .bottom-area, .summary-box, .remark-box, .signatures, .footer-bar {
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
+      thead { display: table-header-group; }
+      tr { break-inside: avoid; page-break-inside: avoid; }
+    }
   </style>
 </head>
 <body>
@@ -220,7 +232,7 @@ export const buildPurchaseVoucherHtml = ({
     ${signaturesHtml}
 
     <div class="footer-bar">
-      ${escapeHtml(companyName)} &nbsp;·&nbsp; ${escapeHtml(footerNote)} &nbsp;·&nbsp; ${escapeHtml(fmtDate(purchase.purchaseDate))}
+      ${escapeHtml(companyName)} | ${escapeHtml(footerNote)} | ${escapeHtml(fmtDate(purchase.purchaseDate))}
     </div>
   </div>
 

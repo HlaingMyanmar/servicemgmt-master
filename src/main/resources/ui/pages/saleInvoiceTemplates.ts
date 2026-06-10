@@ -146,12 +146,13 @@ export const buildSaleVoucherHtml = ({
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>Sale Voucher ${escapeHtml(sale.saleCode || sale.id)}</title>
+  <title></title>
   <style>
-    @page { size: ${resolvedPaper} auto; margin: 3mm; }
+    @page { size: ${resolvedPaper} auto; margin: 0; }
     * { box-sizing: border-box; }
     body {
       margin: 0;
+      padding: 3mm;
       font-family: 'Segoe UI', Arial, sans-serif;
       width: ${resolvedPaper};
       color: #111827;
@@ -254,9 +255,9 @@ export const buildSaleVoucherHtml = ({
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>Sale Voucher ${escapeHtml(sale.saleCode || sale.id)}</title>
+  <title></title>
   <style>
-    @page { size: ${resolvedPaper} portrait; margin: ${standardCompact ? '8mm' : '10mm'}; }
+    @page { size: ${resolvedPaper} portrait; margin: 0; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: 'Segoe UI', 'Arial', sans-serif;
@@ -264,6 +265,7 @@ export const buildSaleVoucherHtml = ({
       font-size: ${standardCompact ? '11px' : '12px'};
       line-height: 1.5;
       background: #fff;
+      padding: ${standardCompact ? '8mm' : '10mm'};
     }
 
     /* ── Header ── */
@@ -324,25 +326,31 @@ export const buildSaleVoucherHtml = ({
       .body-wrap { border-top: 1px solid #e2e8f0; border-radius: 10px; margin-top: 6px; }
     }
 
-    /* ── Info blocks ── */
+    /* ── Info blocks — single box, left / right ── */
     .blocks {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 10px;
+      border: 1px solid #e2e8f0;
+      border-top: 3px solid ${headerColor};
+      border-radius: 7px;
+      overflow: hidden;
       margin-bottom: 14px;
-      padding-bottom: 14px;
-      border-bottom: 1px dashed #e2e8f0;
       break-inside: avoid;
       page-break-inside: avoid;
     }
-    .block { padding: ${standardCompact ? '8px 10px' : '10px 12px'}; background: #f8fafc; border-radius: 7px; border: 1px solid #e2e8f0; }
+    .block {
+      padding: ${standardCompact ? '9px 11px' : '11px 13px'};
+      background: #fff;
+    }
+    .block:first-child { border-right: 1px solid #e2e8f0; }
     .block-title {
       font-size: 9px;
+      font-weight: 700;
       text-transform: uppercase;
-      letter-spacing: 0.8px;
-      color: #64748b;
-      margin-bottom: 6px;
-      padding-bottom: 4px;
+      letter-spacing: 1px;
+      color: ${headerColor};
+      margin-bottom: 7px;
+      padding-bottom: 5px;
       border-bottom: 1px solid #e2e8f0;
     }
     .block-row { display: flex; justify-content: space-between; gap: 8px; margin-top: 4px; }

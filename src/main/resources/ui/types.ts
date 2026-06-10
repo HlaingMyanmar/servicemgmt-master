@@ -744,6 +744,7 @@ export enum AppRoute {
   VOUCHER_SETTINGS     = '/settings/voucher',
   APP_VERSION_SETTINGS = '/settings/app-version',
   SHELF_LOCATIONS      = '/services/shelf-locations',
-  OPENING_BALANCE      = '/accounting/opening-balance',
-  OPENING_STOCK        = '/inventory/opening-stock'
+  OPENING_BALANCE          = '/accounting/opening-balance',
+  OPENING_STOCK            = '/inventory/opening-stock',
+  PAYMENT_TRANSACTIONS     = '/accounting/payment-transactions'
 }

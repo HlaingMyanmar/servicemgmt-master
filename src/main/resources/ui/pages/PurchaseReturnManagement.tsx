@@ -7,7 +7,8 @@ import { purchaseReturnApiService, PurchaseReturnPage } from '../services/purcha
 import { purchaseApiService } from '../services/purchaseapiservice';
 import { paymentMethodService } from '../services/paymentmethodapiservice';
 import { supplierService } from '../services/supplierapiservice';
-import { AppRoute, PaymentMethodDTO, PurchaseDTO, PurchaseReturnDTO, PurchaseReturnDetailDTO, SupplierDTO } from '../types';
+import { AppRoute, PaymentMethodDTO, PaymentTransactionDTO, PurchaseDTO, PurchaseReturnDTO, PurchaseReturnDetailDTO, SupplierDTO } from '../types';
+import SplitPaymentEditor from '../components/SplitPaymentEditor';
 
 type DetailForm = PurchaseReturnDetailDTO & { productSearch: string; serialNumbers: string[] };
 
@@ -51,6 +52,16 @@ const toLocalDateTime = (value?: string) => {
 
 const nowLocalDateTime = () => toLocalDateTime(new Date().toISOString());
 const money = (v: number) => new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v || 0);
+const normalizePayments = (payments: PaymentTransactionDTO[]) =>
+  payments
+    .map((p) => ({
+      ...p,
+      paymentMethodId: Number(p.paymentMethodId) || 0,
+      amount: Number(p.amount) || 0,
+      transactionNo: p.transactionNo?.trim() || undefined
+    }))
+    .filter((p) => p.paymentMethodId > 0 && p.amount > 0);
+const paymentTotal = (payments: PaymentTransactionDTO[]) => normalizePayments(payments).reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
 const discountedUnitCost = (purchase: PurchaseDTO, detail: { productId: number; qty: number; unitCost: number; subtotal: number }) => {
   const gross = Number(purchase.totalAmount || 0);
   const net = Number(purchase.netAmount ?? (gross - Number(purchase.discountAmount || 0)));
@@ -95,6 +106,7 @@ const PurchaseReturnManagement: React.FC = () => {
   const [returnDate, setReturnDate] = useState(nowLocalDateTime());
   const [reason, setReason] = useState('');
   const [refundAmount, setRefundAmount] = useState('');
+  const [refundPayments, setRefundPayments] = useState<PaymentTransactionDTO[]>([]);
   const [paymentMethodId, setPaymentMethodId] = useState(0);
   const [transactionNo, setTransactionNo] = useState('');
   const [details, setDetails] = useState<DetailForm[]>([emptyDetail()]);
@@ -313,6 +325,7 @@ const PurchaseReturnManagement: React.FC = () => {
     setReturnDate(nowLocalDateTime());
     setReason('');
     setRefundAmount('');
+    setRefundPayments([]);
     setPaymentMethodId(paymentMethods[0]?.id ?? 0);
     setTransactionNo('');
     setDetails([emptyDetail()]);
@@ -328,8 +341,11 @@ const PurchaseReturnManagement: React.FC = () => {
     const netAfterReturn = Math.max(0, purchaseNet - existingReturnAmount - total);
     return Math.max(0, Number(selectedPurchase.paidAmount || 0) - netAfterReturn - existingRefundAmount);
   }, [selectedPurchase, existingReturnAmount, existingRefundAmount, total]);
-  const paymentRequired = !Number.isNaN(resolvedRefund) && resolvedRefund > 0;
-  const validRefund = !Number.isNaN(resolvedRefund) && resolvedRefund >= 0 && resolvedRefund <= maxRefund;
+  const normalizedRefundPayments = useMemo(() => normalizePayments(refundPayments), [refundPayments]);
+  const splitRefund = useMemo(() => paymentTotal(refundPayments), [refundPayments]);
+  const effectiveRefund = normalizedRefundPayments.length > 0 ? splitRefund : resolvedRefund;
+  const paymentRequired = !Number.isNaN(effectiveRefund) && effectiveRefund > 0;
+  const validRefund = !Number.isNaN(effectiveRefund) && effectiveRefund >= 0 && effectiveRefund <= maxRefund;
 
   const serialValidation = useMemo(() => {
     const rowsWithProduct = details.filter((row) => row.productId > 0);
@@ -375,7 +391,7 @@ const PurchaseReturnManagement: React.FC = () => {
     && serialValidation.uniqueAcrossRows
     && serialValidation.belongsToSelectedProduct
     && validRefund
-    && (!paymentRequired || paymentMethodId > 0);
+    && (!paymentRequired || paymentMethodId > 0 || normalizedRefundPayments.length > 0);
 
   const onDetailChange = (index: number, field: 'qty' | 'unitPrice', value: string) => {
     setDetails((prev) => prev.map((d, i) => {
@@ -509,8 +525,9 @@ const PurchaseReturnManagement: React.FC = () => {
         returnDate: returnDate || undefined,
         reason: reason.trim() || undefined,
         totalReturnAmount: total,
-        refundAmount: resolvedRefund,
-        paymentMethodId: paymentRequired ? paymentMethodId : undefined,
+        refundAmount: effectiveRefund,
+        paymentMethodId: paymentRequired ? (normalizedRefundPayments[0]?.paymentMethodId || paymentMethodId) : undefined,
+        payments: normalizedRefundPayments.length > 0 ? normalizedRefundPayments : undefined,
         transactionNo: transactionNo.trim() || undefined,
         details: details.map((d) => ({
           returnId: editingId || undefined,
@@ -726,7 +743,7 @@ const PurchaseReturnManagement: React.FC = () => {
 
               <div className="space-y-1.5">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Refund Amount</label>
-                <input type="number" min="0" max={maxRefund || undefined} step="0.01" value={refundAmount} onChange={(e) => setRefundAmount(e.target.value)} placeholder="0 = supplier credit/payable reduction only" className={`w-full px-3 py-2 bg-slate-50 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 ${validRefund ? 'border-slate-200' : 'border-rose-200'}`} />
+                <input type="number" min="0" max={maxRefund || undefined} step="0.01" value={refundAmount} onChange={(e) => { setRefundAmount(e.target.value); if (refundPayments.length > 0) setRefundPayments([]); }} placeholder="0 = supplier credit/payable reduction only" className={`w-full px-3 py-2 bg-slate-50 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 ${validRefund ? 'border-slate-200' : 'border-rose-200'}`} />
                 <p className="text-[10px] text-slate-400">Blank means 0 refund. Refund is allowed only when this purchase has supplier credit.</p>
               </div>
 
@@ -738,6 +755,17 @@ const PurchaseReturnManagement: React.FC = () => {
                 </select>
                 <p className="text-[10px] text-slate-400">Required only if refund amount is greater than zero.</p>
               </div>
+
+              <SplitPaymentEditor
+                methods={paymentMethods}
+                payments={refundPayments}
+                onChange={(next) => {
+                  setRefundPayments(next);
+                  const totalPaid = paymentTotal(next);
+                  setRefundAmount(totalPaid > 0 ? String(totalPaid.toFixed(2)) : '');
+                }}
+                label="Split Refund"
+              />
 
               <div className="space-y-1.5">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Transaction No</label>

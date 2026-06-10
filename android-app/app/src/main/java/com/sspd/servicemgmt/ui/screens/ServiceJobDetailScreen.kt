@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sspd.servicemgmt.api.PaymentMethodDTO
+import com.sspd.servicemgmt.api.PaymentTransactionDTO
 import com.sspd.servicemgmt.api.ProductSerialDTO
 import com.sspd.servicemgmt.api.ServiceJobDTO
 import com.sspd.servicemgmt.api.ServiceJobLineDTO
@@ -94,8 +95,8 @@ fun ServiceJobDetailScreen(
             paymentMethods = state.paymentMethods,
             loading        = state.actionLoading,
             onDismiss      = { vm.dismissSettleDialog() },
-            onSettle       = { cost, disc, foc, paid, mid, txn, due ->
-                vm.settle(cost, disc, foc, paid, mid, txn, due)
+            onSettle       = { cost, disc, foc, paid, mid, txn, due, payments ->
+                vm.settle(cost, disc, foc, paid, mid, txn, due, payments)
             }
         )
     }
@@ -106,7 +107,7 @@ fun ServiceJobDetailScreen(
             paymentMethods = state.paymentMethods,
             loading        = state.actionLoading,
             onDismiss      = { vm.dismissPayDueDialog() },
-            onPay          = { amt, mid, txn, note -> vm.payDue(amt, mid, txn, note) }
+            onPay          = { amt, mid, txn, note, payments -> vm.payDue(amt, mid, txn, note, payments) }
         )
     }
 
@@ -478,7 +479,7 @@ private fun SettleDialog(
     paymentMethods: List<PaymentMethodDTO>,
     loading:        Boolean,
     onDismiss:      () -> Unit,
-    onSettle:       (finalCost: Double, discount: Double, foc: Boolean, paid: Double, methodId: Int?, txnNo: String?, dueDate: String?) -> Unit
+    onSettle:       (finalCost: Double, discount: Double, foc: Boolean, paid: Double, methodId: Int?, txnNo: String?, dueDate: String?, payments: List<PaymentTransactionDTO>?) -> Unit
 ) {
     val defaultCost = job?.estimatedCost ?: job?.netAmount ?: 0.0
     var costStr     by remember { mutableStateOf(String.format("%.0f", defaultCost)) }
@@ -487,13 +488,15 @@ private fun SettleDialog(
     var paidStr     by remember { mutableStateOf("") }
     var txnNo       by remember { mutableStateOf("") }
     var selectedPm  by remember { mutableStateOf<PaymentMethodDTO?>(null) }
+    var splitPayments by remember { mutableStateOf<List<PaymentTransactionDTO>>(emptyList()) }
     var showSheet   by remember { mutableStateOf(false) }
     var showDuePicker by remember { mutableStateOf(false) }
     var dueDate     by remember { mutableStateOf("") }
     var error       by remember { mutableStateOf("") }
 
     val net     = ((costStr.toDoubleOrNull() ?: 0.0) - (discountStr.toDoubleOrNull() ?: 0.0)).coerceAtLeast(0.0)
-    val paid    = if (foc) 0.0 else paidStr.toDoubleOrNull() ?: 0.0
+    val splitPaid = splitPayments.sumOf { it.amount ?: 0.0 }
+    val paid    = if (foc) 0.0 else if (splitPayments.isNotEmpty()) splitPaid else (paidStr.toDoubleOrNull() ?: 0.0)
     val balance = (net - paid).coerceAtLeast(0.0)
 
     // Due date picker
@@ -624,7 +627,7 @@ private fun SettleDialog(
                     }
 
                     // ── Payment method (only when paid > 0) ───────────────────
-                    if ((paidStr.toDoubleOrNull() ?: 0.0) > 0) {
+                    if (paid > 0.0) {
                         OutlinedCard(
                             modifier = Modifier.fillMaxWidth().clickable { showSheet = true },
                             shape = RoundedCornerShape(10.dp), border = BorderStroke(1.dp, BorderColor)
@@ -645,6 +648,36 @@ private fun SettleDialog(
                             leadingIcon = { Icon(Icons.Outlined.Receipt, null, modifier = Modifier.size(16.dp)) },
                             modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(10.dp)
                         )
+                        Button(
+                            onClick = {
+                                val method = selectedPm ?: return@Button
+                                val amount = paidStr.toDoubleOrNull() ?: 0.0
+                                if (amount > 0.0) {
+                                    val next = splitPayments + PaymentTransactionDTO(
+                                        paymentMethodId = method.id,
+                                        paymentMethodName = method.methodName,
+                                        amount = amount,
+                                        transactionNo = txnNo.ifBlank { null }
+                                    )
+                                    splitPayments = next
+                                    paidStr = next.sumOf { it.amount ?: 0.0 }.formatDialogMoney()
+                                    txnNo = ""
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Icon(Icons.Outlined.Add, null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("Add split payment")
+                        }
+                        splitPayments.forEachIndexed { index, payment ->
+                            SplitPaymentRow(payment = payment, onRemove = {
+                                val next = splitPayments.filterIndexed { i, _ -> i != index }
+                                splitPayments = next
+                                paidStr = if (next.isEmpty()) "" else next.sumOf { it.amount ?: 0.0 }.formatDialogMoney()
+                            })
+                        }
                     }
 
                     // ── Due date (when balance > 0) ───────────────────────────
@@ -680,7 +713,7 @@ private fun SettleDialog(
                 onClick = {
                     val cost    = costStr.toDoubleOrNull()
                     val disc    = discountStr.toDoubleOrNull() ?: 0.0
-                    val paidVal = if (foc) 0.0 else paidStr.toDoubleOrNull()
+                    val paidVal = if (foc) 0.0 else if (splitPayments.isNotEmpty()) splitPayments.sumOf { it.amount ?: 0.0 } else paidStr.toDoubleOrNull()
                     val needPm  = !foc && (paidVal ?: 0.0) > 0
                     when {
                         cost == null || cost < 0     -> error = "ကိုန် မှန်ကန်စွာ ရိုက်ပါ"
@@ -691,7 +724,8 @@ private fun SettleDialog(
                             paidVal ?: 0.0,
                             selectedPm?.id,
                             txnNo.ifBlank { null },
-                            dueDate.ifBlank { null }
+                            dueDate.ifBlank { null },
+                            splitPayments.ifEmpty { null }
                         )
                     }
                 },
@@ -715,10 +749,11 @@ private fun JobPayDueDialog(
     paymentMethods: List<PaymentMethodDTO>,
     loading:        Boolean,
     onDismiss:      () -> Unit,
-    onPay:          (amount: Double, methodId: Int, txnNo: String?, note: String?) -> Unit
+    onPay:          (amount: Double, methodId: Int, txnNo: String?, note: String?, payments: List<PaymentTransactionDTO>?) -> Unit
 ) {
     var amountStr  by remember { mutableStateOf(String.format("%.0f", dueAmount)) }
     var selectedPm by remember { mutableStateOf<PaymentMethodDTO?>(null) }
+    var splitPayments by remember { mutableStateOf<List<PaymentTransactionDTO>>(emptyList()) }
     var txnNo      by remember { mutableStateOf("") }
     var note       by remember { mutableStateOf("") }
     var showSheet  by remember { mutableStateOf(false) }
@@ -795,6 +830,37 @@ private fun JobPayDueDialog(
                     leadingIcon = { Icon(Icons.Outlined.Receipt, null, modifier = Modifier.size(16.dp)) },
                     modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(10.dp)
                 )
+                Button(
+                    onClick = {
+                        val method = selectedPm ?: return@Button
+                        val amount = amountStr.toDoubleOrNull() ?: 0.0
+                        if (amount > 0.0) {
+                            val next = splitPayments + PaymentTransactionDTO(
+                                paymentMethodId = method.id,
+                                paymentMethodName = method.methodName,
+                                amount = amount,
+                                transactionNo = txnNo.ifBlank { null }
+                            )
+                            splitPayments = next
+                            amountStr = next.sumOf { it.amount ?: 0.0 }.formatDialogMoney()
+                            txnNo = ""
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = Danger),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Icon(Icons.Outlined.Add, null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Add split payment")
+                }
+                splitPayments.forEachIndexed { index, payment ->
+                    SplitPaymentRow(payment = payment, onRemove = {
+                        val next = splitPayments.filterIndexed { i, _ -> i != index }
+                        splitPayments = next
+                        amountStr = if (next.isEmpty()) "" else next.sumOf { it.amount ?: 0.0 }.formatDialogMoney()
+                    })
+                }
                 OutlinedTextField(
                     value = note, onValueChange = { note = it },
                     label = { Text("မှတ်ချက် (optional)") },
@@ -807,12 +873,12 @@ private fun JobPayDueDialog(
         confirmButton = {
             Button(
                 onClick = {
-                    val amt = amountStr.toDoubleOrNull()
+                    val amt = if (splitPayments.isNotEmpty()) splitPayments.sumOf { it.amount ?: 0.0 } else amountStr.toDoubleOrNull()
                     when {
                         amt == null || amt <= 0 -> error = "ပမာဏ မှန်ကန်စွာ ရိုက်ပါ"
                         amt > dueAmount + 0.01  -> error = "ကျန်ငွေထက် မကျော်ရပါ"
                         selectedPm == null      -> error = "ငွေပေးချေမှု နည်းလမ်း ရွေးပါ"
-                        else -> onPay(amt, selectedPm!!.id, txnNo.ifBlank { null }, note.ifBlank { null })
+                        else -> onPay(amt, selectedPm!!.id, txnNo.ifBlank { null }, note.ifBlank { null }, splitPayments.ifEmpty { null })
                     }
                 },
                 enabled = !loading,
@@ -826,5 +892,25 @@ private fun JobPayDueDialog(
     )
 }
 
-private fun Double?.fmtD() = String.format("%,.0f", this ?: 0.0)
+@Composable
+private fun SplitPaymentRow(payment: PaymentTransactionDTO, onRemove: () -> Unit) {
+    Surface(color = CardBg, shape = RoundedCornerShape(10.dp), border = BorderStroke(1.dp, BorderColor)) {
+        Row(
+            Modifier.fillMaxWidth().padding(10.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(payment.paymentMethodName ?: "Payment", color = TextMain, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Text("${String.format("%,.0f", payment.amount ?: 0.0)} Ks", color = Primary, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
+            }
+            IconButton(onClick = onRemove) {
+                Icon(Icons.Outlined.Delete, null, tint = Danger)
+            }
+        }
+    }
+}
 
+private fun Double.formatDialogMoney(): String = if (this % 1.0 == 0.0) toLong().toString() else toString()
+
+private fun Double?.fmtD() = String.format("%,.0f", this ?: 0.0)

@@ -9,6 +9,8 @@ import { productSerialService } from '../services/productserialapiservice';
 import { customerService } from '../services/customerapiservice';
 import { creditTermService } from '../services/credittermapiservice';
 import { InvoicePrintPreview } from '../print/components/InvoicePrintPreview';
+import SplitPaymentEditor from '../components/SplitPaymentEditor';
+import { PaymentTransactionDTO } from '../types';
 import Swal from 'sweetalert2';
 
 /* ── Status config ─────────────────────────────────────────────── */
@@ -51,7 +53,14 @@ const emptySettle = {
   finalCost: '', discountAmount: '0', foc: false,
   paidAmount: '', dueDate: '',
   paymentMethodId: '', paymentAccountId: '', transactionNo: '',
+  payments: [] as PaymentTransactionDTO[],
 };
+
+const normalizePayments = (payments: PaymentTransactionDTO[]) =>
+  payments
+    .map((p) => ({ ...p, paymentMethodId: Number(p.paymentMethodId) || 0, amount: Number(p.amount) || 0, transactionNo: p.transactionNo?.trim() || undefined }))
+    .filter((p) => p.paymentMethodId > 0 && p.amount > 0);
+const paymentTotal = (payments: PaymentTransactionDTO[]) => normalizePayments(payments).reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
 
 /* ── SearchableSelect ─────────────────────────────────────────── */
 const SearchableSelect: React.FC<{
@@ -150,7 +159,7 @@ export default function ServiceJobManagement() {
 
   const [showCreditPay, setShowCreditPay] = useState(false);
   const [creditPayJob, setCreditPayJob]   = useState<any>(null);
-  const [creditPayForm, setCreditPayForm] = useState({ paidAmount: '', paymentMethodId: '', paymentAccountId: '', transactionNo: '' });
+  const [creditPayForm, setCreditPayForm] = useState({ paidAmount: '', paymentMethodId: '', paymentAccountId: '', transactionNo: '', payments: [] as PaymentTransactionDTO[] });
 
   const [printId, setPrintId]   = useState<number | null>(null);
   const PAGE_SIZE = 20;
@@ -308,8 +317,9 @@ export default function ServiceJobManagement() {
 
   const handleSettle = async () => {
     if (!settleJob) return;
-    const paid = settleForm.foc ? 0 : Number(settleForm.paidAmount || 0);
-    if (!settleForm.foc && paid > 0 && !settleForm.paymentMethodId) {
+    const settlePayments = normalizePayments(settleForm.payments || []);
+    const paid = settleForm.foc ? 0 : (settlePayments.length > 0 ? paymentTotal(settleForm.payments || []) : Number(settleForm.paidAmount || 0));
+    if (!settleForm.foc && paid > 0 && !settleForm.paymentMethodId && settlePayments.length === 0) {
       Swal.fire('အမှား', 'ငွေပေးချေနည်း ရွေးပါ', 'error'); return;
     }
     const dto = {
@@ -318,9 +328,10 @@ export default function ServiceJobManagement() {
       foc:              settleForm.foc,
       paidAmount:       paid,
       dueDate:          settleForm.dueDate || null,
-      paymentMethodId:  settleForm.paymentMethodId ? Number(settleForm.paymentMethodId) : null,
+      paymentMethodId:  paid > 0 ? (settlePayments[0]?.paymentMethodId || (settleForm.paymentMethodId ? Number(settleForm.paymentMethodId) : null)) : null,
       paymentAccountId: settleForm.paymentAccountId ? Number(settleForm.paymentAccountId) : null,
       transactionNo:    settleForm.transactionNo || null,
+      payments:         settlePayments.length > 0 ? settlePayments : undefined,
     };
     const res = await serviceJobService.settle(settleJob.id, dto);
     if (res.success) {
@@ -334,20 +345,22 @@ export default function ServiceJobManagement() {
   const openCreditPay = (j: any) => {
     setCreditPayJob(j);
     const due = Number(j.dueAmount) || 0;
-    setCreditPayForm({ paidAmount: due > 0 ? String(due) : '', paymentMethodId: '', paymentAccountId: '', transactionNo: '' });
+    setCreditPayForm({ paidAmount: due > 0 ? String(due) : '', paymentMethodId: '', paymentAccountId: '', transactionNo: '', payments: [] });
     setShowCreditPay(true);
   };
 
   const handleCreditPay = async () => {
     if (!creditPayJob) return;
-    const paid = Number(creditPayForm.paidAmount || 0);
+    const creditPayments = normalizePayments(creditPayForm.payments || []);
+    const paid = creditPayments.length > 0 ? paymentTotal(creditPayForm.payments || []) : Number(creditPayForm.paidAmount || 0);
     if (paid <= 0) { Swal.fire('အမှား', 'ပေးချေမည့် ပမာဏ ထည့်ပါ', 'error'); return; }
-    if (!creditPayForm.paymentMethodId) { Swal.fire('အမှား', 'ငွေပေးချေနည်း ရွေးပါ', 'error'); return; }
+    if (!creditPayForm.paymentMethodId && creditPayments.length === 0) { Swal.fire('အမှား', 'ငွေပေးချေနည်း ရွေးပါ', 'error'); return; }
     const dto = {
       paidAmount: paid,
-      paymentMethodId: Number(creditPayForm.paymentMethodId),
+      paymentMethodId: creditPayments[0]?.paymentMethodId || Number(creditPayForm.paymentMethodId),
       paymentAccountId: creditPayForm.paymentAccountId ? Number(creditPayForm.paymentAccountId) : null,
       transactionNo: creditPayForm.transactionNo || null,
+      payments: creditPayments.length > 0 ? creditPayments : undefined,
     };
     const res = await serviceJobService.payDue(creditPayJob.id, dto);
     if (res.success) {
@@ -995,6 +1008,19 @@ export default function ServiceJobManagement() {
                       {sPaid <= 0 && <p className="text-[10px] text-amber-600 mt-0.5">အကြွေးရောင်း — ငွေပေးချေမှုမရှိပါ</p>}
                     </div>
 
+                    <SplitPaymentEditor
+                      methods={payMethods}
+                      payments={settleForm.payments || []}
+                      onChange={(next) => {
+                        setSettleForm(p => ({
+                          ...p,
+                          payments: next,
+                          paidAmount: paymentTotal(next) > 0 ? String(paymentTotal(next)) : p.paidAmount
+                        }));
+                      }}
+                      label="Split Payment"
+                    />
+
                     {/* Transaction No (bank/kpay/wave) */}
                     {requiresTxn && sPaid > 0 && (
                       <div>
@@ -1144,6 +1170,19 @@ export default function ServiceJobManagement() {
                     {payMethods.map(m => <option key={m.id} value={m.id}>{m.methodName}</option>)}
                   </select>
                 </div>
+
+                <SplitPaymentEditor
+                  methods={payMethods}
+                  payments={creditPayForm.payments || []}
+                  onChange={(next) => {
+                    setCreditPayForm(p => ({
+                      ...p,
+                      payments: next,
+                      paidAmount: paymentTotal(next) > 0 ? String(paymentTotal(next)) : p.paidAmount
+                    }));
+                  }}
+                  label="Split Payment"
+                />
 
                 {/* Transaction No */}
                 {cpRequiresTxn && (

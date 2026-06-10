@@ -18,6 +18,7 @@ import StaffManagement from './pages/StaffManagement';
 import ChartOfAccountManagement from './pages/ChartOfAccountManagement';
 import PaymentMethodManagement from './pages/PaymentMethodManagement';
 import AccountingDashboard from './pages/AccountingDashboard';
+import PaymentTransactionManagement from './pages/PaymentTransactionManagement';
 import JournalEntryManagement from './pages/JournalEntryManagement';
 import PurchaseManagement from './pages/PurchaseManagement';
 import PurchaseReturnManagement from './pages/PurchaseReturnManagement';
@@ -269,6 +270,10 @@ const App: React.FC = () => {
         <Route
           path={AppRoute.OPENING_BALANCE}
           element={renderProtected(<OpeningBalancePage />, 'CAN_ACCESS_COA_READ')}
+        />
+        <Route
+          path={AppRoute.PAYMENT_TRANSACTIONS}
+          element={renderProtected(<PaymentTransactionManagement />, 'CAN_ACCESS_COA_READ')}
         />
         <Route
           path={AppRoute.OPENING_STOCK}

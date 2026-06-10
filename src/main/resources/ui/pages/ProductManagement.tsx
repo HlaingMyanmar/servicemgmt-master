@@ -835,16 +835,16 @@ const ProductManagement: React.FC = () => {
 
                 {/* Selling Price */}
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">ရောင်းဈေး <span className="text-rose-400">*</span></label>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">ရောင်းဈေး</label>
                   <div className="relative group">
                     <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-emerald-500 transition-colors" size={14} />
-                    <input type="number" required min="0"
+                    <input type="number" min="0"
                       value={formData.sellingPrice ?? 0}
                       onChange={(e) => setFormData({...formData, sellingPrice: Number(e.target.value)})}
                       className="w-full pl-9 pr-3 py-3 border rounded-xl text-sm font-semibold outline-none transition-all bg-slate-50 border-slate-200 focus:border-emerald-400 focus:bg-white"
                     />
                   </div>
-                  <p className="text-[9px] text-slate-400 ml-1">MMK · Purchase မရှိသေးပါက manual ပြင်နိုင်သည်</p>
+                  <p className="text-[9px] text-slate-400 ml-1">MMK · မထည့်လည်းရသည် · Purchase ပြီးမှ auto update ဖြစ်သည်</p>
                 </div>
 
                 {/* Cost Price */}

@@ -8,10 +8,11 @@ import { accountingApiService } from '../services/accountingapiservice';
 import { supplierService } from '../services/supplierapiservice';
 import { staffService } from '../services/staffapiservice';
 import { productService } from '../services/productapiservice';
-import { AppRoute, PurchaseDTO, PurchaseDetailDTO, SupplierDTO, StaffDTO, ProductDTO, PaymentMethodDTO, PurchaseReturnDTO } from '../types';
+import { AppRoute, PurchaseDTO, PurchaseDetailDTO, SupplierDTO, StaffDTO, ProductDTO, PaymentMethodDTO, PaymentTransactionDTO, PurchaseReturnDTO } from '../types';
 import { Plus, Trash2, Save, ShoppingCart, Hash, DollarSign, User, List, Eye, X, RefreshCw, ArrowLeft, FileText, AlertCircle, CheckCircle, Search, Calendar, Filter, CreditCard, Box, Printer, Camera } from 'lucide-react';
 import { buildPurchaseVoucherHtml } from './purchaseVoucherTemplate';
 import { getCachedCompanySettings } from '../utils/companySettings';
+import SplitPaymentEditor from '../components/SplitPaymentEditor';
 import Swal from 'sweetalert2';
 
 type PurchaseDetailForm = PurchaseDetailDTO & { productSearch?: string; assignSerials?: boolean };
@@ -28,6 +29,16 @@ const resizeStrings = (arr: string[] = [], size: number) => {
   if (arr.length < n) return [...arr, ...Array(n - arr.length).fill('')];
   return arr;
 };
+const normalizePayments = (payments: PaymentTransactionDTO[]) =>
+  payments
+    .map((p) => ({
+      ...p,
+      paymentMethodId: Number(p.paymentMethodId) || 0,
+      amount: Number(p.amount) || 0,
+      transactionNo: p.transactionNo?.trim() || undefined
+    }))
+    .filter((p) => p.paymentMethodId > 0 && p.amount > 0);
+const paymentTotal = (payments: PaymentTransactionDTO[]) => normalizePayments(payments).reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
 
 const dateInput = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -75,6 +86,7 @@ const PurchaseManagement: React.FC = () => {
   const [supplierOpen, setSupplierOpen] = useState(false);
   const [staffOpen, setStaffOpen] = useState(false);
   const [paidAmount, setPaidAmount] = useState<number>(0);
+  const [purchasePayments, setPurchasePayments] = useState<PaymentTransactionDTO[]>([]);
   const [discountAmount, setDiscountAmount] = useState<number>(0);
   const [remark, setRemark] = useState('');
   const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState<number>(0);
@@ -95,7 +107,8 @@ const PurchaseManagement: React.FC = () => {
     purchaseId: 0,
     amount: '',
     paymentMethodId: 0,
-    transactionNo: ''
+    transactionNo: '',
+    payments: [] as PaymentTransactionDTO[]
   });
   
   const [details, setDetails] = useState<PurchaseDetailForm[]>([
@@ -297,7 +310,9 @@ const PurchaseManagement: React.FC = () => {
   const totalAmount = details.reduce((sum, d) => sum + d.subtotal, 0);
   const safeDiscountAmount = Math.min(Math.max(0, discountAmount || 0), totalAmount);
   const netAmount = Math.max(0, totalAmount - safeDiscountAmount);
-  const dueAmount = Math.max(0, netAmount - paidAmount);
+  const normalizedPurchasePayments = normalizePayments(purchasePayments);
+  const effectivePaidAmount = normalizedPurchasePayments.length > 0 ? paymentTotal(purchasePayments) : paidAmount;
+  const dueAmount = Math.max(0, netAmount - effectivePaidAmount);
   const isValid = selectedSupplierId > 0
     && selectedStaffId > 0
     && details.every((d) => {
@@ -310,8 +325,8 @@ const PurchaseManagement: React.FC = () => {
       return true;
     })
     && safeDiscountAmount <= totalAmount
-    && paidAmount <= netAmount
-    && (paidAmount <= 0 || selectedPaymentMethodId > 0);
+    && effectivePaidAmount <= netAmount
+    && (effectivePaidAmount <= 0 || selectedPaymentMethodId > 0 || normalizedPurchasePayments.length > 0);
 
   const handleSave = async () => {
     if (!isValid || saving) return;
@@ -324,11 +339,12 @@ const PurchaseManagement: React.FC = () => {
         totalAmount,
         discountAmount: safeDiscountAmount,
         netAmount,
-        paidAmount,
+        paidAmount: effectivePaidAmount,
         dueAmount,
         remark,
-        paymentMethodId: paidAmount > 0 ? selectedPaymentMethodId : undefined,
-        transactionNo: paidAmount > 0 ? transactionNo : undefined,
+        paymentMethodId: effectivePaidAmount > 0 ? (normalizedPurchasePayments[0]?.paymentMethodId || selectedPaymentMethodId) : undefined,
+        transactionNo: effectivePaidAmount > 0 ? transactionNo : undefined,
+        payments: normalizedPurchasePayments.length > 0 ? normalizedPurchasePayments : undefined,
         details: details.map(d => ({
           productId: Number(d.productId),
           qty: d.qty,
@@ -367,6 +383,7 @@ const PurchaseManagement: React.FC = () => {
         setSupplierSearch('');
         setStaffSearch('');
         setPaidAmount(0);
+        setPurchasePayments([]);
         setDiscountAmount(0);
         setRemark('');
         setSelectedPaymentMethodId(0);
@@ -515,17 +532,19 @@ const PurchaseManagement: React.FC = () => {
       purchaseId: p.id,
       amount: p.dueAmount ? String(p.dueAmount) : '',
       paymentMethodId: paymentMethods[0]?.id ?? 0,
-      transactionNo: ''
+      transactionNo: '',
+      payments: []
     });
     setIsPaymentModalOpen(true);
   };
 
   const handleSavePayment = async (e: React.FormEvent) => {
     e.preventDefault();
-    const amount = parseFloat(paymentForm.amount);
+    const normalizedPaymentFormPayments = normalizePayments(paymentForm.payments || []);
+    const amount = normalizedPaymentFormPayments.length > 0 ? paymentTotal(paymentForm.payments || []) : parseFloat(paymentForm.amount);
     const missing: string[] = [];
     if (!paymentForm.purchaseId) missing.push('Purchase');
-    if (paymentForm.paymentMethodId <= 0) missing.push('Payment Method');
+    if (paymentForm.paymentMethodId <= 0 && normalizedPaymentFormPayments.length === 0) missing.push('Payment Method');
     if (!amount || amount <= 0) missing.push('Amount');
     if (missing.length > 0) {
       Swal.fire('Validation', `Please fill ${missing.join(', ')}.`, 'warning');
@@ -533,13 +552,23 @@ const PurchaseManagement: React.FC = () => {
     }
     setPaymentSaving(true);
     try {
-      await accountingApiService.createPaymentTransaction({
-        referenceId: paymentForm.purchaseId,
-        referenceType: 'Purchase',
-        paymentMethodId: paymentForm.paymentMethodId,
-        amount,
-        transactionNo: paymentForm.transactionNo.trim() || undefined
-      });
+      if (normalizedPaymentFormPayments.length > 0) {
+        await Promise.all(normalizedPaymentFormPayments.map((payment) => accountingApiService.createPaymentTransaction({
+          referenceId: paymentForm.purchaseId,
+          referenceType: 'Purchase',
+          paymentMethodId: payment.paymentMethodId!,
+          amount: payment.amount || 0,
+          transactionNo: payment.transactionNo || undefined
+        })));
+      } else {
+        await accountingApiService.createPaymentTransaction({
+          referenceId: paymentForm.purchaseId,
+          referenceType: 'Purchase',
+          paymentMethodId: paymentForm.paymentMethodId,
+          amount,
+          transactionNo: paymentForm.transactionNo.trim() || undefined
+        });
+      }
       setIsPaymentModalOpen(false);
       fetchPurchases(purchasePage, purchasePageSize, debouncedSearch);
       Swal.fire({ icon: 'success', title: 'Payment recorded', toast: true, position: 'top-end', showConfirmButton: false, timer: 1500 });
@@ -1413,7 +1442,7 @@ const PurchaseManagement: React.FC = () => {
                     value={selectedPaymentMethodId}
                     onChange={(e) => setSelectedPaymentMethodId(Number(e.target.value))}
                     className={`w-full px-3 py-2 bg-slate-50 border rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all ${
-                      selectedPaymentMethodId > 0 || paidAmount <= 0 ? 'border-slate-200' : 'border-rose-200'
+                      selectedPaymentMethodId > 0 || effectivePaidAmount <= 0 || normalizedPurchasePayments.length > 0 ? 'border-slate-200' : 'border-rose-200'
                     }`}
                   >
                     <option value={0}>Select Payment Method</option>
@@ -1428,14 +1457,14 @@ const PurchaseManagement: React.FC = () => {
                   <div className="flex items-center justify-between gap-2">
                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Paid Amount</label>
                     <div className="flex items-center gap-1">
-                      <button type="button" onClick={() => setPaidAmount(netAmount)} className="px-2 py-1 rounded bg-emerald-600 text-white text-[10px] font-bold hover:bg-emerald-700">Full</button>
-                      <button type="button" onClick={() => setPaidAmount(0)} className="px-2 py-1 rounded bg-amber-500 text-white text-[10px] font-bold hover:bg-amber-600">Credit</button>
+                      <button type="button" onClick={() => { setPaidAmount(netAmount); setPurchasePayments([]); }} className="px-2 py-1 rounded bg-emerald-600 text-white text-[10px] font-bold hover:bg-emerald-700">Full</button>
+                      <button type="button" onClick={() => { setPaidAmount(0); setPurchasePayments([]); }} className="px-2 py-1 rounded bg-amber-500 text-white text-[10px] font-bold hover:bg-amber-600">Credit</button>
                     </div>
                   </div>
                   <input 
                     type="number" 
                     value={paidAmount || ''}
-                    onChange={(e) => setPaidAmount(parseFloat(e.target.value) || 0)}
+                    onChange={(e) => { setPaidAmount(parseFloat(e.target.value) || 0); if (purchasePayments.length > 0) setPurchasePayments([]); }}
                     placeholder="0.00"
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-emerald-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
                   />
@@ -1452,9 +1481,19 @@ const PurchaseManagement: React.FC = () => {
                   />
                 </div>
 
-                {paidAmount > 0 && selectedPaymentMethodId === 0 && (
+                {effectivePaidAmount > 0 && selectedPaymentMethodId === 0 && normalizedPurchasePayments.length === 0 && (
                   <p className="text-[10px] text-rose-500">Please select a payment method for paid amount.</p>
                 )}
+                <SplitPaymentEditor
+                  methods={paymentMethods}
+                  payments={purchasePayments}
+                  onChange={(next) => {
+                    setPurchasePayments(next);
+                    const total = paymentTotal(next);
+                    setPaidAmount(total);
+                  }}
+                  label="Split Payment"
+                />
               </div>
 
               <div className="flex justify-between items-center text-sm pt-2 border-t border-slate-100">
@@ -1534,7 +1573,7 @@ const PurchaseManagement: React.FC = () => {
                   type="number"
                   step="0.01"
                   value={paymentForm.amount}
-                  onChange={(e) => setPaymentForm((f) => ({ ...f, amount: e.target.value }))}
+                  onChange={(e) => setPaymentForm((f) => ({ ...f, amount: e.target.value, payments: [] }))}
                   placeholder="0.00"
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
                 />
@@ -1549,6 +1588,12 @@ const PurchaseManagement: React.FC = () => {
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
                 />
               </div>
+              <SplitPaymentEditor
+                methods={paymentMethods}
+                payments={paymentForm.payments || []}
+                onChange={(next) => setPaymentForm((f) => ({ ...f, payments: next, amount: paymentTotal(next) > 0 ? String(paymentTotal(next).toFixed(2)) : f.amount }))}
+                label="Split Payment"
+              />
               <div className="flex justify-end gap-2 pt-4">
                 <button type="button" onClick={() => setIsPaymentModalOpen(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg text-sm font-medium">
                   Cancel

@@ -34,7 +34,7 @@
           <div style="font-weight:500;" th:text="${item.productName}">Product Name</div>
           <div th:if="${not #strings.isEmpty(item.warrantyLabel)}"
                class="inv-table__sub" style="color:#4f46e5;"
-               th:text="${'🛡 ' + item.warrantyLabel}"></div>
+               th:text="${'Warranty: ' + item.warrantyLabel}"></div>
         </td>
         <td th:if="${inv.showSerial}" class="inv-table__sub"
             th:text="${not #strings.isEmpty(item.serialInfo) ? item.serialInfo : '—'}">SN</td>

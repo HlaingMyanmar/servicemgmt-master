@@ -6,6 +6,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.sspd.servicemgmt.api.ApiClient
 import com.sspd.servicemgmt.api.PaymentMethodDTO
+import com.sspd.servicemgmt.api.PaymentTransactionDTO
 import com.sspd.servicemgmt.api.ProductSerialDTO
 import com.sspd.servicemgmt.api.ServiceJobDTO
 import com.sspd.servicemgmt.api.ServiceJobPayDueRequest
@@ -94,7 +95,8 @@ class ServiceJobDetailViewModel(
         paid:      Double,
         methodId:  Int?,
         txnNo:     String?,
-        dueDate:   String?
+        dueDate:   String?,
+        payments:  List<PaymentTransactionDTO>? = null
     ) {
         viewModelScope.launch {
             _uiState.update { it.copy(actionLoading = true, actionError = null) }
@@ -107,9 +109,10 @@ class ServiceJobDetailViewModel(
                         discountAmount  = discount,
                         foc             = foc,
                         paidAmount      = paid,
-                        paymentMethodId = methodId,
+                        paymentMethodId = payments?.firstOrNull()?.paymentMethodId ?: methodId,
                         transactionNo   = txnNo?.ifBlank { null },
-                        dueDate         = dueDate
+                        dueDate         = dueDate,
+                        payments        = payments?.ifEmpty { null }
                     )
                 )
                 if (res.isSuccessful && res.body()?.data != null) {
@@ -135,7 +138,7 @@ class ServiceJobDetailViewModel(
     fun showPayDueDialog() = _uiState.update { it.copy(showPayDueDialog = true) }
     fun dismissPayDueDialog() = _uiState.update { it.copy(showPayDueDialog = false, actionError = null) }
 
-    fun payDue(amount: Double, methodId: Int, txnNo: String?, note: String?) {
+    fun payDue(amount: Double, methodId: Int, txnNo: String?, note: String?, payments: List<PaymentTransactionDTO>? = null) {
         viewModelScope.launch {
             _uiState.update { it.copy(actionLoading = true, actionError = null) }
             try {
@@ -144,9 +147,10 @@ class ServiceJobDetailViewModel(
                     token, jobId,
                     ServiceJobPayDueRequest(
                         paidAmount      = amount,
-                        paymentMethodId = methodId,
+                        paymentMethodId = payments?.firstOrNull()?.paymentMethodId ?: methodId,
                         transactionNo   = txnNo?.ifBlank { null },
-                        note            = note?.ifBlank { null }
+                        note            = note?.ifBlank { null },
+                        payments        = payments?.ifEmpty { null }
                     )
                 )
                 if (res.isSuccessful && res.body()?.data != null) {

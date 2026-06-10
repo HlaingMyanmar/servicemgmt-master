@@ -609,6 +609,17 @@ data class AuditLogDTO(
     val createdAt: String? = null
 )
 
+// ─── Payment Transfer ────────────────────────────────────────────────────────
+
+data class AccountTransferRequest(
+    val fromPaymentMethodId: Int,
+    val toPaymentMethodId:   Int,
+    val amount:              Double,
+    val staffId:             Int?    = null,
+    val transactionNo:       String? = null,
+    val description:         String? = null
+)
+
 // ─── Account Balances ────────────────────────────────────────────────────────
 
 data class AccountBalanceDTO(

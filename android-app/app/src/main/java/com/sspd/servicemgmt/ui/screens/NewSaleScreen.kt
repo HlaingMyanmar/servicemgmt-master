@@ -420,6 +420,44 @@ fun NewSaleScreen(
                         }
                         Spacer(Modifier.height(8.dp))
                         OutlinedTextField(
+                            value = state.paymentTransactionNo,
+                            onValueChange = vm::setPaymentTransactionNo,
+                            modifier = Modifier.fillMaxWidth(),
+                            placeholder = { Text("Transaction No (optional)", color = TextMuted) },
+                            shape = RoundedCornerShape(10.dp),
+                            singleLine = true
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Button(
+                            onClick = vm::addSplitPayment,
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(containerColor = Primary),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Icon(Icons.Outlined.Add, null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("Add split payment")
+                        }
+                        state.splitPayments.forEachIndexed { index, payment ->
+                            Spacer(Modifier.height(6.dp))
+                            Surface(color = Color(0xFFEFF6FF), shape = RoundedCornerShape(10.dp), border = BorderStroke(1.dp, Color(0xFFBFDBFE))) {
+                                Row(
+                                    Modifier.fillMaxWidth().padding(10.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(Modifier.weight(1f)) {
+                                        Text(payment.paymentMethodName ?: "Payment", color = TextMain, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                        Text("${(payment.amount ?: 0.0).toLong().fmtL()} Ks", color = Primary, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
+                                    }
+                                    IconButton(onClick = { vm.removeSplitPayment(index) }) {
+                                        Icon(Icons.Outlined.Delete, null, tint = Danger)
+                                    }
+                                }
+                            }
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        OutlinedTextField(
                             value = state.remark,
                             onValueChange = { vm.setRemark(it) },
                             modifier = Modifier.fillMaxWidth(),

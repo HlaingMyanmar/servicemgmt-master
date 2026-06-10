@@ -6,6 +6,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.sspd.servicemgmt.api.ApiClient
 import com.sspd.servicemgmt.api.PaymentMethodDTO
+import com.sspd.servicemgmt.api.PaymentTransactionDTO
 import com.sspd.servicemgmt.api.SaleDTO
 import com.sspd.servicemgmt.api.SaleReturnDTO
 import com.sspd.servicemgmt.api.SaleReturnDetailDTO
@@ -172,6 +173,25 @@ class SaleReturnFormViewModel(
     fun selectPm(pm: PaymentMethodDTO?) = _uiState.update { it.copy(selectedPm = pm) }
     fun clearError()                 = _uiState.update { it.copy(saveError = null) }
 
+    fun addSplitRefund() {
+        val s = _uiState.value
+        val method = s.selectedPm ?: return _uiState.update { it.copy(saveError = "ငွေပြန်ပေးနည်း ရွေးပါ") }
+        val amount = s.refundAmountStr.toDoubleOrNull() ?: 0.0
+        if (amount <= 0.0) return _uiState.update { it.copy(saveError = "Split refund amount ထည့်ပါ") }
+        val next = s.splitRefunds + PaymentTransactionDTO(
+            paymentMethodId = method.id,
+            paymentMethodName = method.methodName,
+            amount = amount,
+            transactionNo = s.transactionNo.ifBlank { null }
+        )
+        _uiState.update { it.copy(splitRefunds = next, refundAmountStr = splitTotal(next).formatMoneyInput(), transactionNo = "", saveError = null) }
+    }
+
+    fun removeSplitRefund(index: Int) = _uiState.update { s ->
+        val next = s.splitRefunds.filterIndexed { i, _ -> i != index }
+        s.copy(splitRefunds = next, refundAmountStr = if (next.isEmpty()) "" else splitTotal(next).formatMoneyInput())
+    }
+
     // ── Save ──────────────────────────────────────────────────────────────────
 
     fun save(onSuccess: (SaleReturnDTO) -> Unit) {
@@ -183,7 +203,8 @@ class SaleReturnFormViewModel(
         if (s.reason.isBlank())     { _uiState.update { it.copy(saveError = "အကြောင်းအရင်း ဖြည့်ပါ") }; return }
 
         val totalReturn = selectedItems.sumOf { it.qty * it.unitPrice }
-        val refund      = s.refundAmountStr.toDoubleOrNull() ?: totalReturn
+        val splitRefunds = normalizePayments(s.splitRefunds)
+        val refund      = if (splitRefunds.isNotEmpty()) splitTotal(splitRefunds) else (s.refundAmountStr.toDoubleOrNull() ?: totalReturn)
         if (refund > 0 && s.selectedPm == null) { _uiState.update { it.copy(saveError = "ငွေပြန်ပေးနည်း ရွေးပါ") }; return }
 
         val dto = SaleReturnDTO(
@@ -191,8 +212,9 @@ class SaleReturnFormViewModel(
             reason              = s.reason.ifBlank { null },
             totalReturnAmount   = totalReturn,
             refundAmount        = refund,
-            paymentMethodId     = s.selectedPm?.id,
+            paymentMethodId     = if (refund > 0.0) (splitRefunds.firstOrNull()?.paymentMethodId ?: s.selectedPm?.id) else null,
             transactionNo       = s.transactionNo.ifBlank { null },
+            payments            = splitRefunds.ifEmpty { null },
             details             = selectedItems.map { item ->
                 SaleReturnDetailDTO(
                     productId     = item.productId,
@@ -251,6 +273,18 @@ class SaleReturnFormViewModel(
         val reason:         String               = "",
         val refundAmountStr: String              = "",
         val selectedPm:     PaymentMethodDTO?    = null,
+        val splitRefunds:   List<PaymentTransactionDTO> = emptyList(),
         val transactionNo:  String               = ""
     )
 }
+
+private fun normalizePayments(payments: List<PaymentTransactionDTO>): List<PaymentTransactionDTO> =
+    payments.mapNotNull { p ->
+        val methodId = p.paymentMethodId ?: 0
+        val amount = p.amount ?: 0.0
+        if (methodId <= 0 || amount <= 0.0) null else p.copy(amount = amount, transactionNo = p.transactionNo?.ifBlank { null })
+    }
+
+private fun splitTotal(payments: List<PaymentTransactionDTO>): Double = payments.sumOf { it.amount ?: 0.0 }
+
+private fun Double.formatMoneyInput(): String = if (this % 1.0 == 0.0) toLong().toString() else toString()

@@ -31,6 +31,7 @@ import { creditTermService } from '../services/credittermapiservice';
 import { customerPaymentService } from '../services/customerpaymentapiservice';
 import { InvoicePrintPreview } from '../print/components/InvoicePrintPreview';
 import BarcodeScannerCamera from '../components/BarcodeScannerCamera';
+import SplitPaymentEditor from '../components/SplitPaymentEditor';
 import { useWebsocket } from '../hooks/useWebsocket';
 import { useDataEvents } from '../hooks/useDataEvents';
 import { getFromSession } from '../utils/storageHelper';
@@ -40,6 +41,7 @@ import {
   CustomerDTO,
   CustomerPaymentDTO,
   PaymentMethodDTO,
+  PaymentTransactionDTO,
   ProductDTO,
   ProductSerialDTO,
   SaleDTO,
@@ -73,6 +75,16 @@ const fitSerialCount = (serials: string[] | undefined, qty: number) => {
   return next;
 };
 const money = (v: number) => new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v || 0);
+const normalizePayments = (payments: PaymentTransactionDTO[]) =>
+  payments
+    .map((p) => ({
+      ...p,
+      paymentMethodId: Number(p.paymentMethodId) || 0,
+      amount: Number(p.amount) || 0,
+      transactionNo: p.transactionNo?.trim() || undefined
+    }))
+    .filter((p) => p.paymentMethodId > 0 && p.amount > 0);
+const paymentTotal = (payments: PaymentTransactionDTO[]) => normalizePayments(payments).reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
 const dateInput = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const getTodayRange = () => {
@@ -192,6 +204,7 @@ const SaleManagement: React.FC = () => {
   const [saleDate, setSaleDate] = useState(todayStr);
   const [discountInput, setDiscountInput] = useState('');
   const [paidInput, setPaidInput] = useState('');
+  const [salePayments, setSalePayments] = useState<PaymentTransactionDTO[]>([]);
   const [dueDate, setDueDate] = useState('');
   const [paymentMethodId, setPaymentMethodId] = useState(0);
   const [remark, setRemark] = useState('');
@@ -209,7 +222,7 @@ const SaleManagement: React.FC = () => {
   const [viewPayments, setViewPayments] = useState<CustomerPaymentDTO[]>([]);
   const [viewReturns, setViewReturns] = useState<SaleReturnDTO[]>([]);
   const [viewReturnsLoading, setViewReturnsLoading] = useState(false);
-  const [payForm, setPayForm] = useState({ amount: '', paymentMethodId: 0, transactionNo: '', note: '' });
+  const [payForm, setPayForm] = useState({ amount: '', paymentMethodId: 0, transactionNo: '', note: '', payments: [] as PaymentTransactionDTO[] });
   const [printPreviewSaleId, setPrintPreviewSaleId] = useState<number | null>(null);
 
   const loadSales = useCallback(async (page: number, size: number, search: string, dateFrom: string, dateTo: string) => {
@@ -318,9 +331,12 @@ const SaleManagement: React.FC = () => {
     const n = Number(paidInput);
     return Number.isNaN(n) ? 0 : n;
   }, [paidInput]);
+  const normalizedSalePayments = useMemo(() => normalizePayments(salePayments), [salePayments]);
+  const splitPaid = useMemo(() => paymentTotal(salePayments), [salePayments]);
+  const effectivePaid = normalizedSalePayments.length > 0 ? splitPaid : paid;
   const totalAmount = useMemo(() => details.reduce((sum, d) => sum + (d.subtotal || 0), 0), [details]);
   const netAmount = useMemo(() => Math.max(0, totalAmount - discount), [totalAmount, discount]);
-  const dueAmount = useMemo(() => Math.max(0, netAmount - paid), [netAmount, paid]);
+  const dueAmount = useMemo(() => Math.max(0, netAmount - effectivePaid), [netAmount, effectivePaid]);
 
   const outstandingByCustomer = useMemo(() => {
     const m = new Map<number, number>();
@@ -576,6 +592,7 @@ const SaleManagement: React.FC = () => {
     setSaleDate(todayStr);
     setDiscountInput('');
     setPaidInput('');
+    setSalePayments([]);
     setDueDate('');
     setRemark('');
     setDetails([emptyDetail()]);
@@ -620,10 +637,10 @@ const SaleManagement: React.FC = () => {
     }
 
     if (discount < 0) return 'Discount cannot be negative.';
-    if (paid < 0) return 'Paid amount cannot be negative.';
-    if (paid > netAmount) return 'Paid amount cannot exceed net amount.';
+    if (effectivePaid < 0) return 'Paid amount cannot be negative.';
+    if (effectivePaid > netAmount) return 'Paid amount cannot exceed net amount.';
 
-    if (paid > 0 && paymentMethodId <= 0) return 'Payment method is required when paid amount > 0.';
+    if (effectivePaid > 0 && normalizedSalePayments.length === 0 && paymentMethodId <= 0) return 'Payment method is required when paid amount > 0.';
 
     if (!selectedCustomer) return 'Customer not found.';
     if (dueAmount > 0) {
@@ -653,10 +670,11 @@ const SaleManagement: React.FC = () => {
         totalAmount,
         discountAmount: discount,
         netAmount,
-        paidAmount: paid,
+        paidAmount: effectivePaid,
         dueAmount,
         dueDate: dueAmount > 0 ? (dueDate || undefined) : undefined,
-        paymentMethodId: paid > 0 ? paymentMethodId : undefined,
+        paymentMethodId: effectivePaid > 0 ? (normalizedSalePayments[0]?.paymentMethodId || paymentMethodId) : undefined,
+        payments: normalizedSalePayments.length > 0 ? normalizedSalePayments : undefined,
         remark: remark.trim() || undefined,
         details: details.map((d) => ({
           productId: d.productId,
@@ -726,7 +744,8 @@ const SaleManagement: React.FC = () => {
         amount: String(Number(sale.dueAmount) || ''),
         paymentMethodId: methods[0]?.id || 0,
         transactionNo: '',
-        note: ''
+        note: '',
+        payments: []
       });
     } catch (e: any) {
       setViewReturns([]);
@@ -803,19 +822,21 @@ const SaleManagement: React.FC = () => {
   const submitPayDue = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!viewSale?.id) return;
-    const amount = Number(payForm.amount);
+    const normalizedPayDuePayments = normalizePayments(payForm.payments || []);
+    const amount = normalizedPayDuePayments.length > 0 ? paymentTotal(payForm.payments || []) : Number(payForm.amount);
     const due = Number(viewSale.dueAmount) || 0;
 
     if (!amount || amount <= 0) return Swal.fire('Validation', 'Amount must be greater than zero.', 'warning');
     if (amount > due) return Swal.fire('Validation', 'Amount cannot exceed due.', 'warning');
-    if (!payForm.paymentMethodId) return Swal.fire('Validation', 'Payment method is required.', 'warning');
+    if (!payForm.paymentMethodId && normalizedPayDuePayments.length === 0) return Swal.fire('Validation', 'Payment method is required.', 'warning');
 
     setPaySaving(true);
     try {
       await saleApiService.payDue(viewSale.id, {
         paidAmount: amount,
-        paymentMethodId: payForm.paymentMethodId,
+        paymentMethodId: normalizedPayDuePayments[0]?.paymentMethodId || payForm.paymentMethodId,
         transactionNo: payForm.transactionNo.trim() || undefined,
+        payments: normalizedPayDuePayments.length > 0 ? normalizedPayDuePayments : undefined,
         staffId: viewSale.staffId,
         note: payForm.note.trim() || undefined
       });
@@ -826,7 +847,7 @@ const SaleManagement: React.FC = () => {
       ]);
       setViewSale(updatedSale);
       setViewPayments(payments || []);
-      setPayForm((prev) => ({ ...prev, amount: String(Number(updatedSale.dueAmount) || ''), transactionNo: '', note: '' }));
+      setPayForm((prev) => ({ ...prev, amount: String(Number(updatedSale.dueAmount) || ''), transactionNo: '', note: '', payments: [] }));
       await loadSales(salePage, salePageSize, debouncedSearch, dateFrom, dateTo);
 
       Swal.fire({ icon: 'success', title: 'Payment recorded', toast: true, position: 'top-end', showConfirmButton: false, timer: 1200 });
@@ -1206,14 +1227,25 @@ const SaleManagement: React.FC = () => {
                     <select
                       value={paymentMethodId}
                       onChange={(e) => setPaymentMethodId(Number(e.target.value) || 0)}
-                      disabled={paid <= 0}
+                      disabled={effectivePaid <= 0 || normalizedSalePayments.length > 0}
                       className="w-full px-3 py-2 rounded-lg border border-emerald-300 bg-white text-sm focus:outline-none focus:border-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       <option value={0}>- ငွေလက်ခံနည်းရွေးပါ -</option>
                       {methods.map((m) => <option key={m.id} value={m.id}>{m.methodName}</option>)}
                     </select>
-                    {paid <= 0 && <p className="text-[10px] text-emerald-600 mt-0.5">Credit sale — ငွေပေးချေမှုမရှိပါ</p>}
+                    {effectivePaid <= 0 && <p className="text-[10px] text-emerald-600 mt-0.5">Credit sale — ငွေပေးချေမှုမရှိပါ</p>}
                   </div>
+
+                  <SplitPaymentEditor
+                    methods={methods}
+                    payments={salePayments}
+                    onChange={(next) => {
+                      setSalePayments(next);
+                      const total = paymentTotal(next);
+                      setPaidInput(total > 0 ? String(total.toFixed(2)) : '');
+                    }}
+                    label="Split Payment"
+                  />
 
                   {/* Paid / Due summary */}
                   <div className="border-t border-emerald-200 pt-2 space-y-1 text-sm">
@@ -1580,11 +1612,23 @@ const SaleManagement: React.FC = () => {
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1.5">Payment Method</label>
-                <select value={paymentMethodId} disabled={paid <= 0} onChange={(e) => setPaymentMethodId(Number(e.target.value) || 0)} className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:border-indigo-400 disabled:opacity-50 disabled:cursor-not-allowed">
+                <select value={paymentMethodId} disabled={effectivePaid <= 0 || normalizedSalePayments.length > 0} onChange={(e) => setPaymentMethodId(Number(e.target.value) || 0)} className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:border-indigo-400 disabled:opacity-50 disabled:cursor-not-allowed">
                   <option value={0}>— Select method —</option>
                   {methods.map((m) => <option key={m.id} value={m.id}>{m.methodName}</option>)}
                 </select>
-                {paid <= 0 && <p className="text-[10px] text-slate-400 mt-1">Required only when paid amount &gt; 0</p>}
+                {effectivePaid <= 0 && <p className="text-[10px] text-slate-400 mt-1">Required only when paid amount &gt; 0</p>}
+              </div>
+              <div className="md:col-span-2">
+                <SplitPaymentEditor
+                  methods={methods}
+                  payments={salePayments}
+                  onChange={(next) => {
+                    setSalePayments(next);
+                    const total = paymentTotal(next);
+                    setPaidInput(total > 0 ? String(total.toFixed(2)) : '');
+                  }}
+                  label="Split Payment"
+                />
               </div>
               <div className="flex items-end justify-end gap-2">
                 <button type="button" onClick={resetCreateForm} className="px-4 py-2 rounded-lg border border-slate-200 text-slate-600 text-sm font-medium hover:bg-slate-50">Clear</button>
@@ -1946,7 +1990,7 @@ const SaleManagement: React.FC = () => {
                       <form onSubmit={submitPayDue} className="space-y-2.5">
                         <div>
                           <label className="block text-xs font-semibold text-slate-500 mb-1">Amount</label>
-                          <input type="number" min="0" step="0.01" value={payForm.amount} onChange={(e) => setPayForm((p) => ({ ...p, amount: e.target.value }))} placeholder="0.00" className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:border-indigo-400" />
+                          <input type="number" min="0" step="0.01" value={payForm.amount} onChange={(e) => setPayForm((p) => ({ ...p, amount: e.target.value, payments: [] }))} placeholder="0.00" className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:border-indigo-400" />
                         </div>
                         <div>
                           <label className="block text-xs font-semibold text-slate-500 mb-1">Payment Method</label>
@@ -1963,6 +2007,12 @@ const SaleManagement: React.FC = () => {
                           <label className="block text-xs font-semibold text-slate-500 mb-1">Note <span className="font-normal text-slate-400">(optional)</span></label>
                           <input value={payForm.note} onChange={(e) => setPayForm((p) => ({ ...p, note: e.target.value }))} placeholder="Payment note" className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:border-indigo-400" />
                         </div>
+                        <SplitPaymentEditor
+                          methods={methods}
+                          payments={payForm.payments || []}
+                          onChange={(next) => setPayForm((p) => ({ ...p, payments: next, amount: paymentTotal(next) > 0 ? String(paymentTotal(next).toFixed(2)) : p.amount }))}
+                          label="Split Payment"
+                        />
                         <button type="submit" disabled={paySaving} className="w-full py-2 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 disabled:opacity-60 inline-flex items-center justify-center gap-2">
                           {paySaving ? <Loader2 size={14} className="animate-spin" /> : <CreditCard size={14} />} Confirm Payment
                         </button>

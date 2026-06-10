@@ -8,20 +8,26 @@ import { customerPaymentService } from '../services/customerpaymentapiservice';
 import { customerService } from '../services/customerapiservice';
 import { paymentMethodService } from '../services/paymentmethodapiservice';
 import { saleApiService } from '../services/saleapiservice';
-import { AlertType, CreditAlertDTO, CustomerCreditTermDTO, CustomerDTO, CustomerPaymentDTO, PaymentMethodDTO, SaleDTO } from '../types';
+import SplitPaymentEditor from '../components/SplitPaymentEditor';
+import { AlertType, CreditAlertDTO, CustomerCreditTermDTO, CustomerDTO, CustomerPaymentDTO, PaymentMethodDTO, PaymentTransactionDTO, SaleDTO } from '../types';
 
 type TabKey = 'portfolio' | 'alerts';
 type AlertFilter = 'All' | AlertType;
 
 type TermForm = { creditAllowed: boolean; creditLimit: number; creditDays: number };
 type ControlForm = { creditHold: boolean; creditHoldReason: string; blacklisted: boolean; blacklistReason: string };
-type PaymentForm = { saleId: number; amount: string; paymentMethodId: number; transactionNo: string; note: string };
+type PaymentForm = { saleId: number; amount: string; paymentMethodId: number; transactionNo: string; note: string; payments: PaymentTransactionDTO[] };
 
 const DEFAULT_TERM: TermForm = { creditAllowed: false, creditLimit: 0, creditDays: 0 };
 const DEFAULT_CONTROL: ControlForm = { creditHold: false, creditHoldReason: '', blacklisted: false, blacklistReason: '' };
-const DEFAULT_PAYMENT: PaymentForm = { saleId: 0, amount: '', paymentMethodId: 0, transactionNo: '', note: '' };
+const DEFAULT_PAYMENT: PaymentForm = { saleId: 0, amount: '', paymentMethodId: 0, transactionNo: '', note: '', payments: [] };
 
 const money = (v: number) => `${new Intl.NumberFormat('en-US').format(v || 0)} Ks`;
+const normalizePayments = (payments: PaymentTransactionDTO[]) =>
+  payments
+    .map((p) => ({ ...p, paymentMethodId: Number(p.paymentMethodId) || 0, amount: Number(p.amount) || 0, transactionNo: p.transactionNo?.trim() || undefined }))
+    .filter((p) => p.paymentMethodId > 0 && p.amount > 0);
+const paymentTotal = (payments: PaymentTransactionDTO[]) => normalizePayments(payments).reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
 const fmt = (v?: string) => (!v ? '-' : Number.isNaN(new Date(v).getTime()) ? v : new Date(v).toLocaleString('en-CA', { hour12: false }));
 const normalizeAlertType = (t?: string): AlertType => {
   const s = (t || '').toLowerCase();
@@ -200,20 +206,20 @@ const CreditManagement: React.FC = () => {
 
   const collectPayment = async () => {
     if (!selected) return;
-    const amount = Number(paymentForm.amount);
+    const normalizedPaymentFormPayments = normalizePayments(paymentForm.payments || []);
+    const amount = normalizedPaymentFormPayments.length > 0 ? paymentTotal(paymentForm.payments || []) : Number(paymentForm.amount);
     const due = Number(dueSales.find((s) => s.id === paymentForm.saleId)?.dueAmount) || 0;
     if (!paymentForm.saleId) return Swal.fire('Validation', 'Select invoice', 'warning');
-    if (!paymentForm.paymentMethodId) return Swal.fire('Validation', 'Select payment method', 'warning');
+    if (!paymentForm.paymentMethodId && normalizedPaymentFormPayments.length === 0) return Swal.fire('Validation', 'Select payment method', 'warning');
     if (!amount || amount <= 0) return Swal.fire('Validation', 'Amount must be greater than zero', 'warning');
     if (amount > due) return Swal.fire('Validation', 'Amount cannot exceed due', 'warning');
 
     setSaving(true);
     try {
-      await customerPaymentService.create({
-        customerId: selected.id,
-        saleId: paymentForm.saleId,
-        amount,
-        paymentMethodId: paymentForm.paymentMethodId,
+      await saleApiService.payDue(paymentForm.saleId, {
+        paidAmount: amount,
+        paymentMethodId: normalizedPaymentFormPayments[0]?.paymentMethodId || paymentForm.paymentMethodId,
+        payments: normalizedPaymentFormPayments.length > 0 ? normalizedPaymentFormPayments : undefined,
         transactionNo: paymentForm.transactionNo || undefined,
         note: paymentForm.note || undefined
       });
@@ -288,7 +294,13 @@ const CreditManagement: React.FC = () => {
                   <div className="border border-slate-200 rounded-lg p-4 space-y-2">
                     <h4 className="text-sm font-bold text-slate-800">Invoice Collection</h4>
                     <div className="overflow-auto max-h-[180px] border border-slate-100 rounded"><table className="w-full min-w-[520px] text-sm"><thead className="bg-slate-50 text-xs text-slate-500 uppercase"><tr><th className="px-2 py-1 text-left">Invoice</th><th className="px-2 py-1 text-left">Due Date</th><th className="px-2 py-1 text-right">Due</th><th className="px-2 py-1 text-right">Pick</th></tr></thead><tbody className="divide-y divide-slate-100">{dueSales.map((s) => <tr key={s.id}><td className="px-2 py-1">{s.saleCode || s.id}</td><td className="px-2 py-1">{fmt(s.dueDate)}</td><td className="px-2 py-1 text-right font-semibold">{money(Number(s.dueAmount) || 0)}</td><td className="px-2 py-1 text-right"><button className="px-2 py-1 rounded bg-indigo-50 text-indigo-700 text-xs" onClick={() => setPaymentForm((p) => ({ ...p, saleId: s.id || 0, amount: String(Number(s.dueAmount) || 0) }))}>Select</button></td></tr>)}</tbody></table></div>
-                    <div className="grid grid-cols-1 md:grid-cols-5 gap-2"><select value={paymentForm.saleId} onChange={(e) => setPaymentForm((p) => ({ ...p, saleId: Number(e.target.value) || 0 }))} className="px-2 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg"><option value={0}>Invoice</option>{dueSales.map((s) => <option key={s.id} value={s.id}>{s.saleCode || s.id}</option>)}</select><input value={paymentForm.amount} onChange={(e) => setPaymentForm((p) => ({ ...p, amount: e.target.value }))} type="number" min="0" step="0.01" placeholder="Amount" className="px-2 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg" /><select value={paymentForm.paymentMethodId} onChange={(e) => setPaymentForm((p) => ({ ...p, paymentMethodId: Number(e.target.value) || 0 }))} className="px-2 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg"><option value={0}>Method</option>{methods.map((m) => <option key={m.id} value={m.id}>{m.methodName}</option>)}</select><input value={paymentForm.transactionNo} onChange={(e) => setPaymentForm((p) => ({ ...p, transactionNo: e.target.value }))} placeholder="Transaction no" className="px-2 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg" /><button onClick={collectPayment} disabled={saving} className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 disabled:opacity-60">{saving ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />}Receive</button></div>
+                    <div className="grid grid-cols-1 md:grid-cols-5 gap-2"><select value={paymentForm.saleId} onChange={(e) => setPaymentForm((p) => ({ ...p, saleId: Number(e.target.value) || 0 }))} className="px-2 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg"><option value={0}>Invoice</option>{dueSales.map((s) => <option key={s.id} value={s.id}>{s.saleCode || s.id}</option>)}</select><input value={paymentForm.amount} onChange={(e) => setPaymentForm((p) => ({ ...p, amount: e.target.value, payments: [] }))} type="number" min="0" step="0.01" placeholder="Amount" className="px-2 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg" /><select value={paymentForm.paymentMethodId} onChange={(e) => setPaymentForm((p) => ({ ...p, paymentMethodId: Number(e.target.value) || 0 }))} className="px-2 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg"><option value={0}>Method</option>{methods.map((m) => <option key={m.id} value={m.id}>{m.methodName}</option>)}</select><input value={paymentForm.transactionNo} onChange={(e) => setPaymentForm((p) => ({ ...p, transactionNo: e.target.value }))} placeholder="Transaction no" className="px-2 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg" /><button onClick={collectPayment} disabled={saving} className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 disabled:opacity-60">{saving ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />}Receive</button></div>
+                    <SplitPaymentEditor
+                      methods={methods}
+                      payments={paymentForm.payments || []}
+                      onChange={(next) => setPaymentForm((p) => ({ ...p, payments: next, amount: paymentTotal(next) > 0 ? String(paymentTotal(next).toFixed(2)) : p.amount }))}
+                      label="Split Payment"
+                    />
                     <textarea rows={2} value={paymentForm.note} onChange={(e) => setPaymentForm((p) => ({ ...p, note: e.target.value }))} placeholder="Payment note" className="w-full px-2 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg" />
                   </div>
 

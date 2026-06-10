@@ -225,6 +225,29 @@ fun SaleReturnFormScreen(onBack: () -> Unit, onSuccess: () -> Unit) {
                     modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp),
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
                 )
+                Button(
+                    onClick = vm::addSplitRefund,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = Danger),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Outlined.Add, null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Add split refund")
+                }
+                state.splitRefunds.forEachIndexed { index, payment ->
+                    Surface(color = DangerBg, shape = RoundedCornerShape(10.dp), border = BorderStroke(1.dp, Color(0xFFFECACA))) {
+                        Row(Modifier.fillMaxWidth().padding(10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text(payment.paymentMethodName ?: "Refund", color = TextMain, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                Text("${String.format("%,.0f", payment.amount ?: 0.0)} Ks", color = Danger, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
+                            }
+                            IconButton(onClick = { vm.removeSplitRefund(index) }) {
+                                Icon(Icons.Outlined.Delete, null, tint = Danger)
+                            }
+                        }
+                    }
+                }
             }
 
             // ── အကြောင်းအရင်း ─────────────────────────────────────────────────
@@ -275,4 +298,3 @@ private fun SectionHeader(icon: androidx.compose.ui.graphics.vector.ImageVector,
         HorizontalDivider(modifier = Modifier.weight(1f), color = BorderColor)
     }
 }
-

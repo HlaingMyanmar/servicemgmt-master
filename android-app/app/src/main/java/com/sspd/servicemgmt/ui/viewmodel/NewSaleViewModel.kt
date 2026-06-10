@@ -260,6 +260,7 @@ class NewSaleViewModel(application: Application) : AndroidViewModel(application)
     fun setPayMethod(m: PaymentMethodDTO)    = _uiState.update { it.copy(selectedPayMethod = m) }
     fun setSaleDate(v: String)               = _uiState.update { it.copy(saleDate = v) }
     fun setPaidAmount(v: String)             = _uiState.update { it.copy(paidAmount = v) }
+    fun setPaymentTransactionNo(v: String)   = _uiState.update { it.copy(paymentTransactionNo = v) }
     fun setOverallDiscount(v: String)        = _uiState.update { it.copy(overallDiscount = v) }
     fun setRemark(v: String)                 = _uiState.update { it.copy(remark = v) }
     fun showProductScanner()                 = _uiState.update { it.copy(showProductScanner = true) }
@@ -276,6 +277,37 @@ class NewSaleViewModel(application: Application) : AndroidViewModel(application)
     fun dismissProductPicker()               = _uiState.update { it.copy(showProductPicker = false) }
     fun clearScanError()                     = _uiState.update { it.copy(scanError = null) }
     fun clearSerialError()                   = _uiState.update { it.copy(serialError = null) }
+
+    fun addSplitPayment() {
+        val s = _uiState.value
+        val method = s.selectedPayMethod ?: run {
+            _uiState.update { it.copy(scanError = "ငွေလက်ခံနည်း ရွေးပါ") }
+            return
+        }
+        val amount = s.paidAmount.toDoubleOrNull() ?: 0.0
+        if (amount <= 0.0) {
+            _uiState.update { it.copy(scanError = "Split amount ထည့်ပါ") }
+            return
+        }
+        val next = s.splitPayments + PaymentTransactionDTO(
+            paymentMethodId = method.id,
+            paymentMethodName = method.methodName,
+            amount = amount,
+            transactionNo = s.paymentTransactionNo.ifBlank { null }
+        )
+        _uiState.update {
+            it.copy(
+                splitPayments = next,
+                paidAmount = splitTotal(next).formatMoneyInput(),
+                paymentTransactionNo = ""
+            )
+        }
+    }
+
+    fun removeSplitPayment(index: Int) = _uiState.update { s ->
+        val next = s.splitPayments.filterIndexed { i, _ -> i != index }
+        s.copy(splitPayments = next, paidAmount = if (next.isEmpty()) "" else splitTotal(next).formatMoneyInput())
+    }
 
     // ── New customer ──────────────────────────────────────────────────────────
 
@@ -331,7 +363,8 @@ class NewSaleViewModel(application: Application) : AndroidViewModel(application)
         val lineDiscL = state.cart.sumOf { it.discountAmount }
         val overallDL = state.overallDiscount.toLongOrNull() ?: 0L
         val netL      = maxOf(0L, grossL - lineDiscL - overallDL)
-        val paidL     = state.paidAmount.toLongOrNull() ?: netL
+        val splitPayments = normalizePayments(state.splitPayments)
+        val paidL     = if (splitPayments.isNotEmpty()) splitTotal(splitPayments).toLong() else (state.paidAmount.toLongOrNull() ?: netL)
         val dueL      = maxOf(0L, netL - paidL)
 
         // Credit checks
@@ -367,7 +400,7 @@ class NewSaleViewModel(application: Application) : AndroidViewModel(application)
         val overallD = overallDL.toDouble()
         val subtotal = maxOf(0.0, gross - lineDisc)
         val net      = maxOf(0.0, subtotal - overallD)
-        val paid     = state.paidAmount.toDoubleOrNull() ?: net
+        val paid     = if (splitPayments.isNotEmpty()) splitTotal(splitPayments) else (state.paidAmount.toDoubleOrNull() ?: net)
         val due      = maxOf(0.0, net - paid)
 
         // Compute dueDate from credit term (today + creditDays)
@@ -385,7 +418,8 @@ class NewSaleViewModel(application: Application) : AndroidViewModel(application)
             netAmount       = net,
             paidAmount      = paid,
             dueAmount       = due,
-            paymentMethodId = state.selectedPayMethod?.id,
+            paymentMethodId = if (paid > 0.0) (splitPayments.firstOrNull()?.paymentMethodId ?: state.selectedPayMethod?.id) else null,
+            payments        = splitPayments.ifEmpty { null },
             dueDate         = dueDateStr,
             remark          = state.remark.ifBlank { null },
             details         = state.cart.map { item ->
@@ -430,11 +464,13 @@ class NewSaleViewModel(application: Application) : AndroidViewModel(application)
         val selectedCustomer:  CustomerDTO?            = null,
         val selectedStaff:     StaffDTO?               = null,
         val selectedPayMethod: PaymentMethodDTO?       = null,
+        val splitPayments:    List<PaymentTransactionDTO> = emptyList(),
         val saleDate:          String                  = LocalDate.now().toString(),
         val hasBackdatePermission: Boolean             = false,
         val creditTerm:        CustomerCreditTermDTO?  = null,
         val creditTermLoading: Boolean                 = false,
         val paidAmount:        String               = "",
+        val paymentTransactionNo: String            = "",
         val overallDiscount:   String               = "",
         val remark:            String               = "",
         val submitting:        Boolean              = false,
@@ -453,3 +489,17 @@ class NewSaleViewModel(application: Application) : AndroidViewModel(application)
         val serialError:       String?              = null
     )
 }
+
+private fun normalizePayments(payments: List<PaymentTransactionDTO>): List<PaymentTransactionDTO> =
+    payments
+        .mapNotNull { p ->
+            val methodId = p.paymentMethodId ?: 0
+            val amount = p.amount ?: 0.0
+            if (methodId <= 0 || amount <= 0.0) null else p.copy(amount = amount, transactionNo = p.transactionNo?.ifBlank { null })
+        }
+
+private fun splitTotal(payments: List<PaymentTransactionDTO>): Double =
+    payments.sumOf { it.amount ?: 0.0 }
+
+private fun Double.formatMoneyInput(): String =
+    if (this % 1.0 == 0.0) toLong().toString() else toString()

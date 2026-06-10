@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Download
+import androidx.compose.material.icons.outlined.PriorityHigh
 import androidx.compose.material.icons.outlined.SystemUpdate
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -41,19 +43,17 @@ fun UpdateDialog(
         )
     ) {
         Card(
-            shape = RoundedCornerShape(20.dp),
+            shape = RoundedCornerShape(22.dp),
             colors = CardDefaults.cardColors(containerColor = Color.White),
-            elevation = CardDefaults.cardElevation(8.dp),
+            elevation = CardDefaults.cardElevation(10.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(
-                modifier = Modifier.padding(24.dp),
+                modifier = Modifier.padding(22.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Box(
-                    modifier = Modifier
-                        .size(64.dp)
-                        .background(Primary.copy(alpha = 0.12f), CircleShape),
+                    modifier = Modifier.size(64.dp).background(Primary.copy(alpha = 0.12f), CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(Icons.Outlined.SystemUpdate, null, tint = Primary, modifier = Modifier.size(32.dp))
@@ -61,20 +61,33 @@ fun UpdateDialog(
 
                 Spacer(Modifier.height(16.dp))
                 Text(
-                    if (update.forceUpdate) "Update လုပ်ရန်လိုအပ်ပါသည်" else "Update ရှိပါသည်",
+                    if (update.forceUpdate) "Update လုပ်ရန်လိုအပ်ပါသည်" else "Update အသစ်ရှိပါသည်",
                     fontSize = 18.sp,
                     fontWeight = FontWeight.ExtraBold,
-                    color = Color(0xFF0F172A)
+                    color = Color(0xFF0F172A),
+                    textAlign = TextAlign.Center
                 )
                 Spacer(Modifier.height(4.dp))
-                Text("v${update.versionName}", fontSize = 13.sp, color = Primary, fontWeight = FontWeight.SemiBold)
+                Text("v${update.versionName} (code ${update.versionCode})", fontSize = 13.sp, color = Primary, fontWeight = FontWeight.SemiBold)
+
+                if (update.forceUpdate) {
+                    Spacer(Modifier.height(12.dp))
+                    Surface(color = Color(0xFFFEE2E2), shape = RoundedCornerShape(10.dp)) {
+                        Row(Modifier.fillMaxWidth().padding(10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Outlined.PriorityHigh, null, tint = Color(0xFFDC2626), modifier = Modifier.size(16.dp))
+                            Text("ဒီဗားရှင်းကို မဖြစ်မနေ update လုပ်ရပါမည်", fontSize = 12.sp, color = Color(0xFF991B1B), fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                        }
+                    }
+                }
 
                 if (update.changelog.isNotBlank()) {
-                    Spacer(Modifier.height(12.dp))
-                    Surface(color = Color(0xFFF8FAFC), shape = RoundedCornerShape(10.dp)) {
+                    Spacer(Modifier.height(14.dp))
+                    Text("ပြောင်းလဲထားသောအချက်များ", fontSize = 11.sp, color = Color(0xFF334155), fontWeight = FontWeight.ExtraBold, modifier = Modifier.fillMaxWidth())
+                    Spacer(Modifier.height(6.dp))
+                    Surface(color = Color(0xFFF8FAFC), shape = RoundedCornerShape(12.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0))) {
                         Text(
                             update.changelog,
-                            modifier = Modifier.padding(12.dp),
+                            modifier = Modifier.fillMaxWidth().padding(12.dp),
                             fontSize = 12.sp,
                             color = Color(0xFF475569),
                             lineHeight = 20.sp,
@@ -83,13 +96,10 @@ fun UpdateDialog(
                     }
                 }
 
-                Spacer(Modifier.height(20.dp))
+                Spacer(Modifier.height(18.dp))
                 if (isDownloading) {
                     val progress = downloadProgress ?: 0f
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
+                    Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
                         LinearProgressIndicator(
                             progress = { progress },
                             modifier = Modifier.fillMaxWidth().height(8.dp),
@@ -97,24 +107,14 @@ fun UpdateDialog(
                             trackColor = Primary.copy(alpha = 0.15f)
                         )
                         Spacer(Modifier.height(6.dp))
-                        Text(
-                            "Downloading... ${(progress * 100).toInt()}%",
-                            fontSize = 11.sp,
-                            color = Color(0xFF64748B),
-                            fontWeight = FontWeight.Medium
-                        )
+                        Text("Downloading... ${(progress * 100).toInt()}%", fontSize = 11.sp, color = Color(0xFF64748B), fontWeight = FontWeight.Medium)
                     }
                     Spacer(Modifier.height(12.dp))
                 }
 
                 if (downloadError != null) {
-                    Surface(color = Color(0xFFFEF2F2), shape = RoundedCornerShape(8.dp)) {
-                        Text(
-                            downloadError,
-                            modifier = Modifier.padding(10.dp),
-                            fontSize = 11.sp,
-                            color = Color(0xFFDC2626)
-                        )
+                    Surface(color = Color(0xFFFEF2F2), shape = RoundedCornerShape(10.dp)) {
+                        Text(downloadError, modifier = Modifier.fillMaxWidth().padding(10.dp), fontSize = 11.sp, color = Color(0xFFDC2626))
                     }
                     Spacer(Modifier.height(12.dp))
                 }
@@ -134,12 +134,9 @@ fun UpdateDialog(
                         Spacer(Modifier.width(8.dp))
                         Text("Downloading...", fontWeight = FontWeight.Bold)
                     } else {
-                        Icon(Icons.Outlined.SystemUpdate, null, modifier = Modifier.size(18.dp))
+                        Icon(if (isDone) Icons.Outlined.SystemUpdate else Icons.Outlined.Download, null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(8.dp))
-                        Text(
-                            if (isDone) "Install APK" else if (downloadError != null) "Retry Download" else "Download APK",
-                            fontWeight = FontWeight.Bold
-                        )
+                        Text(if (isDone) "Install APK" else if (downloadError != null) "Retry Download" else "Download APK", fontWeight = FontWeight.Bold)
                     }
                 }
 

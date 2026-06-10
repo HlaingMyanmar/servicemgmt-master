@@ -89,6 +89,7 @@ sealed class Screen(val route: String) {
     object NewStockAdj      : Screen("new_stock_adj")
     object SerialRegistry   : Screen("serial_registry")
     object OpeningBalance   : Screen("opening_balance")
+    object Transfer         : Screen("transfer")
 }
 
 const val AUTH_GRAPH = "auth_graph"

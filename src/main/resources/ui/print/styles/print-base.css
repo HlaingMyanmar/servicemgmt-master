@@ -153,31 +153,36 @@
   padding: 16px 20px;
 }
 
-/* ─── Info blocks ────────────────────────────────────────────────────────── */
+/* ─── Info blocks — single box, left / right columns ─────────────────────── */
 .inv-info-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px;
+  border: 1px solid var(--inv-border);
+  border-top: 3px solid var(--inv-primary-light);
+  border-radius: var(--inv-radius-sm);
+  overflow: hidden;
   margin-bottom: 16px;
-  padding-bottom: 16px;
-  border-bottom: 1px dashed var(--inv-border);
+  padding-bottom: 0;
 }
 
 .inv-block {
-  background: #f8fafc;
-  border: 1px solid var(--inv-border);
-  border-radius: var(--inv-radius-sm);
-  padding: 10px 12px;
+  background: #fff;
+  padding: 12px 14px;
+}
+
+.inv-block:first-child {
+  border-right: 1px solid var(--inv-border);
 }
 
 .inv-block__title {
-  font-size: 8.5px;
+  font-size: 9px;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.8px;
-  color: var(--inv-muted);
+  letter-spacing: 1px;
+  color: var(--inv-primary-light);
   border-bottom: 1px solid var(--inv-border);
-  padding-bottom: 5px;
-  margin-bottom: 7px;
+  padding-bottom: 6px;
+  margin-bottom: 8px;
 }
 
 .inv-block__row {
@@ -436,12 +441,16 @@
   /* Hide any UI-only elements */
   .no-print { display: none !important; }
 
-  /* A4 @page rule */
-  @page { size: A4 portrait; margin: 10mm; }
+  /* Remove browser print header/footer by zeroing @page margin;
+     content padding is handled by .invoice-print-root below */
+  @page { size: A4 portrait; margin: 0; }
+
+  .invoice-print-root { padding: 10mm !important; }
 }
 
 @media print and (max-width: 149mm) {
-  @page { size: A5 portrait; margin: 8mm; }
+  @page { size: A5 portrait; margin: 0; }
+  .invoice-print-root { padding: 8mm !important; }
 }
 
 /* ─── POS Thermal Styles ─────────────────────────────────────────────────── */

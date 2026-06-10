@@ -128,11 +128,11 @@ export const buildServiceVoucherHtml = ({
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>Service Voucher ${escapeHtml(job.jobNo || job.id)}</title>
+  <title></title>
   <style>
-    @page { size: ${paper} portrait; margin: ${compact ? '6mm' : isA5 ? '7mm' : '10mm'}; }
+    @page { size: ${paper} portrait; margin: 0; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Segoe UI', Arial, sans-serif; color: #1e293b; font-size: ${isA5 ? '7px' : '12px'}; line-height: ${isA5 ? '1.3' : '1.5'}; background: #fff; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; color: #1e293b; font-size: ${isA5 ? '7px' : '12px'}; line-height: ${isA5 ? '1.3' : '1.5'}; background: #fff; padding: ${compact ? '6mm' : isA5 ? '7mm' : '10mm'}; }
 
     .header {
       display: flex; justify-content: space-between; align-items: flex-start; gap: ${compact ? '8px' : isA5 ? '8px' : '16px'};
@@ -147,9 +147,10 @@ export const buildServiceVoucherHtml = ({
 
     .body-wrap { border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 10px 10px; padding: ${compact ? '8px 10px' : isA5 ? '8px 10px' : '14px 20px'}; }
 
-    .blocks { display: grid; grid-template-columns: 1fr 1fr; gap: ${compact ? '6px' : isA5 ? '6px' : '10px'}; margin-bottom: ${compact ? '8px' : isA5 ? '8px' : '14px'}; padding-bottom: ${compact ? '8px' : isA5 ? '8px' : '14px'}; border-bottom: 1px dashed #e2e8f0; }
-    .block { padding: ${compact ? '6px 8px' : isA5 ? '6px 8px' : '10px 12px'}; background: #f8fafc; border-radius: 6px; border: 1px solid #e2e8f0; }
-    .block-title { font-size: ${compact ? '7px' : isA5 ? '7.5px' : '9px'}; text-transform: uppercase; letter-spacing: 0.6px; color: #64748b; margin-bottom: 3px; padding-bottom: 2px; border-bottom: 1px solid #e2e8f0; }
+    .blocks { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid #e2e8f0; border-top: 3px solid ${headerColor}; border-radius: 6px; overflow: hidden; margin-bottom: ${compact ? '8px' : isA5 ? '8px' : '14px'}; }
+    .block { padding: ${compact ? '6px 8px' : isA5 ? '6px 8px' : '10px 12px'}; background: #fff; }
+    .block:first-child { border-right: 1px solid #e2e8f0; }
+    .block-title { font-size: ${compact ? '7px' : isA5 ? '7.5px' : '9px'}; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: ${headerColor}; margin-bottom: 3px; padding-bottom: 2px; border-bottom: 1px solid #e2e8f0; }
     .block-row { display: flex; justify-content: space-between; gap: 4px; margin-top: ${compact ? '1px' : isA5 ? '2px' : '3px'}; }
     .block-row:first-of-type { margin-top: 0; }
     .bl { color: #64748b; font-size: ${compact ? '7.5px' : isA5 ? '8px' : '10px'}; }

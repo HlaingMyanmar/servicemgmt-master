@@ -592,6 +592,11 @@ fun AppNavigation() {
                         OpeningBalanceScreen(onBack = { nav.popBackStack() })
                     }
 
+                    // ── Transfer (KBZ / Cash / Bank) ─────────────────────────
+                    screen(Screen.Transfer.route) {
+                        TransferScreen(onBack = { nav.popBackStack() })
+                    }
+
                     // ── Serial Registry ─────────────────────────────────────
                     screen(Screen.SerialRegistry.route) {
                         SerialRegistryScreen(

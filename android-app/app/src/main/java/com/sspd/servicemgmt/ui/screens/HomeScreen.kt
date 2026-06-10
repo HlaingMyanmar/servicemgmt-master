@@ -351,6 +351,7 @@ fun HomeScreen(
                     QuadItem("ရောင်းပြန်လက်ခံ",             Icons.Outlined.AssignmentReturn,     Danger,          Screen.SaleReturns.route),
                     QuadItem("Serial Registry",           Icons.Outlined.QrCode2,               Color(0xFF7C3AED),Screen.SerialRegistry.route),
                     QuadItem("Opening Balance",           Icons.Outlined.AccountBalance,         Color(0xFF0369A1),Screen.OpeningBalance.route),
+                    QuadItem("ငွေပြောင်းလဲမှု",           Icons.Outlined.SwapHoriz,              Color(0xFF4F46E5),Screen.Transfer.route),
                 )
 
                 actions.chunked(2).forEach { row ->
@@ -735,6 +736,7 @@ fun DrawerContent(
             DrawerMenuItem("ကန့်တည်နေရာများ",          Icons.Outlined.LocationOn,            Screen.ShelfLocations.route,    onNavigate)
 
             DrawerSection("ငွေကြေး")
+            DrawerMenuItem("ငွေပြောင်းလဲမှု (Transfer)",   Icons.Outlined.SwapHoriz,              Screen.Transfer.route,      onNavigate)
             DrawerMenuItem("Opening Balance / Capital", Icons.Outlined.AccountBalance,         Screen.OpeningBalance.route, onNavigate)
             DrawerMenuItem("ကုန်ကျစရိတ်",              Icons.Outlined.AccountBalanceWallet,  Screen.Expenses.route,      onNavigate)
             DrawerMenuItem("ဂျာနယ်မှတ်တမ်း",             Icons.Outlined.MenuBook,              Screen.JournalEntries.route, onNavigate)

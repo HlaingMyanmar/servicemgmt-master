@@ -466,6 +466,287 @@ body {
 .inv-thermal__footer  { text-align: center; font-size: 9px; margin-top: 6px; color: #555; }
 .r { text-align: right; }
 
+/* Real-life voucher redesign: clean print-first layout, safe for 2+ pages. */
+:root {
+  --inv-primary: #111827;
+  --inv-primary-mid: #111827;
+  --inv-accent: #2563eb;
+  --inv-accent-dark: #1d4ed8;
+  --inv-text: #111827;
+  --inv-muted: #6b7280;
+  --inv-border: #d1d5db;
+  --inv-border-light: #e5e7eb;
+  --inv-row-alt: #f9fafb;
+  --inv-header-bg: #f3f4f6;
+  --inv-radius: 4px;
+  --inv-radius-sm: 3px;
+}
+
+body {
+  font-family: Pyidaungsu, 'Segoe UI', Arial, sans-serif;
+  font-size: 12px;
+  line-height: 1.42;
+  color: var(--inv-text);
+}
+
+.invoice-page {
+  overflow: visible;
+  background: #fff;
+}
+
+.inv-header {
+  background: #fff;
+  color: var(--inv-text);
+  border: 1px solid var(--inv-border);
+  border-bottom: 0;
+  padding: 12px 16px 10px;
+  align-items: stretch;
+}
+
+.inv-header__brand {
+  align-items: center;
+  max-width: 64%;
+}
+
+.inv-header__logo {
+  max-height: 48px;
+  max-width: 76px;
+  border: 1px solid var(--inv-border);
+  border-radius: 3px;
+  box-shadow: none;
+}
+
+.inv-header__company-name {
+  color: var(--inv-text);
+  font-size: 18px;
+  line-height: 1.15;
+  letter-spacing: 0;
+}
+
+.inv-header__company-sub {
+  color: var(--inv-muted);
+  font-size: 10px;
+  line-height: 1.45;
+  margin-top: 4px;
+}
+
+.inv-header__meta {
+  min-width: 160px;
+  border-left: 1px solid var(--inv-border);
+  padding-left: 14px;
+}
+
+.inv-header__meta-title {
+  color: var(--inv-muted);
+  background: transparent;
+  border-radius: 0;
+  padding: 0;
+  margin-bottom: 4px;
+  font-size: 9px;
+  letter-spacing: 1.1px;
+}
+
+.inv-header__meta-number {
+  color: var(--inv-text);
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+.inv-header__meta-date {
+  color: var(--inv-muted);
+  font-size: 10px;
+  margin-top: 3px;
+}
+
+.inv-header__qr {
+  width: 54px;
+  height: 54px;
+  border: 1px solid var(--inv-border);
+  border-radius: 3px;
+  margin-top: 6px;
+}
+
+.inv-accent-bar {
+  height: 0;
+  border-top: 3px solid var(--inv-accent);
+}
+
+.inv-cont-header {
+  background: #fff;
+  border: 1px solid var(--inv-border);
+  border-bottom: 3px solid var(--inv-accent);
+  padding: 8px 16px;
+}
+
+.inv-cont-header__title {
+  color: var(--inv-text);
+  font-size: 11px;
+}
+
+.inv-cont-header__page {
+  color: var(--inv-muted);
+  font-size: 10px;
+}
+
+.inv-body {
+  border: 1px solid var(--inv-border);
+  border-top: 0;
+  padding: 14px 16px 12px;
+}
+
+.inv-info-grid {
+  gap: 10px;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--inv-border);
+}
+
+.inv-block {
+  background: #fff;
+  border: 1px solid var(--inv-border);
+  border-left: 3px solid var(--inv-accent);
+  border-radius: 3px;
+  padding: 8px 10px;
+}
+
+.inv-block__title {
+  color: var(--inv-text);
+  letter-spacing: .6px;
+  padding-bottom: 5px;
+  margin-bottom: 6px;
+}
+
+.inv-block__row {
+  margin-top: 4px;
+}
+
+.inv-block__value {
+  font-weight: 700;
+  word-break: break-word;
+}
+
+.inv-badge {
+  border-radius: 3px;
+  padding: 1px 6px;
+}
+
+.inv-table-wrap {
+  border-radius: 3px;
+  margin-bottom: 12px;
+  overflow: visible;
+}
+
+.inv-table {
+  table-layout: fixed;
+  font-size: 11px;
+}
+
+.inv-table th {
+  color: var(--inv-text);
+  background: var(--inv-header-bg);
+  border-bottom: 1px solid var(--inv-border);
+  padding: 6px 7px;
+  letter-spacing: .4px;
+}
+
+.inv-table td {
+  padding: 5px 7px;
+  border-bottom: 1px solid var(--inv-border-light);
+}
+
+.inv-table tbody tr:nth-child(even) td {
+  background: #fff;
+}
+
+.inv-table__sub {
+  color: var(--inv-muted);
+  font-size: 9px;
+  line-height: 1.28;
+  word-break: break-word;
+}
+
+.inv-bottom {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 235px;
+  gap: 12px;
+  align-items: start;
+  margin-top: 2px;
+}
+
+.inv-summary-box {
+  width: 235px;
+  border-radius: 3px;
+  box-shadow: none;
+}
+
+.inv-summary-row {
+  padding: 5px 10px;
+  font-size: 11px;
+}
+
+.inv-summary-row--highlight {
+  background: var(--inv-primary);
+  color: #fff;
+  padding: 7px 10px;
+  font-size: 12px;
+}
+
+.inv-pay-table th,
+.inv-pay-table td {
+  padding: 4px 7px;
+  font-size: 10px;
+}
+
+.inv-remark,
+.inv-notice {
+  border-radius: 3px;
+  padding: 7px 9px;
+  line-height: 1.5;
+  background: #fff;
+}
+
+.inv-signatures {
+  gap: 28px;
+  margin-top: 22px;
+}
+
+.inv-sign__line {
+  margin-top: 28px;
+  padding-top: 5px;
+}
+
+.inv-footer {
+  margin-top: 10px;
+  padding-top: 6px;
+  color: var(--inv-muted);
+}
+
+.invoice-page--a5 .inv-header { padding: 10px 12px 9px; }
+.invoice-page--a5 .inv-header__company-name { font-size: 15px; }
+.invoice-page--a5 .inv-header__meta-number { font-size: 15px; }
+.invoice-page--a5 .inv-body { padding: 11px 12px; }
+.invoice-page--a5 .inv-info-grid { grid-template-columns: 1fr; }
+.invoice-page--a5 .inv-bottom { grid-template-columns: 1fr; }
+.invoice-page--a5 .inv-summary-box { width: 100%; }
+.invoice-page--a5 .inv-table th,
+.invoice-page--a5 .inv-table td { padding: 4px 5px; font-size: 9.8px; }
+
+.inv-thermal {
+  font-family: Pyidaungsu, 'Segoe UI', Arial, sans-serif;
+  color: #111;
+  padding: 2mm;
+}
+
+.inv-thermal__company {
+  font-size: 13px;
+}
+
+.inv-thermal__table th,
+.inv-thermal__table td,
+.inv-thermal__totals td {
+  border-bottom: 1px dotted #bbb;
+}
+
 /* ── @media print ────────────────────────────────────────────────────────── */
 @media print {
   body { margin: 0 !important; background: transparent !important; padding: 0 !important; }
@@ -484,6 +765,25 @@ body {
   .inv-table tbody tr {
     break-inside: avoid;
     page-break-inside: avoid;
+  }
+  .inv-header,
+  .inv-cont-header,
+  .inv-info-grid,
+  .inv-table thead,
+  .inv-summary-box,
+  .inv-payment-col,
+  .inv-summary-col {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  .inv-table {
+    page-break-inside: auto;
+  }
+  .inv-table thead {
+    display: table-header-group;
+  }
+  .inv-table tfoot {
+    display: table-footer-group;
   }
   .inv-table tbody tr:hover td { background: transparent !important; }
   .inv-bottom,

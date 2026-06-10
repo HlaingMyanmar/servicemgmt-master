@@ -3,7 +3,7 @@ import { useDataEvents } from '../hooks/useDataEvents';
 import { accountingApiService } from '../services/accountingapiservice';
 import { paymentMethodService } from '../services/paymentmethodapiservice';
 import { PaymentTransactionDTO, PaymentMethodDTO } from '../types';
-import { ArrowDownLeft, ArrowUpRight, Minus, RefreshCw, Search, X } from 'lucide-react';
+import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, Minus, RefreshCw, Save, Search, X } from 'lucide-react';
 
 const money = (v: number | undefined) =>
   new Intl.NumberFormat('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(v || 0);
@@ -57,7 +57,9 @@ const ALL_TYPES = ['Sale', 'Purchase', 'Sale_Return', 'Purchase_Return', 'Debt_P
 const PaymentTransactionManagement: React.FC = () => {
   const [list, setList]       = useState<PaymentTransactionDTO[]>([]);
   const [loading, setLoading] = useState(true);
-  const [_methods, setMethods] = useState<PaymentMethodDTO[]>([]);
+  const [methods, setMethods] = useState<PaymentMethodDTO[]>([]);
+  const [transferSaving, setTransferSaving] = useState(false);
+  const [transferForm, setTransferForm] = useState({ fromPaymentMethodId: 0, toPaymentMethodId: 0, amount: '', transactionNo: '', note: '' });
 
   const [search, setSearch]     = useState('');
   const [dateFrom, setDateFrom] = useState('');
@@ -109,6 +111,27 @@ const PaymentTransactionManagement: React.FC = () => {
 
   const clearFilters = () => { setSearch(''); setDateFrom(''); setDateTo(''); setTypeFilter(''); setDirFilter(''); };
 
+  const saveTransfer = async () => {
+    const amount = Number(transferForm.amount);
+    if (!transferForm.fromPaymentMethodId || !transferForm.toPaymentMethodId) return alert('Select from/to payment methods.');
+    if (transferForm.fromPaymentMethodId === transferForm.toPaymentMethodId) return alert('From and To methods must be different.');
+    if (!amount || amount <= 0) return alert('Amount must be greater than zero.');
+    setTransferSaving(true);
+    try {
+      await accountingApiService.transferPaymentMethodBalance({
+        fromPaymentMethodId: transferForm.fromPaymentMethodId,
+        toPaymentMethodId: transferForm.toPaymentMethodId,
+        amount,
+        transactionNo: transferForm.transactionNo.trim() || undefined,
+        note: transferForm.note.trim() || undefined
+      });
+      setTransferForm({ fromPaymentMethodId: 0, toPaymentMethodId: 0, amount: '', transactionNo: '', note: '' });
+      await fetchData();
+    } finally {
+      setTransferSaving(false);
+    }
+  };
+
   return (
     <div className="w-full max-w-none space-y-5">
 
@@ -152,6 +175,29 @@ const PaymentTransactionManagement: React.FC = () => {
             <p className={`text-xl font-bold ${netFlow >= 0 ? 'text-indigo-700' : 'text-orange-700'}`}>{netFlow >= 0 ? '+' : ''}{money(netFlow)} Ks</p>
           </div>
         </div>
+      </div>
+
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <ArrowLeftRight size={16} className="text-indigo-600" />
+          <h3 className="text-sm font-bold text-slate-800">Cash / KPay / Bank Transfer</h3>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-2">
+          <select value={transferForm.fromPaymentMethodId} onChange={(e) => setTransferForm((f) => ({ ...f, fromPaymentMethodId: Number(e.target.value) || 0 }))} className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm">
+            <option value={0}>From method</option>
+            {methods.map((m) => <option key={m.id} value={m.id}>{m.methodName}</option>)}
+          </select>
+          <select value={transferForm.toPaymentMethodId} onChange={(e) => setTransferForm((f) => ({ ...f, toPaymentMethodId: Number(e.target.value) || 0 }))} className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm">
+            <option value={0}>To method</option>
+            {methods.map((m) => <option key={m.id} value={m.id}>{m.methodName}</option>)}
+          </select>
+          <input type="number" min="0" step="0.01" value={transferForm.amount} onChange={(e) => setTransferForm((f) => ({ ...f, amount: e.target.value }))} placeholder="Amount" className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm" />
+          <input value={transferForm.transactionNo} onChange={(e) => setTransferForm((f) => ({ ...f, transactionNo: e.target.value }))} placeholder="Transaction no" className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm" />
+          <button onClick={saveTransfer} disabled={transferSaving} className="inline-flex items-center justify-center gap-2 px-3 py-2 bg-indigo-600 text-white rounded-lg text-sm font-bold hover:bg-indigo-700 disabled:opacity-60">
+            <Save size={14} /> {transferSaving ? 'Saving...' : 'Transfer'}
+          </button>
+        </div>
+        <input value={transferForm.note} onChange={(e) => setTransferForm((f) => ({ ...f, note: e.target.value }))} placeholder="Note" className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm" />
       </div>
 
       {/* Filters */}

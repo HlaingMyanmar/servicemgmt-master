@@ -50,7 +50,7 @@
 <div th:fragment="cont(inv, layout)">
   <div class="inv-cont-header">
     <span class="inv-cont-header__title"
-          th:text="${inv.invoiceTitle + ' — ' + inv.invoiceNo}">Invoice</span>
+          th:text="${inv.invoiceTitle + ' - ' + inv.invoiceNo}">Invoice</span>
     <span class="inv-cont-header__page"
           th:text="${'Page ' + inv.currentPage + ' of ' + inv.totalPages}">Page 2 of 3</span>
   </div>

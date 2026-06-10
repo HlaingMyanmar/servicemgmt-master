@@ -626,6 +626,12 @@ interface ApiService {
         @Query("paymentMethodId") paymentMethodId: Int
     ): Response<ApiResponse<AccountBalanceDTO>>
 
+    @POST("payment-transactions/transfer")
+    suspend fun transferPaymentMethod(
+        @Header("Authorization") auth: String,
+        @Body body: AccountTransferRequest
+    ): Response<ApiResponse<PaymentTransactionDTO>>
+
     // ── Stock Adjustments ─────────────────────────────────────────────────────
     @GET("stock-adjustments")
     suspend fun getStockAdjustments(

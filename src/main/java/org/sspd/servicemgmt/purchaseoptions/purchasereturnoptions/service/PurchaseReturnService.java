@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.sspd.servicemgmt.accountingoptions.paymentmethodoptions.model.PaymentMethod;
 import org.sspd.servicemgmt.accountingoptions.paymentmethodoptions.repository.PaymentMethodRepository;
+import org.sspd.servicemgmt.accountingoptions.paymenttransactionoptions.dto.PaymentTransactionDTO;
 import org.sspd.servicemgmt.accountingoptions.paymenttransactionoptions.model.PaymentTransaction;
 import org.sspd.servicemgmt.accountingoptions.paymenttransactionoptions.model.ReferenceType;
 import org.sspd.servicemgmt.accountingoptions.paymenttransactionoptions.repository.PaymentTransactionRepository;
@@ -194,7 +195,7 @@ public class PurchaseReturnService {
             creditBeforeRefund = BigDecimal.ZERO;
         }
 
-        BigDecimal refundAmount = dto.getRefundAmount() != null ? dto.getRefundAmount() : BigDecimal.ZERO;
+        BigDecimal refundAmount = paymentTotal(dto.getPayments(), dto.getRefundAmount());
         if (refundAmount.compareTo(BigDecimal.ZERO) < 0) {
             throw new RuntimeException("Refund amount cannot be negative");
         }
@@ -222,31 +223,20 @@ public class PurchaseReturnService {
 
         // Record refund payment transaction and accounting journal
         if (refundAmount.compareTo(BigDecimal.ZERO) > 0) {
-            if (dto.getPaymentMethodId() == null) {
+            if (dto.getPaymentMethodId() == null && (dto.getPayments() == null || dto.getPayments().isEmpty())) {
                 throw new RuntimeException("Payment Method is required for refund amount");
             }
-            PaymentMethod method = paymentMethodRepository.findById(dto.getPaymentMethodId())
+            Integer firstMethodId = dto.getPaymentMethodId() != null ? dto.getPaymentMethodId() : dto.getPayments().get(0).getPaymentMethodId();
+            PaymentMethod method = paymentMethodRepository.findById(firstMethodId)
                     .orElseThrow(() -> new ResourceNotFoundException("Payment Method not found"));
 
-            PaymentTransaction paymentTx = new PaymentTransaction();
-            paymentTx.setReferenceId(savedEntity.getId());
-            paymentTx.setReferenceType(ReferenceType.Purchase_Return);
-            paymentTx.setPaymentMethod(method);
-            paymentTx.setAmount(refundAmount);
-            paymentTx.setPaymentDate(LocalDateTime.now());
-
-            String txnNo = (dto.getTransactionNo() == null || dto.getTransactionNo().isEmpty())
-                    ? generateTransactionNo()
-                    : dto.getTransactionNo();
-            paymentTx.setTransactionNo(txnNo);
-
-            paymentTransactionRepository.save(paymentTx);
+            recordPaymentTransactions(savedEntity, refundAmount, dto.getTransactionNo(), method, dto.getPayments());
 
             Integer staffId = purchase.getStaff() != null ? purchase.getStaff().getId() : null;
-            createReturnJournal(savedEntity, method, refundAmount, oldDue.min(total), staffId, supplier != null ? supplier.getName() : "");
+            createReturnJournal(savedEntity, method, refundAmount, oldDue.min(total), staffId, supplier != null ? supplier.getName() : "", dto.getPayments());
         } else if (oldDue.compareTo(BigDecimal.ZERO) > 0) {
             Integer staffId = purchase.getStaff() != null ? purchase.getStaff().getId() : null;
-            createReturnJournal(savedEntity, null, BigDecimal.ZERO, oldDue.min(total), staffId, supplier != null ? supplier.getName() : "");
+            createReturnJournal(savedEntity, null, BigDecimal.ZERO, oldDue.min(total), staffId, supplier != null ? supplier.getName() : "", null);
         }
 
         if (supplier != null) {
@@ -518,12 +508,60 @@ public class PurchaseReturnService {
         return String.format("TXN-%06d", count + 1);
     }
 
+    private void recordPaymentTransactions(PurchaseReturn pr, BigDecimal refundAmount, String fallbackTransactionNo,
+                                           PaymentMethod fallbackMethod, List<PaymentTransactionDTO> payments) {
+        for (PaymentLine line : resolvePaymentLines(payments, refundAmount, fallbackMethod)) {
+            PaymentTransaction paymentTx = new PaymentTransaction();
+            paymentTx.setReferenceId(pr.getId());
+            paymentTx.setReferenceType(ReferenceType.Purchase_Return);
+            paymentTx.setPaymentMethod(line.method());
+            paymentTx.setAmount(line.amount());
+            paymentTx.setPaymentDate(LocalDateTime.now());
+            paymentTx.setTransactionNo(line.transactionNo() != null && !line.transactionNo().isBlank()
+                    ? line.transactionNo()
+                    : (fallbackTransactionNo == null || fallbackTransactionNo.isBlank() ? generateTransactionNo() : fallbackTransactionNo));
+            paymentTransactionRepository.save(paymentTx);
+        }
+    }
+
+    private BigDecimal paymentTotal(List<PaymentTransactionDTO> payments, BigDecimal fallback) {
+        if (payments == null || payments.isEmpty()) return fallback != null ? fallback : BigDecimal.ZERO;
+        return payments.stream()
+                .map(PaymentTransactionDTO::getAmount)
+                .filter(java.util.Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    private List<PaymentLine> resolvePaymentLines(List<PaymentTransactionDTO> payments, BigDecimal expectedTotal, PaymentMethod fallbackMethod) {
+        if (payments == null || payments.isEmpty()) {
+            if (fallbackMethod == null) throw new RuntimeException("Payment Method is required.");
+            return List.of(new PaymentLine(fallbackMethod, expectedTotal, null));
+        }
+        BigDecimal total = paymentTotal(payments, BigDecimal.ZERO);
+        if (expectedTotal != null && total.compareTo(expectedTotal) != 0) {
+            throw new RuntimeException("Split payment total must equal refund amount.");
+        }
+        List<PaymentLine> lines = new ArrayList<>();
+        for (PaymentTransactionDTO payment : payments) {
+            BigDecimal amount = payment.getAmount() != null ? payment.getAmount() : BigDecimal.ZERO;
+            if (amount.compareTo(BigDecimal.ZERO) <= 0) continue;
+            PaymentMethod method = paymentMethodRepository.findById(payment.getPaymentMethodId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Payment Method not found"));
+            if (method.getAccount() == null) throw new RuntimeException("Payment Method must have linked account.");
+            lines.add(new PaymentLine(method, amount, payment.getTransactionNo()));
+        }
+        return lines;
+    }
+
+    private record PaymentLine(PaymentMethod method, BigDecimal amount, String transactionNo) {}
+
     private String joinSerials(List<String> serials) {
         return serials == null ? null : String.join(",", serials);
     }
 
     private void createReturnJournal(PurchaseReturn pr, PaymentMethod method, BigDecimal refundAmount,
-                                     BigDecimal payableReduction, Integer staffId, String supplierName) {
+                                     BigDecimal payableReduction, Integer staffId, String supplierName,
+                                     List<PaymentTransactionDTO> payments) {
         JournalEntryDTO journalDTO = new JournalEntryDTO();
         journalDTO.setReferenceNo(pr.getReturnNo());
         journalDTO.setEntryDate(LocalDateTime.now());
@@ -544,11 +582,13 @@ public class PurchaseReturnService {
         }
 
         if (refundAmount != null && refundAmount.compareTo(BigDecimal.ZERO) > 0) {
-            JournalDetailDTO drCashBank = new JournalDetailDTO();
-            drCashBank.setAccountId(method.getAccount().getId());
-            drCashBank.setDebit(refundAmount);
-            drCashBank.setCredit(BigDecimal.ZERO);
-            details.add(drCashBank);
+            for (PaymentLine line : resolvePaymentLines(payments, refundAmount, method)) {
+                JournalDetailDTO drCashBank = new JournalDetailDTO();
+                drCashBank.setAccountId(line.method().getAccount().getId());
+                drCashBank.setDebit(line.amount());
+                drCashBank.setCredit(BigDecimal.ZERO);
+                details.add(drCashBank);
+            }
             totalCredit = totalCredit.add(refundAmount);
         }
 
