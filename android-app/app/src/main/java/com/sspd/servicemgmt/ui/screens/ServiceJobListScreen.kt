@@ -208,9 +208,11 @@ fun ServiceJobListScreen(
             ) {
                 listOf(
                     "ALL"         to "အားလုံး",
-                    "PENDING"     to "စောင့်ဆိုင်း",
+                    "RECEIVED"    to "လက်ခံပြီး",
+                    "INSPECTING"  to "စစ်ဆေးဆဲ",
                     "IN_PROGRESS" to "လုပ်ဆဲ",
                     "COMPLETED"   to "ပြီး",
+                    "DELIVERED"   to "ပြန်ပေးပြီး",
                     "CREDIT"      to "ကြွေးကျန်"
                 ).forEach { (k, v) ->
                     FilterChip(
@@ -290,6 +292,20 @@ fun ServiceJobListScreen(
                                         Text(job.itemName, fontSize = 11.sp, color = TextMuted)
                                     }
                                 }
+                                if (!job.shelfLocationCode.isNullOrBlank()) {
+                                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Outlined.Inventory2, null, tint = Primary, modifier = Modifier.size(12.dp))
+                                        Text(
+                                            listOfNotNull(
+                                                job.shelfLocationCode,
+                                                job.shelfLocationLabel?.takeIf { it.isNotBlank() }
+                                            ).joinToString(" - "),
+                                            fontSize = 11.sp,
+                                            color = Primary,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
                                 if (!job.problemDesc.isNullOrBlank()) {
                                     Text(job.problemDesc, fontSize = 11.sp, color = TextMuted, maxLines = 1)
                                 }
@@ -332,8 +348,10 @@ fun ServiceJobListScreen(
 private fun JobStatusBadge(status: String?) {
     val (bg, color, label) = when (status?.uppercase()) {
         "COMPLETED"   -> Triple(SuccessBg, Success, "ပြီးဆုံး")
+        "DELIVERED"   -> Triple(SuccessBg, Success, "ပြန်ပေးပြီး")
+        "RECEIVED"    -> Triple(WarningBg, Warning, "လက်ခံပြီး")
+        "INSPECTING"  -> Triple(WarningBg, Warning, "စစ်ဆေးဆဲ")
         "IN_PROGRESS" -> Triple(VioletBg,  Violet,  "လုပ်ဆဲ")
-        "PENDING"     -> Triple(WarningBg, Warning, "စောင့်ဆိုင်း")
         "CANCELLED"   -> Triple(DangerBg,  Danger,  "ပယ်ဖျက်")
         else          -> Triple(BorderColor, TextMuted, status ?: "-")
     }

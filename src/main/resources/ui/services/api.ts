@@ -166,7 +166,7 @@ export const backupService = {
   getSettings: () => api.get<any, ApiResponse<any>>('/v1/backup/settings'),
   saveSettings: (dto: any) => api.post<any, ApiResponse<any>>('/v1/backup/settings', dto),
   runNow: () => api.post<any, ApiResponse<any>>('/v1/backup/run-now'),
-  listBackups: () => api.get<any, ApiResponse<string[]>>('/v1/backup/list'),
+  listBackups: () => api.get<any, ApiResponse<any[]>>('/v1/backup/list'),
   importBackup: (file: File) => {
     const formData = new FormData();
     formData.append('file', file);

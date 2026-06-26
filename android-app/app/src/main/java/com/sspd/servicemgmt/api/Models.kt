@@ -402,6 +402,9 @@ data class ServiceJobDTO(
     val bookingNo: String? = null,
     val serialNo: String? = null,
     val color: String? = null,
+    val shelfLocationId: Int? = null,
+    val shelfLocationCode: String? = null,
+    val shelfLocationLabel: String? = null,
     val remark: String? = null,
     val lines: List<ServiceJobLineDTO>? = null,
     val productParts: List<ServiceJobPartDTO>? = null
@@ -454,8 +457,8 @@ data class SupplierDTO(
     val name: String = "",
     val phone: String? = null,
     val address: String? = null,
-    val openingBalance: Long? = null,
-    val currentBalance: Long? = null
+    val openingBalance: Double? = null,
+    val currentBalance: Double? = null
 )
 
 // ─── Purchases ───────────────────────────────────────────────────────────────

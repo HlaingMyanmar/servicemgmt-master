@@ -31,6 +31,7 @@ import org.sspd.servicemgmt.servicejoboptions.model.ServiceJobLine;
 import org.sspd.servicemgmt.servicejoboptions.model.ServiceJobPart;
 import org.sspd.servicemgmt.servicejoboptions.model.ServiceJobStatus;
 import org.sspd.servicemgmt.servicejoboptions.repository.ServiceJobRepository;
+import org.sspd.servicemgmt.shelflocationoptions.repository.ShelfLocationRepository;
 import org.sspd.servicemgmt.saleoptions.dto.SaleDTO;
 import org.sspd.servicemgmt.saleoptions.service.SaleService;
 import org.sspd.servicemgmt.saleoptions.saledetails.dto.SaleDetailDTO;
@@ -65,6 +66,7 @@ public class ServiceJobService {
     private final ServiceItemRepository serviceItemRepo;
     private final ProductRepository productRepo;
     private final ProductSerialRepository serialRepo;
+    private final ShelfLocationRepository shelfLocationRepo;
     private final PaymentMethodRepository paymentMethodRepo;
     private final JournalWriter journalWriter;
     private final PaymentTransactionRepository paymentTransactionRepo;
@@ -140,6 +142,8 @@ public class ServiceJobService {
             .customer(customerRepo.findById(dto.getCustomerId())
                 .orElseThrow(() -> new ResourceNotFoundException("Customer not found")))
             .itemName(dto.getItemName())
+            .serialNo(dto.getSerialNo())
+            .color(dto.getColor())
             .itemCondition(dto.getItemCondition())
             .deviceConditions(dto.getDeviceConditions())
             .accessories(dto.getAccessories())
@@ -155,6 +159,8 @@ public class ServiceJobService {
 
         if (dto.getAssignedStaffId() != null)
             job.setAssignedStaff(staffRepo.findById(dto.getAssignedStaffId()).orElse(null));
+        if (dto.getShelfLocationId() != null)
+            job.setShelfLocation(shelfLocationRepo.findById(dto.getShelfLocationId()).orElse(null));
         if (dto.getEstimatedCompletion() != null && !dto.getEstimatedCompletion().isBlank())
             job.setEstimatedCompletion(LocalDateTime.parse(dto.getEstimatedCompletion(), FMT));
 
@@ -178,7 +184,12 @@ public class ServiceJobService {
                 .orElseThrow(() -> new ResourceNotFoundException("Customer not found")));
         if (dto.getAssignedStaffId() != null)
             job.setAssignedStaff(staffRepo.findById(dto.getAssignedStaffId()).orElse(null));
+        job.setShelfLocation(dto.getShelfLocationId() != null
+            ? shelfLocationRepo.findById(dto.getShelfLocationId()).orElse(null)
+            : null);
         if (dto.getItemName() != null)          job.setItemName(dto.getItemName());
+        if (dto.getSerialNo() != null)          job.setSerialNo(dto.getSerialNo());
+        if (dto.getColor() != null)             job.setColor(dto.getColor());
         if (dto.getItemCondition() != null)     job.setItemCondition(dto.getItemCondition());
         if (dto.getDeviceConditions() != null)  job.setDeviceConditions(dto.getDeviceConditions());
         if (dto.getAccessories() != null)       job.setAccessories(dto.getAccessories());
@@ -692,6 +703,8 @@ public class ServiceJobService {
             dto.setAssignedStaffName(j.getAssignedStaff().getName());
         }
         dto.setItemName(j.getItemName());
+        dto.setSerialNo(j.getSerialNo());
+        dto.setColor(j.getColor());
         dto.setItemCondition(j.getItemCondition());
         dto.setDeviceConditions(j.getDeviceConditions());
         dto.setProblemDesc(j.getProblemDesc());
@@ -717,12 +730,19 @@ public class ServiceJobService {
         dto.setCreditStatus(j.getCreditStatus() != null ? j.getCreditStatus().name() : null);
         dto.setCustomerPhone(j.getCustomer().getPhone());
         dto.setAccessories(j.getAccessories());
+        if (j.getShelfLocation() != null) {
+            dto.setShelfLocationId(j.getShelfLocation().getId());
+            dto.setShelfLocationCode(j.getShelfLocation().getCode());
+            dto.setShelfLocationLabel(j.getShelfLocation().getLabel());
+        }
         dto.setBookingId(j.getBookingId());
         if (j.getBookingId() != null) {
             bookingRepo.findById(j.getBookingId()).ifPresent(b -> {
                 dto.setBookingNo(b.getInvoiceNo());
-                dto.setColor(b.getColor());
-                dto.setSerialNo(b.getSerialNumber());
+                if (dto.getColor() == null || dto.getColor().isBlank())
+                    dto.setColor(b.getColor());
+                if (dto.getSerialNo() == null || dto.getSerialNo().isBlank())
+                    dto.setSerialNo(b.getSerialNumber());
                 // Only fall back to booking accessories if the job has none of its own
                 if (dto.getAccessories() == null || dto.getAccessories().isBlank())
                     dto.setAccessories(b.getAccessories());

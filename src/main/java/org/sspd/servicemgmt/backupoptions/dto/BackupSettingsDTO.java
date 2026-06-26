@@ -14,4 +14,11 @@ public class BackupSettingsDTO {
     private boolean enabled;
     private Integer keepDays;
     private String mysqldumpPath;
+    private String nextRunAt;
+    private boolean backupDirExists;
+    private boolean backupDirWritable;
+    private String lastBackupFile;
+    private String lastBackupAt;
+    private Long lastBackupSizeBytes;
+    private Integer backupCount;
 }

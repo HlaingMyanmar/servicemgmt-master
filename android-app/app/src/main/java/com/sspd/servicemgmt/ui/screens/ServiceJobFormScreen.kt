@@ -42,6 +42,7 @@ fun ServiceJobFormScreen(onBack: () -> Unit, onSuccess: (ServiceJobDTO) -> Unit)
     val snackbar = remember { SnackbarHostState() }
 
     var showStaffSheet    by rememberSaveable { mutableStateOf(false) }
+    var showLocationSheet by rememberSaveable { mutableStateOf(false) }
     var showLineItemSheet by rememberSaveable { mutableStateOf(-1) }
     var showPartSheet     by rememberSaveable { mutableStateOf(-1) }
     var partSearchQuery   by rememberSaveable { mutableStateOf("") }
@@ -146,6 +147,58 @@ fun ServiceJobFormScreen(onBack: () -> Unit, onSuccess: (ServiceJobDTO) -> Unit)
                         if (state.selectedStaff?.id == staff.id) Icon(Icons.Outlined.Check, null, tint = Primary, modifier = Modifier.size(18.dp))
                     }
                     HorizontalDivider(color = BorderColor)
+                }
+                Spacer(Modifier.height(24.dp))
+            }
+        }
+    }
+
+    // Storage location sheet
+    if (showLocationSheet) {
+        ModalBottomSheet(onDismissRequest = { showLocationSheet = false }) {
+            Column(Modifier.padding(16.dp)) {
+                Text("ထားမည့်နေရာ ရွေးပါ", fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
+                Spacer(Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth().clickable {
+                        vm.selectShelfLocation(null)
+                        showLocationSheet = false
+                    }.padding(vertical = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("— မသတ်မှတ်ပါ —", color = TextMuted, fontSize = 14.sp)
+                    if (state.selectedShelfLocation == null) {
+                        Icon(Icons.Outlined.Check, null, tint = Primary, modifier = Modifier.size(18.dp))
+                    }
+                }
+                HorizontalDivider(color = BorderColor)
+                state.shelfLocations.forEach { loc ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth().clickable {
+                            vm.selectShelfLocation(loc)
+                            showLocationSheet = false
+                        }.padding(vertical = 12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text(loc.code, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = TextMain)
+                            if (!loc.label.isNullOrBlank()) Text(loc.label, fontSize = 11.sp, color = TextMuted)
+                        }
+                        if (state.selectedShelfLocation?.id == loc.id) {
+                            Icon(Icons.Outlined.Check, null, tint = Primary, modifier = Modifier.size(18.dp))
+                        }
+                    }
+                    HorizontalDivider(color = BorderColor)
+                }
+                if (state.shelfLocations.isEmpty()) {
+                    Text(
+                        "နေရာစာရင်း မရှိသေးပါ။ Shelf Location စာမျက်နှာမှာ အရင်ထည့်ပါ။",
+                        fontSize = 12.sp,
+                        color = TextMuted,
+                        modifier = Modifier.padding(vertical = 16.dp)
+                    )
                 }
                 Spacer(Modifier.height(24.dp))
             }
@@ -530,6 +583,31 @@ fun ServiceJobFormScreen(onBack: () -> Unit, onSuccess: (ServiceJobDTO) -> Unit)
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 JobTextField(state.serialNo, { vm.setSerialNo(it) }, "Serial No", modifier = Modifier.weight(1f))
                 JobTextField(state.color, { vm.setColor(it) }, "အရောင်", modifier = Modifier.weight(1f))
+            }
+            OutlinedCard(
+                modifier = Modifier.fillMaxWidth().clickable { showLocationSheet = true },
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(1.dp, if (state.selectedShelfLocation != null) Primary else BorderColor)
+            ) {
+                Row(
+                    Modifier.fillMaxWidth().padding(14.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    val location = state.selectedShelfLocation
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Outlined.Inventory2, null, tint = if (location != null) Primary else TextMuted, modifier = Modifier.size(18.dp))
+                        if (location != null) {
+                            Column {
+                                Text(location.code, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = TextMain)
+                                if (!location.label.isNullOrBlank()) Text(location.label, fontSize = 11.sp, color = TextMuted)
+                            }
+                        } else {
+                            Text("ထားမည့်နေရာ ရွေးပါ (optional)", fontSize = 13.sp, color = TextMuted)
+                        }
+                    }
+                    Icon(Icons.Outlined.ChevronRight, null, tint = TextMuted, modifier = Modifier.size(18.dp))
+                }
             }
             JobTextField(state.accessories, { vm.setAccessories(it) }, "ပါပစ္စည်းများ", "Charger, Case...")
             JobTextField(state.itemCondition, { vm.setItemCondition(it) }, "ပစ္စည်းအခြေအနေ (ရောက်ချိန်)", "Cracked screen, Power off...")

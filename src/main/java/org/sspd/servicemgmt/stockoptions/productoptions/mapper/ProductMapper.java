@@ -28,9 +28,11 @@ public interface ProductMapper {
     ProductDTO toDto(Product entity);
 
     // DTO -> Entity (Relationship object တွေကို Service ထဲမှာပဲ Manual ထည့်မှာဖြစ်လို့ ignore လုပ်ထားမယ်)
+    @Mapping(target = "id", ignore = true)
     @Mapping(target = "category", ignore = true)
     @Mapping(target = "brand", ignore = true)
     @Mapping(target = "unit", ignore = true)
+    @Mapping(target = "serials", ignore = true)
     Product toEntity(ProductDTO dto);
 
     // Update Method

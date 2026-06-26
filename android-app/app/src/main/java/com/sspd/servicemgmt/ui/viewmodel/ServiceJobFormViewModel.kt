@@ -13,6 +13,7 @@ import com.sspd.servicemgmt.api.ServiceItemDTO
 import com.sspd.servicemgmt.api.ServiceJobDTO
 import com.sspd.servicemgmt.api.ServiceJobLineDTO
 import com.sspd.servicemgmt.api.ServiceJobPartDTO
+import com.sspd.servicemgmt.api.ShelfLocationDTO
 import com.sspd.servicemgmt.api.StaffDTO
 import com.sspd.servicemgmt.utils.PreferenceManager
 import kotlinx.coroutines.async
@@ -47,12 +48,14 @@ class ServiceJobFormViewModel(
                 val itemsD  = async { ApiClient.service.getActiveServiceItems(token) }
                 val pmD     = async { ApiClient.service.getActivePaymentMethods(token) }
                 val prodD   = async { ApiClient.service.getProducts(token) }
+                val shelfD  = async { ApiClient.service.getActiveShelfLocations(token) }
 
                 val customers      = custD.await().body()?.data  ?: emptyList()
                 val staffList      = staffD.await().body()?.data ?: emptyList()
                 val serviceItems   = itemsD.await().body()?.data ?: emptyList()
                 val paymentMethods = pmD.await().body()?.data    ?: emptyList()
                 val productList    = prodD.await().body()?.data  ?: emptyList()
+                val shelfLocations = shelfD.await().body()?.data ?: emptyList()
 
                 if (jobId != null) {
                     val jobRes = ApiClient.service.getServiceJobById(token, jobId)
@@ -63,9 +66,11 @@ class ServiceJobFormViewModel(
                             serviceItems     = serviceItems,
                             paymentMethods   = paymentMethods,
                             productList      = productList,
+                            shelfLocations   = shelfLocations,
                             selectedCustomer = customers.find { c -> c.id == j.customerId },
                             customerQuery    = j.customerName ?: "",
                             selectedStaff    = staffList.find { s -> s.id == j.assignedStaffId },
+                            selectedShelfLocation = shelfLocations.find { loc -> loc.id == j.shelfLocationId },
                             itemName         = j.itemName ?: "",
                             itemCondition    = j.itemCondition ?: "",
                             deviceConditions = j.deviceConditions ?: "",
@@ -103,7 +108,7 @@ class ServiceJobFormViewModel(
                 _uiState.update { it.copy(
                     customers = customers, staffList = staffList,
                     serviceItems = serviceItems, paymentMethods = paymentMethods,
-                    productList = productList, loading = false
+                    productList = productList, shelfLocations = shelfLocations, loading = false
                 ) }
             } catch (_: Exception) { _uiState.update { it.copy(loading = false) } }
         }
@@ -120,6 +125,7 @@ class ServiceJobFormViewModel(
     fun setNewCustomerPhone(v: String)     = _uiState.update { it.copy(newCustomerPhone = v) }
     fun setNewCustomerAddress(v: String)   = _uiState.update { it.copy(newCustomerAddress = v) }
     fun selectStaff(s: StaffDTO?)          = _uiState.update { it.copy(selectedStaff = s) }
+    fun selectShelfLocation(loc: ShelfLocationDTO?) = _uiState.update { it.copy(selectedShelfLocation = loc) }
     fun setItemName(v: String)             = _uiState.update { it.copy(itemName = v) }
     fun setItemCondition(v: String)        = _uiState.update { it.copy(itemCondition = v) }
     fun setDeviceConditions(v: String)     = _uiState.update { it.copy(deviceConditions = v) }
@@ -406,6 +412,7 @@ class ServiceJobFormViewModel(
                     deviceConditions    = s.deviceConditions.ifBlank { null },
                     serialNo            = s.serialNo.ifBlank { null },
                     color               = s.color.ifBlank { null },
+                    shelfLocationId     = s.selectedShelfLocation?.id,
                     accessories         = s.accessories.ifBlank { null },
                     problemDesc         = s.problemDesc.ifBlank { null },
                     diagnosisNotes      = s.diagnosisNotes.ifBlank { null },
@@ -477,6 +484,7 @@ class ServiceJobFormViewModel(
     data class UiState(
         val customers:           List<CustomerDTO>       = emptyList(),
         val staffList:           List<StaffDTO>          = emptyList(),
+        val shelfLocations:      List<ShelfLocationDTO>  = emptyList(),
         val serviceItems:        List<ServiceItemDTO>    = emptyList(),
         val productList:         List<ProductDTO>        = emptyList(),
         val paymentMethods:      List<PaymentMethodDTO>  = emptyList(),
@@ -493,6 +501,7 @@ class ServiceJobFormViewModel(
         val creatingCustomer:    Boolean                 = false,
         val newCustomerError:    String?                 = null,
         val selectedStaff:       StaffDTO?               = null,
+        val selectedShelfLocation: ShelfLocationDTO?     = null,
         val itemName:            String                  = "",
         val itemCondition:       String                  = "",
         val deviceConditions:    String                  = "",

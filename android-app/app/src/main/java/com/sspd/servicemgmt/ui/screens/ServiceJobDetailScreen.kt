@@ -183,9 +183,21 @@ fun ServiceJobDetailScreen(
                         JobInfoRow(Icons.Outlined.Badge,   "နည်းပညာဆရာ", job.assignedStaffName ?: "—")
                         HorizontalDivider(color = BorderColor)
                         JobInfoRow(Icons.Outlined.Devices, "ပစ္စည်း",      job.itemName ?: "—")
+                        if (!job.shelfLocationCode.isNullOrBlank()) {
+                            HorizontalDivider(color = BorderColor)
+                            JobInfoRow(
+                                Icons.Outlined.Inventory2,
+                                "ထားသည့်နေရာ",
+                                listOfNotNull(job.shelfLocationCode, job.shelfLocationLabel?.takeIf { it.isNotBlank() }).joinToString(" - ")
+                            )
+                        }
                         if (!job.serialNo.isNullOrBlank()) {
                             HorizontalDivider(color = BorderColor)
                             JobInfoRow(Icons.Outlined.Numbers, "Serial No", job.serialNo)
+                        }
+                        if (!job.color.isNullOrBlank()) {
+                            HorizontalDivider(color = BorderColor)
+                            JobInfoRow(Icons.Outlined.Palette, "အရောင်", job.color)
                         }
                         if (!job.itemCondition.isNullOrBlank()) {
                             HorizontalDivider(color = BorderColor)

@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import org.sspd.servicemgmt.backupoptions.dto.BackupFileDTO;
 import org.sspd.servicemgmt.backupoptions.dto.BackupSettingsDTO;
 import org.sspd.servicemgmt.backupoptions.model.BackupFrequency;
 import org.sspd.servicemgmt.backupoptions.model.BackupSettings;
@@ -17,10 +18,17 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.time.DayOfWeek;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.YearMonth;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
+import java.time.temporal.TemporalAdjusters;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
@@ -29,6 +37,7 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class BackupService {
+    private static final ZoneId BACKUP_ZONE = ZoneId.of("Asia/Rangoon");
 
     private final BackupSettingsRepository repository;
     private final BackupSchedulerService schedulerService;
@@ -50,14 +59,15 @@ public class BackupService {
     @Transactional
     public BackupSettingsDTO saveSettings(BackupSettingsDTO dto) {
         BackupSettings s = getOrCreate();
-        s.setFrequency(dto.getFrequency());
-        s.setDayValue(dto.getDayValue());
-        s.setMonthValue(dto.getMonthValue());
-        s.setBackupTime(LocalTime.parse(dto.getBackupTime()));
-        s.setBackupDir(dto.getBackupDir() != null ? dto.getBackupDir() : "./backups");
+        BackupFrequency frequency = dto.getFrequency() != null ? dto.getFrequency() : BackupFrequency.DAILY;
+        s.setFrequency(frequency);
+        s.setDayValue(clamp(dto.getDayValue(), 1, frequency == BackupFrequency.WEEKLY ? 7 : 28, 1));
+        s.setMonthValue(clamp(dto.getMonthValue(), 1, 12, 1));
+        s.setBackupTime(parseBackupTime(dto.getBackupTime()));
+        s.setBackupDir((dto.getBackupDir() != null && !dto.getBackupDir().isBlank()) ? dto.getBackupDir().trim() : "./backups");
         s.setEnabled(dto.isEnabled());
-        s.setKeepDays(dto.getKeepDays() != null ? dto.getKeepDays() : 30);
-        s.setMysqldumpPath(dto.getMysqldumpPath());
+        s.setKeepDays(clamp(dto.getKeepDays(), 1, 3650, 30));
+        s.setMysqldumpPath(dto.getMysqldumpPath() != null ? dto.getMysqldumpPath().trim() : "");
         BackupSettings saved = repository.save(s);
         schedulerService.reschedule(saved);
         return toDto(saved);
@@ -112,7 +122,7 @@ public class BackupService {
         }
     }
 
-    public List<String> listBackups() {
+    public List<BackupFileDTO> listBackups() {
         try {
             File dir = new File(getOrCreate().getBackupDir());
             if (!dir.exists()) return List.of();
@@ -120,7 +130,7 @@ public class BackupService {
             if (files == null) return List.of();
             return Arrays.stream(files)
                 .sorted(Comparator.comparingLong(File::lastModified).reversed())
-                .map(File::getName)
+                .map(this::toFileDto)
                 .toList();
         } catch (Exception e) {
             return List.of();
@@ -239,9 +249,10 @@ public class BackupService {
             if (!dir.exists()) return;
             File[] files = dir.listFiles((d, n) -> n.endsWith(".sql"));
             if (files == null) return;
-            LocalDate cutoff = LocalDate.now().minusDays(s.getKeepDays());
+            LocalDate cutoff = LocalDate.now(BACKUP_ZONE).minusDays(s.getKeepDays());
             for (File f : files) {
-                if (LocalDate.ofEpochDay(f.lastModified() / 86400000).isBefore(cutoff))
+                LocalDate modifiedDate = Instant.ofEpochMilli(f.lastModified()).atZone(BACKUP_ZONE).toLocalDate();
+                if (modifiedDate.isBefore(cutoff))
                     f.delete();
             }
         } catch (Exception e) {
@@ -279,6 +290,89 @@ public class BackupService {
         dto.setEnabled(s.isEnabled());
         dto.setKeepDays(s.getKeepDays());
         dto.setMysqldumpPath(s.getMysqldumpPath());
+        dto.setNextRunAt(s.isEnabled() ? nextRunAt(s).toLocalDateTime().toString() : null);
+
+        File dir = new File(s.getBackupDir());
+        dto.setBackupDirExists(dir.exists());
+        dto.setBackupDirWritable(dir.exists() && dir.canWrite());
+
+        List<BackupFileDTO> files = listBackupsForSettings(s);
+        dto.setBackupCount(files.size());
+        if (!files.isEmpty()) {
+            BackupFileDTO latest = files.get(0);
+            dto.setLastBackupFile(latest.getFileName());
+            dto.setLastBackupAt(latest.getModifiedAt());
+            dto.setLastBackupSizeBytes(latest.getSizeBytes());
+        }
         return dto;
+    }
+
+    private List<BackupFileDTO> listBackupsForSettings(BackupSettings settings) {
+        try {
+            File dir = new File(settings.getBackupDir());
+            if (!dir.exists()) return List.of();
+            File[] files = dir.listFiles((d, n) -> n.endsWith(".sql"));
+            if (files == null) return List.of();
+            return Arrays.stream(files)
+                .sorted(Comparator.comparingLong(File::lastModified).reversed())
+                .map(this::toFileDto)
+                .toList();
+        } catch (Exception e) {
+            return List.of();
+        }
+    }
+
+    private BackupFileDTO toFileDto(File file) {
+        LocalDateTime modifiedAt = Instant.ofEpochMilli(file.lastModified()).atZone(BACKUP_ZONE).toLocalDateTime();
+        long ageDays = ChronoUnit.DAYS.between(modifiedAt.toLocalDate(), LocalDate.now(BACKUP_ZONE));
+        return BackupFileDTO.builder()
+            .fileName(file.getName())
+            .sizeBytes(file.length())
+            .modifiedAt(modifiedAt.toString())
+            .ageDays(Math.max(ageDays, 0))
+            .build();
+    }
+
+    private ZonedDateTime nextRunAt(BackupSettings settings) {
+        ZonedDateTime now = ZonedDateTime.now(BACKUP_ZONE);
+        LocalTime time = settings.getBackupTime() != null ? settings.getBackupTime() : LocalTime.of(2, 0);
+        BackupFrequency frequency = settings.getFrequency() != null ? settings.getFrequency() : BackupFrequency.DAILY;
+
+        return switch (frequency) {
+            case DAILY -> {
+                ZonedDateTime next = atBackupTime(now, time);
+                yield next.isAfter(now) ? next : next.plusDays(1);
+            }
+            case WEEKLY -> {
+                int day = clamp(settings.getDayValue(), 1, 7, 1);
+                ZonedDateTime next = atBackupTime(now.with(TemporalAdjusters.nextOrSame(DayOfWeek.of(day))), time);
+                yield next.isAfter(now) ? next : next.plusWeeks(1);
+            }
+            case MONTHLY -> {
+                int day = clamp(settings.getDayValue(), 1, 28, 1);
+                ZonedDateTime next = atBackupTime(now.withDayOfMonth(Math.min(day, YearMonth.from(now).lengthOfMonth())), time);
+                yield next.isAfter(now) ? next : atBackupTime(now.plusMonths(1).withDayOfMonth(day), time);
+            }
+            case YEARLY -> {
+                int month = clamp(settings.getMonthValue(), 1, 12, 1);
+                int day = clamp(settings.getDayValue(), 1, 28, 1);
+                ZonedDateTime next = atBackupTime(now.withMonth(month).withDayOfMonth(day), time);
+                yield next.isAfter(now) ? next : atBackupTime(now.plusYears(1).withMonth(month).withDayOfMonth(day), time);
+            }
+        };
+    }
+
+    private ZonedDateTime atBackupTime(ZonedDateTime date, LocalTime time) {
+        return date.withHour(time.getHour()).withMinute(time.getMinute()).withSecond(0).withNano(0);
+    }
+
+    private LocalTime parseBackupTime(String value) {
+        if (value == null || value.isBlank()) return LocalTime.of(2, 0);
+        return LocalTime.parse(value);
+    }
+
+    private int clamp(Integer value, int min, int max, int fallback) {
+        int actual = value != null ? value : fallback;
+        return Math.max(min, Math.min(max, actual));
     }
 }

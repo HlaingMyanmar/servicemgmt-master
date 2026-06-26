@@ -6,6 +6,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.bind.annotation.*;
 import org.sspd.servicemgmt.api.ApiResponse;
+import org.sspd.servicemgmt.backupoptions.dto.BackupFileDTO;
 import org.sspd.servicemgmt.backupoptions.dto.BackupSettingsDTO;
 import org.sspd.servicemgmt.backupoptions.service.BackupService;
 
@@ -41,7 +42,7 @@ public class BackupController {
 
     @PreAuthorize("hasAuthority('CAN_ACCESS_BACKUP_FILES_READ')")
     @GetMapping("/list")
-    ResponseEntity<ApiResponse<List<String>>> listBackups() {
+    ResponseEntity<ApiResponse<List<BackupFileDTO>>> listBackups() {
         return ResponseEntity.ok(new ApiResponse<>(true, "Backup files", backupService.listBackups()));
     }
 

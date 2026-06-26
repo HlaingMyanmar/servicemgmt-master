@@ -10,7 +10,6 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -23,7 +22,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -68,11 +66,12 @@ private data class BottomNavItem(
 )
 
 private val bottomNavItems = listOf(
-    BottomNavItem(Screen.Home.route,        Icons.Default.Home,         "ပင်မ"),
-    BottomNavItem(Screen.Sales.route,       Icons.Default.Receipt,      "ရောင်းချ"),
-    BottomNavItem(Screen.Bookings.route,    Icons.Default.CalendarMonth,"လက်ခံ"),
-    BottomNavItem(Screen.ServiceJobs.route, Icons.Default.Build,        "ပြင်ဆင်"),
-    BottomNavItem(Screen.Products.route,    Icons.Default.Inventory2,   "ကုန်ပစ္စည်း")
+    BottomNavItem(Screen.Home.route,        Icons.Default.Home,          "ပင်မ"),
+    BottomNavItem(Screen.Sales.route,       Icons.Default.Receipt,       "ရောင်း"),
+    BottomNavItem(Screen.Purchases.route,   Icons.Default.ShoppingCart,  "ဝယ်ယူ"),
+    BottomNavItem(Screen.Bookings.route,    Icons.Default.CalendarMonth, "လက်ခံ"),
+    BottomNavItem(Screen.ServiceJobs.route, Icons.Default.Build,         "ပြင်ဆင်"),
+    BottomNavItem(Screen.Products.route,    Icons.Default.Inventory2,    "ပစ္စည်း")
 )
 
 private val bottomNavRoutes = bottomNavItems.map { it.route }.toSet()
@@ -84,79 +83,47 @@ private fun CustomBottomNav(
     currentRoute: String?,
     onNavigate:   (String) -> Unit
 ) {
-    val centerItem  = items[2]          // Booking
-    val leftItems   = items.subList(0, 2)
-    val rightItems  = items.subList(3, 5)
-    val centerSel   = currentRoute == centerItem.route
-
     Box(modifier = Modifier.fillMaxWidth()) {
 
         // ── Bar background ────────────────────────────────────────────────
         Column(modifier = Modifier.fillMaxWidth()) {
-            Spacer(Modifier.height(28.dp))          // room for the raised button
             HorizontalDivider(color = Color(0xFFE2E8F0), thickness = 0.5.dp)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(Color.White)
                     .navigationBarsPadding()
-                    .height(64.dp),
-                horizontalArrangement = Arrangement.SpaceAround,
+                    .height(68.dp)
+                    .padding(horizontal = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment     = Alignment.CenterVertically
             ) {
-                leftItems.forEach { item ->
-                    FlatNavItem(item, currentRoute == item.route) { onNavigate(item.route) }
-                }
-                // Centre placeholder — same visual weight as one icon column
-                Spacer(Modifier.width(64.dp))
-                rightItems.forEach { item ->
-                    FlatNavItem(item, currentRoute == item.route) { onNavigate(item.route) }
+                items.forEach { item ->
+                    FlatNavItem(
+                        item = item,
+                        selected = currentRoute == item.route,
+                        modifier = Modifier.weight(1f)
+                    ) { onNavigate(item.route) }
                 }
             }
         }
 
         // ── Raised centre button ──────────────────────────────────────────
-        Column(
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(top = 0.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(56.dp)
-                    .shadow(10.dp, CircleShape)
-                    .clip(CircleShape)
-                    .background(if (centerSel) Primary else Color(0xFF1D4ED8))
-                    .clickable { onNavigate(centerItem.route) },
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    centerItem.icon,
-                    contentDescription = centerItem.label,
-                    tint     = Color.White,
-                    modifier = Modifier.size(28.dp)
-                )
-            }
-            Spacer(Modifier.height(2.dp))
-            Text(
-                centerItem.label,
-                fontSize   = 10.sp,
-                fontWeight = if (centerSel) FontWeight.ExtraBold else FontWeight.Normal,
-                color      = if (centerSel) Primary else TextMuted
-            )
-        }
     }
 }
 
 @Composable
-private fun FlatNavItem(item: BottomNavItem, selected: Boolean, onClick: () -> Unit) {
+private fun FlatNavItem(
+    item: BottomNavItem,
+    selected: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
     Column(
-        modifier = Modifier
+        modifier = modifier
             .clip(androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
             .clickable { onClick() }
-            .padding(horizontal = 10.dp, vertical = 6.dp)
-            .widthIn(min = 54.dp)
+            .padding(horizontal = 2.dp, vertical = 6.dp)
             .heightIn(min = 52.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(2.dp)

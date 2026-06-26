@@ -6,6 +6,7 @@ import org.sspd.servicemgmt.accountingoptions.paymentmethodoptions.model.Payment
 import org.sspd.servicemgmt.customeroptions.model.Customer;
 import org.sspd.servicemgmt.purchaseoptions.model.PaymentStatus;
 import org.sspd.servicemgmt.saleoptions.model.CreditStatus;
+import org.sspd.servicemgmt.shelflocationoptions.model.ShelfLocation;
 import org.sspd.servicemgmt.staffoptions.model.Staff;
 
 import java.math.BigDecimal;
@@ -43,6 +44,12 @@ public class ServiceJob {
     @Column(name = "item_name", length = 200)
     private String itemName;
 
+    @Column(name = "serial_no", length = 120)
+    private String serialNo;
+
+    @Column(name = "color", length = 80)
+    private String color;
+
     @Column(name = "item_condition", columnDefinition = "TEXT")
     private String itemCondition;
 
@@ -51,6 +58,10 @@ public class ServiceJob {
 
     @Column(name = "accessories_received", columnDefinition = "TEXT")
     private String accessories; // comma-separated: "Charger,USB Cable"
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "shelf_location_id")
+    private ShelfLocation shelfLocation;
 
     @Column(name = "problem_desc", columnDefinition = "TEXT")
     private String problemDesc;

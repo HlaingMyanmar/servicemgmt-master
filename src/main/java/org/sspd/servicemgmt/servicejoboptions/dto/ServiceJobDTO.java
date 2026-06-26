@@ -45,6 +45,9 @@ public class ServiceJobDTO {
     private String color;
     private String serialNo;
     private String accessories;
+    private Integer shelfLocationId;
+    private String shelfLocationCode;
+    private String shelfLocationLabel;
     private boolean rework;
     private Integer parentJobId;
     private String parentJobNo;
